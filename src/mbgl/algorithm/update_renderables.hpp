@@ -88,8 +88,12 @@ void updateRenderables(GetTileDataFn getTileData,
                     }
 
                     data = getTileData(parentDataTileID);
+                    if (!data) {
+                        data = createTileData(idealDataTileID);
+                        assert(data);
+                    }
+                    retainTileData(*data);
                     if (data && data->isRenderable()) {
-                        retainTileData(*data);
                         renderTile(parentRenderTileID, *data);
                         // Break parent tile ascent, since we found one.
                         break;
