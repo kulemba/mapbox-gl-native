@@ -164,6 +164,10 @@ render:
 offline:
 	$(RUN) Makefile/mbgl-offline
 
+.PHONY: Makefile/%
+Makefile/%:
+	$(RUN) $@
+
 # Generates a compilation database with ninja for use in clang tooling
 .PHONY: compdb
 compdb:
