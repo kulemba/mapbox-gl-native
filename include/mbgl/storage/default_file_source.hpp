@@ -146,7 +146,7 @@ public:
      * by the Mapbox Terms of Service.
      */
     void setOfflineMapboxTileCountLimit(uint64_t) const;
-
+    
     /*
      * Pause file request activity.
      *
@@ -182,6 +182,9 @@ public:
      * to re-execute a user-provided callback on the main thread.
      */
     void resetCache(std::function<void (std::exception_ptr)>);
+
+    void addSupplementaryOfflineDatabase(Resource::Kind kind, optional<LatLngBounds> latLngBounds, const std::string& cachePath);
+    void removeSupplementaryOfflineDatabases(const std::string& cachePath);
 
     // For testing only.
     void setOnlineStatus(bool);
