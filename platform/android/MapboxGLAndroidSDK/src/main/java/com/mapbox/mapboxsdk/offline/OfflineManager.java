@@ -3,12 +3,16 @@ package com.mapbox.mapboxsdk.offline;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 
+import com.mapbox.mapboxsdk.geometry.LatLngBounds;
 import com.mapbox.mapboxsdk.net.ConnectivityReceiver;
 import com.mapbox.mapboxsdk.storage.FileSource;
 
 import java.io.File;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 
 import timber.log.Timber;
 
@@ -82,6 +86,19 @@ public class OfflineManager {
      */
     void onError(String error);
   }
+
+  @IntDef( flag = true, value = {RESOURCE_NONE, RESOURCE_STYLE, RESOURCE_SOURCE, RESOURCE_TILE, RESOURCE_GLYPHS, RESOURCE_SPRITEIMAGE, RESOURCE_SPRITEJSON})
+  @Retention(RetentionPolicy.SOURCE)
+  public @interface ResourceKind {
+  }
+
+  public static final int RESOURCE_NONE = 0;
+  public static final int RESOURCE_STYLE = 1 << 0;
+  public static final int RESOURCE_SOURCE = 1 << 1;
+  public static final int RESOURCE_TILE = 1 << 2;
+  public static final int RESOURCE_GLYPHS = 1 << 3;
+  public static final int RESOURCE_SPRITEIMAGE = 1 << 4;
+  public static final int RESOURCE_SPRITEJSON = 1 << 5;
 
   /*
    * Constructor
@@ -212,6 +229,10 @@ public class OfflineManager {
     });
   }
 
+  public void addSupplementaryOfflineDatabase(final String cachePath, @ResourceKind int resourceKind) {
+    addSupplementaryOfflineDatabase(cachePath, resourceKind, null);
+  }
+
   /*
   * Changing or bypassing this limit without permission from Mapbox is prohibited
   * by the Mapbox Terms of Service.
@@ -227,5 +248,9 @@ public class OfflineManager {
 
   private native void createOfflineRegion(FileSource fileSource, OfflineRegionDefinition definition,
                                           byte[] metadata, CreateOfflineRegionCallback callback);
+
+  public native void addSupplementaryOfflineDatabase(String cachePath, @ResourceKind int resourceKind, LatLngBounds latLngBounds);
+
+  public native void removeSupplementaryOfflineDatabases(String cachePath);
 
 }
