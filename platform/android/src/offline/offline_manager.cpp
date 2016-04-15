@@ -197,6 +197,35 @@ void OfflineManager::FileSourceCallback::onError(jni::JNIEnv& env,
     callback.Call(env, method, message);
 }
 
+void OfflineManager::addSupplementaryOfflineDatabase(jni::JNIEnv& env_, const jni::String& cachePath_,
+                                                     jint resourceKind, const jni::Object<LatLngBounds>& latLngBounds_) {
+    auto cachePath = jni::Make<std::string>(env_, cachePath_);
+    auto bounds = latLngBounds_ ? mbgl::optional<mbgl::LatLngBounds>(LatLngBounds::getLatLngBounds(env_, latLngBounds_)) : mbgl::optional<mbgl::LatLngBounds>();
+    if (resourceKind & (1 << 0)) {
+        fileSource->addSupplementaryOfflineDatabase(mbgl::Resource::Style, bounds, cachePath);
+    }
+    if (resourceKind & (1 << 1)) {
+        fileSource->addSupplementaryOfflineDatabase(mbgl::Resource::Source, bounds, cachePath);
+    }
+    if (resourceKind & (1 << 2)) {
+        fileSource->addSupplementaryOfflineDatabase(mbgl::Resource::Tile, bounds, cachePath);
+    }
+    if (resourceKind & (1 << 3)) {
+        fileSource->addSupplementaryOfflineDatabase(mbgl::Resource::Glyphs, bounds, cachePath);
+    }
+    if (resourceKind & (1 << 4)) {
+        fileSource->addSupplementaryOfflineDatabase(mbgl::Resource::SpriteImage, bounds, cachePath);
+    }
+    if (resourceKind & (1 << 5)) {
+        fileSource->addSupplementaryOfflineDatabase(mbgl::Resource::SpriteJSON, bounds, cachePath);
+    }
+}
+
+void OfflineManager::removeSupplementaryOfflineDatabases(jni::JNIEnv& env_, const jni::String& cachePath_) {
+    auto cachePath = jni::Make<std::string>(env_, cachePath_);
+    fileSource->removeSupplementaryOfflineDatabases(cachePath);
+}
+
 void OfflineManager::registerNative(jni::JNIEnv& env) {
     jni::Class<ListOfflineRegionsCallback>::Singleton(env);
     jni::Class<CreateOfflineRegionCallback>::Singleton(env);
@@ -219,7 +248,9 @@ void OfflineManager::registerNative(jni::JNIEnv& env) {
         METHOD(&OfflineManager::invalidateAmbientCache, "nativeInvalidateAmbientCache"),
         METHOD(&OfflineManager::clearAmbientCache, "nativeClearAmbientCache"),
         METHOD(&OfflineManager::setMaximumAmbientCacheSize, "nativeSetMaximumAmbientCacheSize"),
-        METHOD(&OfflineManager::putResourceWithUrl, "putResourceWithUrl"));
+        METHOD(&OfflineManager::putResourceWithUrl, "putResourceWithUrl"),
+        METHOD(&OfflineManager::addSupplementaryOfflineDatabase, "addSupplementaryOfflineDatabase"),
+        METHOD(&OfflineManager::removeSupplementaryOfflineDatabases, "removeSupplementaryOfflineDatabases"));
 }
 
 // OfflineManager::ListOfflineRegionsCallback //

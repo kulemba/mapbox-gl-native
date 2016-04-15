@@ -13,8 +13,22 @@
 #include <mbgl/util/work_request.hpp>
 #include <mbgl/util/stopwatch.hpp>
 
+#include <mbgl/tile/tile_id.hpp>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunknown-pragmas"
+#pragma GCC diagnostic ignored "-Wunused-local-typedefs"
+#pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/register/point.hpp>
+#include <boost/geometry/geometries/register/box.hpp>
+#pragma GCC diagnostic pop
+
 #include <cassert>
 #include <utility>
+
+BOOST_GEOMETRY_REGISTER_POINT_2D_CONST(mbgl::LatLng, double, boost::geometry::cs::cartesian, longitude(), latitude())
+BOOST_GEOMETRY_REGISTER_BOX(mbgl::LatLngBounds, mbgl::LatLng, southwest(), northeast())
 
 namespace mbgl {
 
@@ -119,6 +133,25 @@ public:
             if (resource.hasLoadingMethod(Resource::LoadingMethod::Cache)) {
                 auto offlineResponse = offlineDatabase->get(resource);
 
+                if (! offlineResponse) {
+                    auto supplementaryCachePathsOfKind = supplementaryCachePaths.find(resource.kind);
+                    if (supplementaryCachePathsOfKind != supplementaryCachePaths.end()) {
+                        const auto &latLngBoundsCachePathTree = supplementaryCachePathsOfKind->second;
+                        auto qCachePathsBegin = resource.tileData ? latLngBoundsCachePathTree.qbegin(boost::geometry::index::intersects(LatLngBounds(CanonicalTileID(resource.tileData->z, resource.tileData->x, resource.tileData->y)))): latLngBoundsCachePathTree.qbegin(boost::geometry::index::contains(LatLng()));
+                        auto qCachePathsEnd = latLngBoundsCachePathTree.qend();
+                        for (auto j = qCachePathsBegin; ! offlineResponse && j != qCachePathsEnd; ++ j) {
+                            const auto &cachePath = j->second;
+                            auto supplementaryOfflineDatabase = supplementaryOfflineDatabases.find(cachePath);
+                            if (supplementaryOfflineDatabase == supplementaryOfflineDatabases.end()) {
+                                supplementaryOfflineDatabase = supplementaryOfflineDatabases.emplace(cachePath, std::make_unique<OfflineDatabase>(cachePath)).first;
+                            }
+                            if (supplementaryOfflineDatabase != supplementaryOfflineDatabases.end()) {
+                                offlineResponse = supplementaryOfflineDatabase->second->get(resource);
+                            }
+                        }
+                    }
+                }
+
                 if (resource.loadingMethod == Resource::LoadingMethod::CacheOnly) {
                     if (!offlineResponse) {
                         // Ensure there's always a response that we can send, so the caller knows that
@@ -180,6 +213,32 @@ public:
         onlineFileSource.setOnlineStatus(status);
     }
 
+    void addSupplementaryOfflineDatabase(Resource::Kind kind, optional<LatLngBounds> latLngBounds, const std::string& cachePath) {
+        auto supplementaryCachePathsOfKind = supplementaryCachePaths.find(kind);
+        if (supplementaryCachePathsOfKind == supplementaryCachePaths.end())
+            supplementaryCachePathsOfKind = supplementaryCachePaths.emplace(kind, LatLngBoundsCachePathTree()).first;
+        if (supplementaryCachePathsOfKind != supplementaryCachePaths.end())
+            supplementaryCachePathsOfKind->second.insert(LatLngBoundsCachePath(latLngBounds ? *latLngBounds: LatLngBounds::world(), cachePath));
+    }
+
+    void removeSupplementaryOfflineDatabases(const std::string& cachePath) {
+        supplementaryOfflineDatabases.erase(cachePath);
+        for (auto i = supplementaryCachePaths.begin(); i != supplementaryCachePaths.end(); ++ i) {
+            auto &latLngBoundsCachePathTree = i->second;
+            bool completed = false;
+            while (! completed) {
+                auto qCachePathsBegin = latLngBoundsCachePathTree.qbegin(boost::geometry::index::satisfies([cachePath] (const LatLngBoundsCachePath &latLngBoundsCachePath) {
+                    return latLngBoundsCachePath.second == cachePath;
+                }));
+                auto qCachePathsEnd = latLngBoundsCachePathTree.qend();
+                if (qCachePathsBegin == qCachePathsEnd)
+                    completed = true;
+                else
+                    latLngBoundsCachePathTree.remove(*qCachePathsBegin);
+            }
+        }
+    }
+
     void put(const Resource& resource, const Response& response) {
         offlineDatabase->put(resource, response);
     }
@@ -201,6 +260,10 @@ public:
     }
 
 private:
+    typedef std::pair<LatLngBounds, std::string> LatLngBoundsCachePath;
+    typedef boost::geometry::index::rtree<LatLngBoundsCachePath, boost::geometry::index::rstar<16>> LatLngBoundsCachePathTree;
+    typedef std::unordered_map<Resource::Kind, LatLngBoundsCachePathTree> ResourceKindLatLngBoundsCachePathTrees;
+
     expected<OfflineDownload*, std::exception_ptr> getDownload(int64_t regionID) {
         auto it = downloads.find(regionID);
         if (it != downloads.end()) {
@@ -222,6 +285,9 @@ private:
     OnlineFileSource onlineFileSource;
     std::unordered_map<AsyncRequest*, std::unique_ptr<AsyncRequest>> tasks;
     std::unordered_map<int64_t, std::unique_ptr<OfflineDownload>> downloads;
+
+    std::unordered_map<std::string, std::unique_ptr<OfflineDatabase>> supplementaryOfflineDatabases;
+    ResourceKindLatLngBoundsCachePathTrees supplementaryCachePaths;
 };
 
 DefaultFileSource::DefaultFileSource(const std::string& cachePath, const std::string& assetPath, bool supportCacheOnlyRequests_)
@@ -358,6 +424,14 @@ void DefaultFileSource::clearAmbientCache(std::function<void (std::exception_ptr
 
 void DefaultFileSource::setMaximumAmbientCacheSize(uint64_t size, std::function<void (std::exception_ptr)> callback) {
     impl->actor().invoke(&Impl::setMaximumAmbientCacheSize, size, std::move(callback));
+}
+
+void DefaultFileSource::addSupplementaryOfflineDatabase(Resource::Kind kind, optional<LatLngBounds> latLngBounds, const std::string& cachePath) {
+    impl->actor().invoke(&Impl::addSupplementaryOfflineDatabase, kind, latLngBounds, cachePath);
+}
+
+void DefaultFileSource::removeSupplementaryOfflineDatabases(const std::string& cachePath) {
+    impl->actor().invoke(&Impl::removeSupplementaryOfflineDatabases, cachePath);
 }
 
 // For testing only:

@@ -7,6 +7,7 @@
 #include "offline_region.hpp"
 #include "offline_region_definition.hpp"
 #include "../java_types.hpp"
+#include "../geometry/lat_lng_bounds.hpp"
 
 #include <memory>
 
@@ -100,6 +101,14 @@ public:
     void clearAmbientCache(jni::JNIEnv&, const jni::Object<FileSourceCallback>& callback_);
 
     void setMaximumAmbientCacheSize(jni::JNIEnv&, const jni::jlong size, const jni::Object<FileSourceCallback>& callback_);
+
+    void addSupplementaryOfflineDatabase(jni::JNIEnv&,
+                                         const jni::String& cachePath_,
+                                         jint resourceKind,
+                                         const jni::Object<LatLngBounds>& latLngBounds_);
+
+    void removeSupplementaryOfflineDatabases(jni::JNIEnv&,
+                                             const jni::String& cachePath_);
 
 private:
     std::shared_ptr<mbgl::DefaultFileSource> fileSource;
