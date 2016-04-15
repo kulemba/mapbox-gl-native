@@ -2,12 +2,23 @@
 
 #import "MGLFoundation.h"
 #import "MGLTypes.h"
+#import "MGLGeometry.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
 @class MGLOfflinePack;
 @protocol MGLOfflineRegion;
 @protocol MGLOfflineStorageDelegate;
+
+typedef NS_OPTIONS(NSUInteger, MGLResourceKindMask) {
+    MGLResourceNone = 0,
+    MGLResourceStyle = 1 << 0,
+    MGLResourceSource = 1 << 1,
+    MGLResourceTile = 1 << 2,
+    MGLResourceGlyphs = 1 << 3,
+    MGLResourceSpriteImage = 1 << 4,
+    MGLResourceSpriteJSON = 1 << 5
+};
 
 /**
  Posted by the shared `MGLOfflineStorage` object when an `MGLOfflinePack`
@@ -278,6 +289,12 @@ MGL_EXPORT
     Contact your Mapbox sales representative to have the limit raised.
  */
 - (void)setMaximumAllowedMapboxTiles:(uint64_t)maximumCount;
+
+- (void)addSupplementaryOfflineDatabase:(NSString *)cachePath forResourceKind:(MGLResourceKind)resourceKind;
+
+- (void)addSupplementaryOfflineDatabase:(NSString *)cachePath forResourceKind:(MGLResourceKind)resourceKind andCoordinateBounds:(MGLCoordinateBounds)coordinateBounds;
+
+- (void)removeSupplementaryOfflineDatabases:(NSString *)cachePath;
 
 /**
  The cumulative size, measured in bytes, of all downloaded resources on disk.
