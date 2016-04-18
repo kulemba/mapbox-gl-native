@@ -2,8 +2,6 @@
 
 #include <mbgl/source/source.hpp>
 #include <mbgl/tile/tile.hpp>
-#include <mbgl/map/map_context.hpp>
-#include <mbgl/map/map_data.hpp>
 
 #include <mbgl/platform/log.hpp>
 #include <mbgl/gl/debugging.hpp>
@@ -44,9 +42,8 @@
 
 using namespace mbgl;
 
-Painter::Painter(MapData& data_, TransformState& state_, gl::GLObjectStore& glObjectStore_)
-    : data(data_),
-      state(state_),
+Painter::Painter(const TransformState& state_, gl::GLObjectStore& glObjectStore_)
+    : state(state_),
       glObjectStore(glObjectStore_) {
     gl::debugging::enable();
 
@@ -202,7 +199,7 @@ void Painter::render(const Style& style, const FrameData& frame_, SpriteAtlas& a
         MBGL_CHECK_ERROR(VertexArrayObject::Unbind());
     }
 
-    if (data.contextMode == GLContextMode::Shared) {
+    if (frame.contextMode == GLContextMode::Shared) {
         config.setDirty();
     }
 }

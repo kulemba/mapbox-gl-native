@@ -20,6 +20,13 @@ The Mapbox iOS SDK and iosapp demo application build against the iOS 7.0 SDK. Th
    [sudo] gem install jazzy
    ```
 
+1. Install ios-sim version 3.2.0 (not any other version) for running `make test-ios`:
+
+   ```
+   brew tap mapbox/homebrew-ios-sim-3
+   brew install mapbox/homebrew-ios-sim-3/ios-sim
+   ```
+
 1. Run `make ipackage`. The packaging script will produce a `build/ios/pkg/` folder containing:
   - a `dynamic` folder containing a dynamically-linked fat framework with debug symbols for devices and the iOS Simulator
   - a `static` folder containing a statically-linked framework with debug symbols for devices and the iOS Simulator
@@ -115,8 +122,6 @@ If your application targets iOS 7.x, you’ll need to install the static framewo
    - `libc++.tbd`
    - `libsqlite3.tbd`
    - `libz.tbd`
-
-1. In the Build Settings tab, add `-ObjC` to the “Other Linker Flags” (`OTHER_LDFLAGS`) build setting.
 
 ### Use
 

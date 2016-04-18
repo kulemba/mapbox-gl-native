@@ -8,7 +8,6 @@
 #include <mbgl/map/mode.hpp>
 #include <mbgl/util/geo.hpp>
 #include <mbgl/util/noncopyable.hpp>
-#include <mbgl/util/vec.hpp>
 #include <mbgl/annotation/annotation.hpp>
 #include <mbgl/style/types.hpp>
 #include <mbgl/style/property_transition.hpp>
@@ -23,22 +22,13 @@ namespace mbgl {
 
 class FileSource;
 class View;
-class MapData;
-class MapContext;
 class SpriteImage;
-class Transform;
 class PointAnnotation;
 class ShapeAnnotation;
 struct CameraOptions;
 struct AnimationOptions;
 
-namespace util {
-template <class T> class Thread;
-} // namespace util
-
 class Map : private util::noncopyable {
-    friend class View;
-
 public:
     explicit Map(View&, FileSource&,
                  MapMode mapMode = MapMode::Continuous,
@@ -46,22 +36,15 @@ public:
                  ConstrainMode constrainMode = ConstrainMode::HeightOnly);
     ~Map();
 
-    // Pauses the render thread. The render thread will stop running but will not be terminated and will not lose state until resumed.
-    void pause();
-    bool isPaused();
-
-    // Resumes a paused render thread
-    void resume();
-
     // Register a callback that will get called (on the render thread) when all resources have
     // been loaded and a complete render occurs.
     using StillImageCallback = std::function<void (std::exception_ptr, PremultipliedImage&&)>;
     void renderStill(StillImageCallback callback);
 
-    // Triggers a synchronous render.
-    void renderSync();
+    // Main render function.
+    void render();
 
-    // Notifies the Map thread that the state has changed and an update might be necessary.
+    // Notifies the Map that the state has changed and an update might be necessary.
     void update(Update update);
 
     // Styling
@@ -187,19 +170,8 @@ public:
     void dumpDebugLogs() const;
 
 private:
-    View& view;
-    const std::unique_ptr<Transform> transform;
-    const std::unique_ptr<util::Thread<MapContext>> context;
-    MapData* data;
-
-    enum class RenderState {
-        never,
-        partial,
-        fully
-    };
-
-    RenderState renderState = RenderState::never;
-    bool loading = false;
+    class Impl;
+    const std::unique_ptr<Impl> impl;
 };
 
 } // namespace mbgl
