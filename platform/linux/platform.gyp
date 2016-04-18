@@ -19,6 +19,20 @@
   ],
   'targets': [
     {
+      'target_name': 'test',
+      'type': 'executable',
+
+      'dependencies': [
+        'test-lib',
+        'platform-lib',
+        'copy_certificate_bundle',
+      ],
+
+      'sources': [
+        '../../test/src/main.cpp',
+      ],
+    },
+    {
       'target_name': 'platform-lib',
       'product_name': 'mbgl-platform-linux',
       'type': 'static_library',
@@ -43,7 +57,7 @@
         '../default/png_reader.cpp',
         '../default/jpeg_reader.cpp',
         '../default/asset_file_source.cpp',
-        '../default/http_request_curl.cpp',
+        '../default/http_file_source.cpp',
         '../default/default_file_source.cpp',
         '../default/online_file_source.cpp',
         '../default/mbgl/storage/offline.hpp',

@@ -22,6 +22,8 @@
           'GCC_WARN_PEDANTIC': 'YES',
           'GCC_WARN_UNINITIALIZED_AUTOS': 'YES_AGGRESSIVE',
           'MACOSX_DEPLOYMENT_TARGET': '10.10',
+          'ALWAYS_SEARCH_USER_PATHS': 'NO',
+          'COMBINE_HIDPI_IMAGES': 'YES',
         },
       }, {
         'cflags_cc': [
@@ -69,6 +71,7 @@
         'conditions': [
           ['OS=="mac"', {
             'xcode_settings': {
+              'DEBUG_INFORMATION_FORMAT': 'dwarf',
               'GCC_OPTIMIZATION_LEVEL': '0',
               'GCC_GENERATE_DEBUGGING_SYMBOLS': 'YES',
               'GCC_INLINES_ARE_PRIVATE_EXTERN': 'YES',
@@ -116,6 +119,14 @@
             'cflags_cc': [ '-g', '-O3' ],
           }],
         ],
+      },
+    },
+  },
+  'configurations': {
+    'Debug': {
+      'xcode_settings': {
+        'ENABLE_TESTABILITY': 'YES',
+        'ONLY_ACTIVE_ARCH': 'YES',
       },
     },
   },
