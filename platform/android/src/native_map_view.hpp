@@ -24,10 +24,7 @@ public:
     std::array<uint16_t, 2> getFramebufferSize() const override;
     void activate() override;
     void deactivate() override;
-    void notify() override;
     void invalidate() override;
-    void beforeRender() override;
-    void afterRender() override;
 
     void notifyMapChange(mbgl::MapChange) override;
 
@@ -43,8 +40,7 @@ public:
     void createSurface(ANativeWindow *window);
     void destroySurface();
 
-    void resume();
-    void pause();
+    void render();
 
     void enableFps(bool enable);
     void updateFps();
@@ -61,6 +57,7 @@ private:
 
 private:
     JavaVM *vm = nullptr;
+    JNIEnv *env = nullptr;
     jweak obj = nullptr;
 
     ANativeWindow *window = nullptr;
@@ -87,9 +84,6 @@ private:
 
     int availableProcessors = 0;
     size_t totalMemory = 0;
-
-    jboolean renderDetach = false;
-    JNIEnv *renderEnv = nullptr;
 
     // Ensure these are initialised last
     std::unique_ptr<mbgl::DefaultFileSource> fileSource;

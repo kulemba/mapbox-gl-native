@@ -10,18 +10,17 @@
 #include <mbgl/platform/log.hpp>
 
 #include <mbgl/map/transform.hpp>
-#include <mbgl/map/map_data.hpp>
 #include <mbgl/util/worker.hpp>
 #include <mbgl/gl/texture_pool.hpp>
 #include <mbgl/style/style.hpp>
 #include <mbgl/style/style_update_parameters.hpp>
 #include <mbgl/layer/line_layer.hpp>
+#include <mbgl/annotation/annotation_manager.hpp>
 
 using namespace mbgl;
 
 class SourceTest {
 public:
-    util::ThreadContext context { "Map", util::ThreadType::Map, util::ThreadPriority::Regular };
     util::RunLoop loop;
     StubFileSource fileSource;
     StubStyleObserver observer;
@@ -30,8 +29,8 @@ public:
     TransformState transformState;
     Worker worker { 1 };
     gl::TexturePool texturePool;
-    MapData mapData { MapMode::Still, GLContextMode::Unique, 1.0 };
-    Style style { mapData, fileSource };
+    AnnotationManager annotationManager { 1.0 };
+    Style style { fileSource, 1.0 };
 
     StyleUpdateParameters updateParameters {
         1.0,
@@ -43,15 +42,13 @@ public:
         texturePool,
         true,
         MapMode::Continuous,
-        mapData,
+        annotationManager,
         style
     };
 
     SourceTest() {
         // Squelch logging.
         Log::setObserver(std::make_unique<Log::NullObserver>());
-
-        util::ThreadContext::Set(&context);
 
         transform.resize({{ 512, 512 }});
         transform.setLatLngZoom({0, 0}, 0);

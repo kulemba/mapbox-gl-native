@@ -118,6 +118,8 @@ public class MapView extends FrameLayout {
     private int mAverageIconWidth;
 
     private NativeMapView mNativeMapView;
+    private boolean mHasSurface = false;
+
     private CompassView mCompassView;
     private ImageView mLogoView;
     private ImageView mAttributionsView;
@@ -262,10 +264,19 @@ public class MapView extends FrameLayout {
 
         // Enable gestures
         UiSettings uiSettings = mMapboxMap.getUiSettings();
+
         uiSettings.setZoomGesturesEnabled(options.getZoomGesturesEnabled());
+        uiSettings.setZoomGestureChangeAllowed(options.getZoomGesturesEnabled());
+
         uiSettings.setScrollGesturesEnabled(options.getScrollGesturesEnabled());
+        uiSettings.setScrollGestureChangeAllowed(options.getScrollGesturesEnabled());
+
         uiSettings.setRotateGesturesEnabled(options.getRotateGesturesEnabled());
+        uiSettings.setRotateGestureChangeAllowed(options.getRotateGesturesEnabled());
+
         uiSettings.setTiltGesturesEnabled(options.getTiltGesturesEnabled());
+        uiSettings.setTiltGestureChangeAllowed(options.getTiltGesturesEnabled());
+
         uiSettings.setZoomControlsEnabled(options.getZoomControlsEnabled());
 
         // Zoom
@@ -338,9 +349,13 @@ public class MapView extends FrameLayout {
 
             UiSettings uiSettings = mMapboxMap.getUiSettings();
             uiSettings.setZoomGesturesEnabled(savedInstanceState.getBoolean(MapboxConstants.STATE_ZOOM_ENABLED));
+            uiSettings.setZoomGestureChangeAllowed(savedInstanceState.getBoolean(MapboxConstants.STATE_ZOOM_ENABLED_CHANGE));
             uiSettings.setScrollGesturesEnabled(savedInstanceState.getBoolean(MapboxConstants.STATE_SCROLL_ENABLED));
+            uiSettings.setScrollGestureChangeAllowed(savedInstanceState.getBoolean(MapboxConstants.STATE_SCROLL_ENABLED_CHANGE));
             uiSettings.setRotateGesturesEnabled(savedInstanceState.getBoolean(MapboxConstants.STATE_ROTATE_ENABLED));
+            uiSettings.setRotateGestureChangeAllowed(savedInstanceState.getBoolean(MapboxConstants.STATE_ROTATE_ENABLED_CHANGE));
             uiSettings.setTiltGesturesEnabled(savedInstanceState.getBoolean(MapboxConstants.STATE_TILT_ENABLED));
+            uiSettings.setTiltGestureChangeAllowed(savedInstanceState.getBoolean(MapboxConstants.STATE_TILT_ENABLED_CHANGE));
             uiSettings.setZoomControlsEnabled(savedInstanceState.getBoolean(MapboxConstants.STATE_ZOOM_CONTROLS_ENABLED));
 
             // Compass
@@ -451,9 +466,13 @@ public class MapView extends FrameLayout {
         // UiSettings
         UiSettings uiSettings = mMapboxMap.getUiSettings();
         outState.putBoolean(MapboxConstants.STATE_ZOOM_ENABLED, uiSettings.isZoomGesturesEnabled());
+        outState.putBoolean(MapboxConstants.STATE_ZOOM_ENABLED_CHANGE, uiSettings.isZoomGestureChangeAllowed());
         outState.putBoolean(MapboxConstants.STATE_SCROLL_ENABLED, uiSettings.isScrollGesturesEnabled());
+        outState.putBoolean(MapboxConstants.STATE_SCROLL_ENABLED_CHANGE,uiSettings.isScrollGestureChangeAllowed());
         outState.putBoolean(MapboxConstants.STATE_ROTATE_ENABLED, uiSettings.isRotateGesturesEnabled());
+        outState.putBoolean(MapboxConstants.STATE_ROTATE_ENABLED_CHANGE,uiSettings.isRotateGestureChangeAllowed());
         outState.putBoolean(MapboxConstants.STATE_TILT_ENABLED, uiSettings.isTiltGesturesEnabled());
+        outState.putBoolean(MapboxConstants.STATE_TILT_ENABLED_CHANGE,uiSettings.isTiltGestureChangeAllowed());
         outState.putBoolean(MapboxConstants.STATE_ZOOM_CONTROLS_ENABLED, uiSettings.isZoomControlsEnabled());
 
         // UiSettings - Compass
@@ -504,7 +523,6 @@ public class MapView extends FrameLayout {
         mConnectivityReceiver = null;
 
         mUserLocationView.onPause();
-        mNativeMapView.pause();
     }
 
     /**
@@ -516,7 +534,6 @@ public class MapView extends FrameLayout {
         mConnectivityReceiver = new ConnectivityReceiver();
         getContext().registerReceiver(mConnectivityReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
 
-        mNativeMapView.resume();
         mNativeMapView.update();
         mUserLocationView.onResume();
 
@@ -1077,9 +1094,7 @@ public class MapView extends FrameLayout {
     }
 
     int getTopOffsetPixelsForIcon(Icon icon) {
-        // This method will dead lock if map paused. Causes a freeze if you add a marker in an
-        // activity's onCreate()
-        if (mDestroyed || mNativeMapView.isPaused()) {
+        if (mDestroyed) {
             return 0;
         }
 
@@ -1226,11 +1241,15 @@ public class MapView extends FrameLayout {
             return;
         }
 
-        if (mDestroyed || mNativeMapView.isPaused()) {
+        if (mDestroyed) {
             return;
         }
 
-        mNativeMapView.renderSync();
+        if (!mHasSurface) {
+            return;
+        }
+
+        mNativeMapView.render();
     }
 
     @Override
@@ -1263,12 +1282,16 @@ public class MapView extends FrameLayout {
         public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
             mNativeMapView.createSurface(mSurface = new Surface(surface));
             mNativeMapView.resizeFramebuffer(width, height);
+
+            mHasSurface = true;
         }
 
         // Called when the native surface texture has been destroyed
         // Must do all EGL/GL ES destruction here
         @Override
         public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
+            mHasSurface = false;
+
             if (mNativeMapView != null) {
                 mNativeMapView.destroySurface();
             }
@@ -2274,7 +2297,6 @@ public class MapView extends FrameLayout {
      * @param listener The callback that's invoked on every frame rendered to the map view.
      * @see MapView#removeOnMapChangedListener(OnMapChangedListener)
      */
-    @UiThread
     public void addOnMapChangedListener(@Nullable OnMapChangedListener listener) {
         if (listener != null) {
             mOnMapChangedListener.add(listener);
@@ -2287,7 +2309,6 @@ public class MapView extends FrameLayout {
      * @param listener The previously added callback to remove.
      * @see MapView#addOnMapChangedListener(OnMapChangedListener)
      */
-    @UiThread
     public void removeOnMapChangedListener(@Nullable OnMapChangedListener listener) {
         if (listener != null) {
             mOnMapChangedListener.remove(listener);

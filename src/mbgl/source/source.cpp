@@ -1,5 +1,4 @@
 #include <mbgl/source/source.hpp>
-#include <mbgl/map/map_data.hpp>
 #include <mbgl/map/transform.hpp>
 #include <mbgl/tile/tile.hpp>
 #include <mbgl/tile/vector_tile.hpp>
@@ -267,7 +266,7 @@ TileData::State Source::addTile(const TileID& tileID, const StyleUpdateParameter
             if (type == SourceType::Vector) {
                 monitor = std::make_unique<VectorTileMonitor>(normalizedID, parameters.pixelRatio, info->tiles.at(0), parameters.fileSource);
             } else if (type == SourceType::Annotations) {
-                monitor = std::make_unique<AnnotationTileMonitor>(normalizedID, parameters.data);
+                monitor = std::make_unique<AnnotationTileMonitor>(normalizedID, parameters.annotationManager);
             } else if (type == SourceType::GeoJSON) {
                 monitor = std::make_unique<GeoJSONTileMonitor>(geojsonvt.get(), normalizedID);
             } else {
@@ -329,7 +328,7 @@ bool Source::findLoadedChildren(const TileID& tileID, int32_t maxCoveringZoom, s
  *
  * @return boolean Whether a parent was found.
  */
-void Source::findLoadedParent(const TileID& tileID, int32_t minCoveringZoom, std::vector<TileID>& retain) {
+void Source::findLoadedParent(const TileID& tileID, int32_t minCoveringZoom, std::vector<TileID>& retain, const StyleUpdateParameters& parameters) {
     for (int32_t z = tileID.z - 1; z >= minCoveringZoom; --z) {
         const TileID parent_id = tileID.parent(z, info->maxZoom);
         const TileData::State state = hasTile(parent_id);
@@ -338,6 +337,12 @@ void Source::findLoadedParent(const TileID& tileID, int32_t minCoveringZoom, std
             if (state == TileData::State::parsed) {
                 return;
             }
+        }
+
+        if (cache.has(parent_id.normalized().to_uint64())) {
+            addTile(parent_id, parameters);
+            retain.emplace_back(parent_id);
+            return;
         }
     }
 }
@@ -401,7 +406,7 @@ bool Source::update(const StyleUpdateParameters& parameters) {
             // Then, if there are no complete child tiles, try to find existing
             // parent tiles that completely cover the missing tile.
             if (!complete) {
-                findLoadedParent(tileID, minCoveringZoom, retain);
+                findLoadedParent(tileID, minCoveringZoom, retain, parameters);
                 if ((state == TileData::State::loading || state == TileData::State::loaded))
                     for (int32_t z = tileID.z - 1; z >= minCoveringZoom; z --) {
                         const TileID parentTileID = tileID.parent(z,info->maxZoom);

@@ -17,40 +17,58 @@ default:
 #### OS X targets ##############################################################
 
 OSX_PROJ_PATH = build/osx-x86_64/platform/osx/platform.xcodeproj
+OSX_WORK_PATH = platform/osx/osx.xcworkspace
+OSX_DERIVED_DATA_PATH = build/DerivedData/osx
 
-osx:
-	$(RUN) PLATFORM=osx Xcode/All
-
-$(OSX_PROJ_PATH):
+$(OSX_PROJ_PATH): platform/osx/platform.gyp platform/osx/scripts/configure.sh mbgl.gypi test/test.gypi bin/*.gypi
 	$(RUN) PLATFORM=osx Xcode/__project__
 
+osx: $(OSX_PROJ_PATH)
+	set -o pipefail && xcodebuild \
+	  -derivedDataPath $(OSX_DERIVED_DATA_PATH) \
+	  -configuration $(BUILDTYPE) \
+	  -workspace $(OSX_WORK_PATH) -scheme CI build | xcpretty
+
 xproj: $(OSX_PROJ_PATH)
-	open $(OSX_PROJ_PATH)
+	open $(OSX_WORK_PATH)
 
-$(OSX_PROJ_PATH)/xcshareddata/xcschemes/osxtest.xcscheme: platform/osx/scripts/osxtest.xcscheme $(OSX_PROJ_PATH)
-	mkdir -p $(basename $@)
-	cp $< $@
-
-test-osx: $(OSX_PROJ_PATH)/xcshareddata/xcschemes/osxtest.xcscheme node_modules/express
-	xcodebuild -project $(OSX_PROJ_PATH) -configuration $(BUILDTYPE) -target test build
-	build/osx-x86_64/$(BUILDTYPE)/test
-	xcodebuild -project $(OSX_PROJ_PATH) -configuration $(BUILDTYPE) -scheme osxtest test
+test-osx: osx node_modules/express
+	ulimit -c unlimited && ($(OSX_DERIVED_DATA_PATH)/Build/Products/$(BUILDTYPE)/test & pid=$$! && wait $$pid \
+	  || (lldb -c /cores/core.$$pid --batch --one-line 'thread backtrace all' --one-line 'quit' && exit 1))
+	set -o pipefail && xcodebuild \
+	  -derivedDataPath $(OSX_DERIVED_DATA_PATH) \
+	  -configuration $(BUILDTYPE) \
+	  -workspace $(OSX_WORK_PATH) -scheme CI test | xcpretty
 
 #### iOS targets ##############################################################
 
 IOS_PROJ_PATH = build/ios-all/platform/ios/platform.xcodeproj
+IOS_WORK_PATH = platform/ios/ios.xcworkspace
+IOS_DERIVED_DATA_PATH = build/DerivedData/ios
 
-ios:
-	$(RUN) PLATFORM=ios Xcode/All
-
-$(IOS_PROJ_PATH):
+$(IOS_PROJ_PATH): platform/ios/platform.gyp platform/ios/scripts/configure.sh mbgl.gypi test/test.gypi
 	$(RUN) PLATFORM=ios Xcode/__project__
 
-iproj: $(IOS_PROJ_PATH)
-	open $(IOS_PROJ_PATH)
+ios: $(IOS_PROJ_PATH)
+	set -o pipefail && xcodebuild \
+	  ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES \
+	  -derivedDataPath $(IOS_DERIVED_DATA_PATH) \
+	  -configuration $(BUILDTYPE) -sdk iphonesimulator \
+	  -destination 'platform=iOS Simulator,name=iPhone 6,OS=latest' \
+	  -workspace $(IOS_WORK_PATH) -scheme CI build | xcpretty
 
-test-ios:
-	# Currently nothing
+iproj: $(IOS_PROJ_PATH)
+	open $(IOS_WORK_PATH)
+
+test-ios: ios
+	ios-sim start --devicetypeid 'com.apple.CoreSimulator.SimDeviceType.iPhone-6,9.3'
+	ios-sim launch $(IOS_DERIVED_DATA_PATH)/Build/Products/$(BUILDTYPE)-iphonesimulator/ios-test.app --verbose --devicetypeid 'com.apple.CoreSimulator.SimDeviceType.iPhone-6,9.3'
+	set -o pipefail && xcodebuild \
+	  ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES \
+	  -derivedDataPath $(IOS_DERIVED_DATA_PATH) \
+	  -configuration $(BUILDTYPE) -sdk iphonesimulator \
+	  -destination 'platform=iOS Simulator,name=iPhone 6,OS=latest' \
+	  -workspace $(IOS_WORK_PATH) -scheme CI test | xcpretty
 
 ipackage: $(IOS_PROJ_PATH)
 	BITCODE=$(BITCODE) FORMAT=$(FORMAT) BUILD_DEVICE=$(BUILD_DEVICE) SYMBOLS=$(SYMBOLS) \
@@ -135,11 +153,11 @@ glfw-app:
 	$(RUN) Makefile/glfw-app
 
 .PHONY: run-glfw-app
-run-glfw-app:
+run-glfw-app: glfw-app
 	$(RUN) run-glfw-app
 
 .PHONY: run-valgrind-glfw-app
-run-valgrind-glfw-app:
+run-valgrind-glfw-app: glfw-app
 	$(RUN) run-valgrind-glfw-app
 
 .PHONY: test
