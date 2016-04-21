@@ -158,6 +158,10 @@ void RenderTileSource::dumpDebugLogs() const {
     tilePyramid.dumpDebugLogs();
 }
 
+void RenderTileSource::limitMaxZoom(uint8_t maxZoomLimit_) {
+    maxZoomLimit = maxZoomLimit_;
+}
+
 // RenderTileSetSource implementation
 
 RenderTileSetSource::RenderTileSetSource(Immutable<style::Source::Impl> impl_)

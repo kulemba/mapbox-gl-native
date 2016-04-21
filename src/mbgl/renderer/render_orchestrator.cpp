@@ -332,6 +332,7 @@ std::unique_ptr<RenderTree> RenderOrchestrator::createRenderTree(const UpdatePar
                 renderItemsEmplaceHint = layerRenderItems.emplace_hint(renderItemsEmplaceHint, *layer, nullptr, index);
             }
         }
+        source->limitMaxZoom(updateParameters.maxZoomLimit);
         source->update(sourceImpl,
                        filteredLayersForSource,
                        sourceNeedsRendering,

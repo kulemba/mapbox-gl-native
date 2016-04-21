@@ -45,12 +45,16 @@ public:
     void reduceMemoryUse() override;
     void dumpDebugLogs() const override;
 
+    void limitMaxZoom(uint8_t) override;
+
 protected:
     RenderTileSource(Immutable<style::Source::Impl>);
     TilePyramid tilePyramid;
     Immutable<std::vector<RenderTile>> renderTiles;
     mutable RenderTiles filteredRenderTiles;
     mutable RenderTiles renderTilesSortedByY;
+
+    uint8_t maxZoomLimit;
 
 private:
     float bearing = 0.0F;

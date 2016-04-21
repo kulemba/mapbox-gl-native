@@ -103,14 +103,18 @@ interface NativeMap {
   //
 
   void setStyleUri(String url);
+  void setStyleUri(String url, byte maxZoomLimit);
 
   @NonNull
   String getStyleUri();
 
   void setStyleJson(String newStyleJson);
+  void setStyleJson(String newStyleJson, byte maxZoomLimit);
 
   @NonNull
   String getStyleJson();
+
+  byte getMaxZoomLimit();
 
   boolean isFullyLoaded();
 

@@ -77,11 +77,13 @@ public:
 
     jni::Local<jni::String> getStyleUrl(jni::JNIEnv&);
 
-    void setStyleUrl(jni::JNIEnv&, const jni::String&);
+    void setStyleUrl(jni::JNIEnv&, const jni::String&, jni::jbyte);
 
     jni::Local<jni::String> getStyleJson(jni::JNIEnv&);
 
-    void setStyleJson(jni::JNIEnv&, const jni::String&);
+    void setStyleJson(jni::JNIEnv&, const jni::String&, jni::jbyte);
+
+    jni::jbyte getMaxZoomLimit(jni::JNIEnv&);
 
     void setLatLngBounds(jni::JNIEnv&, const jni::Object<mbgl::android::LatLngBounds>&);
 
