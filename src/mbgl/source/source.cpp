@@ -67,7 +67,7 @@ bool Source::isLoading() const {
     return !loaded && req.operator bool();
 }
 
-void Source::load(FileSource& fileSource) {
+void Source::load(FileSource& fileSource, uint8_t maxZoomLimit) {
     if (url.empty()) {
         // In case there is no URL set, we assume that we already have all of the data because the
         // TileJSON was specified inline in the stylesheet.
@@ -82,7 +82,7 @@ void Source::load(FileSource& fileSource) {
     }
 
     // URL may either be a TileJSON file, or a GeoJSON file.
-    req = fileSource.request(Resource::source(url), [this](Response res) {
+    req = fileSource.request(Resource::source(url), [this, maxZoomLimit](Response res) {
         if (res.error) {
             observer->onSourceError(*this, std::make_exception_ptr(std::runtime_error(res.error->message)));
         } else if (res.notModified) {
@@ -100,6 +100,7 @@ void Source::load(FileSource& fileSource) {
                 // via the URL.
                 try {
                     newInfo = StyleParser::parseTileJSON(*res.data, url, type, tileSize);
+                    newInfo->maxZoom = std::min(newInfo->maxZoom, maxZoomLimit);
                 } catch (...) {
                     observer->onSourceError(*this, std::current_exception());
                     return;

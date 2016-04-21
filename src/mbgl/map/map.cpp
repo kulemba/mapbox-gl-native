@@ -41,7 +41,7 @@ public:
     void update();
     void render();
 
-    void loadStyleJSON(const std::string& json, const std::string& base);
+    void loadStyleJSON(const std::string& json, const std::string& base, uint8_t maxZoomLimit);
 
     View& view;
     FileSource& fileSource;
@@ -273,7 +273,7 @@ void Map::Impl::render() {
 
 #pragma mark - Style
 
-void Map::setStyleURL(const std::string& url) {
+void Map::setStyleURL(const std::string& url, uint8_t maxZoomLimit) {
     if (impl->styleURL == url) {
         return;
     }
@@ -294,7 +294,7 @@ void Map::setStyleURL(const std::string& url) {
         base = impl->styleURL.substr(0, pos + 1);
     }
 
-    impl->styleRequest = impl->fileSource.request(Resource::style(impl->styleURL), [this, base](Response res) {
+    impl->styleRequest = impl->fileSource.request(Resource::style(impl->styleURL), [this, base, maxZoomLimit](Response res) {
         if (res.error) {
             if (res.error->reason == Response::Error::Reason::NotFound &&
                 util::mapbox::isMapboxURL(impl->styleURL)) {
@@ -305,12 +305,12 @@ void Map::setStyleURL(const std::string& url) {
         } else if (res.notModified || res.noContent) {
             return;
         } else {
-            impl->loadStyleJSON(*res.data, base);
+            impl->loadStyleJSON(*res.data, base, maxZoomLimit);
         }
     });
 }
 
-void Map::setStyleJSON(const std::string& json, const std::string& base) {
+void Map::setStyleJSON(const std::string& json, const std::string& base, uint8_t maxZoomLimit) {
     if (impl->styleJSON == json) {
         return;
     }
@@ -323,11 +323,11 @@ void Map::setStyleJSON(const std::string& json, const std::string& base) {
     impl->styleJSON.clear();
     impl->style = std::make_unique<Style>(impl->fileSource, impl->pixelRatio);
 
-    impl->loadStyleJSON(json, base);
+    impl->loadStyleJSON(json, base, maxZoomLimit);
 }
 
-void Map::Impl::loadStyleJSON(const std::string& json, const std::string& base) {
-    style->setJSON(json, base);
+void Map::Impl::loadStyleJSON(const std::string& json, const std::string& base, uint8_t maxZoomLimit) {
+    style->setJSON(json, base, maxZoomLimit);
     style->setObserver(this);
     styleJSON = json;
 

@@ -55,8 +55,8 @@ public:
     bool hasClass(const std::string&) const;
     std::vector<std::string> getClasses() const;
 
-    void setStyleURL(const std::string& url);
-    void setStyleJSON(const std::string& json, const std::string& base = "");
+    void setStyleURL(const std::string& url, uint8_t maxZoomLimit = std::numeric_limits<uint8_t>::max());
+    void setStyleJSON(const std::string& json, const std::string& base = "", uint8_t maxZoomLimit = std::numeric_limits<uint8_t>::max());
     std::string getStyleURL() const;
     std::string getStyleJSON() const;
 
