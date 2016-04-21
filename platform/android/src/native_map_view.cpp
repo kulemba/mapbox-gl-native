@@ -183,16 +183,20 @@ jni::String NativeMapView::getStyleUrl(jni::JNIEnv& env) {
     return jni::Make<jni::String>(env, map->getStyle().getURL());
 }
 
-void NativeMapView::setStyleUrl(jni::JNIEnv& env, jni::String url) {
-    map->getStyle().loadURL(jni::Make<std::string>(env, url));
+void NativeMapView::setStyleUrl(jni::JNIEnv& env, jni::String url, jni::jbyte maxZoomLimit) {
+    map->getStyle().loadURL(jni::Make<std::string>(env, url), maxZoomLimit);
 }
 
 jni::String NativeMapView::getStyleJson(jni::JNIEnv& env) {
     return jni::Make<jni::String>(env, map->getStyle().getJSON());
 }
 
-void NativeMapView::setStyleJson(jni::JNIEnv& env, jni::String json) {
-    map->getStyle().loadJSON(jni::Make<std::string>(env, json));
+void NativeMapView::setStyleJson(jni::JNIEnv& env, jni::String json, jni::jbyte maxZoomLimit) {
+    map->getStyle().loadJSON(jni::Make<std::string>(env, json), maxZoomLimit);
+}
+
+jni::jbyte NativeMapView::getMaxZoomLimit(jni::JNIEnv&) {
+    return map->getStyle().getMaxZoomLimit();
 }
 
 void NativeMapView::setLatLngBounds(jni::JNIEnv& env, jni::Object<mbgl::android::LatLngBounds> jBounds) {
@@ -978,6 +982,7 @@ void NativeMapView::registerNative(jni::JNIEnv& env) {
             METHOD(&NativeMapView::setStyleUrl, "nativeSetStyleUrl"),
             METHOD(&NativeMapView::getStyleJson, "nativeGetStyleJson"),
             METHOD(&NativeMapView::setStyleJson, "nativeSetStyleJson"),
+            METHOD(&NativeMapView::getMaxZoomLimit, "nativeGetMaxZoomLimit"),
             METHOD(&NativeMapView::cancelTransitions, "nativeCancelTransitions"),
             METHOD(&NativeMapView::setGestureInProgress, "nativeSetGestureInProgress"),
             METHOD(&NativeMapView::moveBy, "nativeMoveBy"),
