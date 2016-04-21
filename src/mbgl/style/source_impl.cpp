@@ -23,5 +23,8 @@ void Source::Impl::setObserver(SourceObserver* observer_) {
     observer = observer_ ? observer_ : &nullObserver;
 }
 
+void Source::Impl::limitMaxZoom(uint8_t) {
+}
+    
 } // namespace style
 } // namespace mbgl
