@@ -273,6 +273,7 @@ void Renderer::Impl::render(const UpdateParameters& updateParameters) {
                 renderItemsEmplaceHint = renderItems.emplace_hint(renderItemsEmplaceHint, *layer, nullptr, index);
             }
         }
+        source->limitMaxZoom(updateParameters.maxZoomLimit);
         source->update(sourceImpl,
                        filteredLayersForSource,
                        sourceNeedsRendering,

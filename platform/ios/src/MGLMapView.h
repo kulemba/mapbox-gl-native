@@ -217,6 +217,8 @@ MGL_EXPORT
  */
 - (instancetype)initWithFrame:(CGRect)frame styleURL:(nullable NSURL *)styleURL;
 
+- (instancetype)initWithFrame:(CGRect)frame styleURL:(nullable NSURL *)styleURL maxZoomLimit:(double)maxZoomLimit;
+
 #pragma mark Accessing the Delegate
 
 /**
@@ -274,6 +276,8 @@ MGL_EXPORT
  a map at runtime.
  */
 @property (nonatomic, null_resettable) NSURL *styleURL;
+
+- (void)setStyleURL:(nullable NSURL *)styleURL withMaxZoomLimit:(double)maxZoomLimit;
 
 /**
  Reloads the style.

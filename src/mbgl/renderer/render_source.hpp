@@ -90,6 +90,8 @@ public:
 
     void setObserver(RenderSourceObserver*);
 
+    virtual void limitMaxZoom(uint8_t);
+
     Immutable<style::Source::Impl> baseImpl;
 
 protected:
