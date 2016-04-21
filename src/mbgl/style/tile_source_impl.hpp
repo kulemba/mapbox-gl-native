@@ -36,6 +36,8 @@ public:
 
     optional<std::string> getAttribution() const override;
 
+    void limitMaxZoom(uint8_t) final;
+    
 protected:
     Range<uint8_t> getZoomRange() final;
 
