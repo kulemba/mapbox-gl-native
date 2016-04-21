@@ -74,4 +74,8 @@ void RenderTileSource::dumpDebugLogs() const {
     tilePyramid.dumpDebugLogs();
 }
 
+void RenderTileSource::limitMaxZoom(uint8_t maxZoomLimit_) {
+    maxZoomLimit = maxZoomLimit_;
+}
+
 } // namespace mbgl

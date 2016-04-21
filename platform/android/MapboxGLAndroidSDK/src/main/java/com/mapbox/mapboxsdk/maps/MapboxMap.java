@@ -780,6 +780,10 @@ public final class MapboxMap {
     this.setStyle(style, null);
   }
 
+  public void setStyle(@Style.StyleUrl String style, byte maxZoomLimit) {
+      this.setStyle(style, maxZoomLimit, null);
+  }
+
   /**
    * Loads a new map style from the specified bundled style.
    * <p>
@@ -793,7 +797,11 @@ public final class MapboxMap {
    * @see Style
    */
   public void setStyle(@Style.StyleUrl String style, final Style.OnStyleLoaded callback) {
-    this.setStyle(new Style.Builder().fromUri(style), callback);
+      this.setStyle(new Style.Builder().fromUri(style), callback);
+  }
+
+  public void setStyle(@Style.StyleUrl String style, byte maxZoomLimit, final Style.OnStyleLoaded callback) {
+    this.setStyle(new Style.Builder().fromUri(style).withMaxZoomLimit(maxZoomLimit), callback);
   }
 
   /**
@@ -832,12 +840,12 @@ public final class MapboxMap {
 
     style = builder.build(nativeMapView);
     if (!TextUtils.isEmpty(builder.getUri())) {
-      nativeMapView.setStyleUri(builder.getUri());
+      nativeMapView.setStyleUri(builder.getUri(), builder.getMaxZoomLimit());
     } else if (!TextUtils.isEmpty(builder.getJson())) {
-      nativeMapView.setStyleJson(builder.getJson());
+      nativeMapView.setStyleJson(builder.getJson(), builder.getMaxZoomLimit());
     } else {
       // user didn't provide a `from` component, load a blank style instead
-      nativeMapView.setStyleJson("{}");
+      nativeMapView.setStyleJson("{}", builder.getMaxZoomLimit());
     }
   }
 

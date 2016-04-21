@@ -37,9 +37,13 @@ public:
     void reduceMemoryUse() override;
     void dumpDebugLogs() const override;
 
+    void limitMaxZoom(uint8_t) override;
+
 protected:
     TilePyramid tilePyramid;
     std::vector<RenderTile> renderTiles;
+
+    uint8_t maxZoomLimit;
 };
 
 } // namespace mbgl

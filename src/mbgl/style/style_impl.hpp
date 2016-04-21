@@ -40,11 +40,13 @@ public:
     Impl(FileSource&, float pixelRatio);
     ~Impl() override;
 
-    void loadJSON(const std::string&);
-    void loadURL(const std::string&);
+    void loadJSON(const std::string&, uint8_t = std::numeric_limits<uint8_t>::max());
+    void loadURL(const std::string&, uint8_t = std::numeric_limits<uint8_t>::max());
 
     std::string getJSON() const;
     std::string getURL() const;
+
+    uint8_t getMaxZoomLimit() const;
 
     void setObserver(Observer*);
 
@@ -115,6 +117,8 @@ private:
     // Defaults
     std::string name;
     CameraOptions defaultCamera;
+
+    uint8_t maxZoomLimit = std::numeric_limits<uint8_t>::max();
 
     // SpriteLoaderObserver implementation.
     void onSpriteLoaded(std::vector<std::unique_ptr<Image>>&&) override;
