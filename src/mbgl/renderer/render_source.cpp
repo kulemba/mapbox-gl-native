@@ -45,6 +45,9 @@ void RenderSource::setObserver(RenderSourceObserver* observer_) {
     observer = observer_;
 }
 
+void RenderSource::limitMaxZoom(uint8_t) {
+}
+
 void RenderSource::onTileChanged(Tile& tile) {
     observer->onTileChanged(*this, tile.id);
 }
