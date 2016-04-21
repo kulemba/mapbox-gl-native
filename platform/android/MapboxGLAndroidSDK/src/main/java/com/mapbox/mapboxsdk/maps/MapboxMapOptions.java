@@ -75,6 +75,7 @@ public class MapboxMapOptions implements Parcelable {
   private boolean translucentTextureSurface;
 
   private String style;
+  private byte maxZoomLimit = (byte) 0xFF;
 
   /**
    * Creates a new MapboxMapOptions object.
@@ -116,6 +117,7 @@ public class MapboxMapOptions implements Parcelable {
     doubleTapGesturesEnabled = in.readByte() != 0;
 
     style = in.readString();
+    maxZoomLimit = in.readByte();
     apiBaseUrl = in.readString();
     textureMode = in.readByte() != 0;
     translucentTextureSurface = in.readByte() != 0;
@@ -258,6 +260,17 @@ public class MapboxMapOptions implements Parcelable {
   }
 
   /**
+   * Specifies the maximum zoom limit associated with a map view.
+   *
+   * @param maxZoomLimit Maximum zoom limit to be used
+   * @return This
+   */
+  public MapboxMapOptions maxZoomLimit(byte maxZoomLimit) {
+    this.maxZoomLimit = maxZoomLimit;
+    return this;
+  }
+
+    /**
    * Specifies the used debug type for a map view.
    *
    * @param enabled True is debug is enabled
@@ -691,6 +704,15 @@ public class MapboxMapOptions implements Parcelable {
   }
 
   /**
+   * Get the current configured maximum zoom limit for a map view.
+   *
+   * @return Maximum zoom limit to be used.
+   */
+  public byte getMaxZoomLimit() {
+    return maxZoomLimit;
+  }
+
+    /**
    * Get the current configured rotate gesture state for a map view.
    *
    * @return True indicates gesture is enabled
@@ -860,6 +882,7 @@ public class MapboxMapOptions implements Parcelable {
     dest.writeByte((byte) (doubleTapGesturesEnabled ? 1 : 0));
 
     dest.writeString(style);
+    dest.writeByte(maxZoomLimit);
     dest.writeString(apiBaseUrl);
     dest.writeByte((byte) (textureMode ? 1 : 0));
     dest.writeByte((byte) (translucentTextureSurface ? 1 : 0));
@@ -950,6 +973,9 @@ public class MapboxMapOptions implements Parcelable {
     if (style != null ? !style.equals(options.style) : options.style != null) {
       return false;
     }
+    if (maxZoomLimit != options.maxZoomLimit) {
+      return false;
+    }
     if (apiBaseUrl != null ? !apiBaseUrl.equals(options.apiBaseUrl) : options.apiBaseUrl != null) {
       return false;
     }
@@ -998,6 +1024,7 @@ public class MapboxMapOptions implements Parcelable {
     result = 31 * result + (textureMode ? 1 : 0);
     result = 31 * result + (translucentTextureSurface ? 1 : 0);
     result = 31 * result + (style != null ? style.hashCode() : 0);
+    result = 31 * result + (int) maxZoomLimit;
     result = 31 * result + (prefetchesTiles ? 1 : 0);
     result = 31 * result + (zMediaOverlay ? 1 : 0);
     result = 31 * result + (localIdeographFontFamily != null ? localIdeographFontFamily.hashCode() : 0);
