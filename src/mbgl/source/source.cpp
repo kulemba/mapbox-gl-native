@@ -407,6 +407,18 @@ bool Source::update(const StyleUpdateParameters& parameters) {
             // parent tiles that completely cover the missing tile.
             if (!complete) {
                 findLoadedParent(tileID, minCoveringZoom, retain, parameters);
+                if ((state == TileData::State::loading || state == TileData::State::loaded))
+                    for (int32_t z = tileID.z - 1; z >= minCoveringZoom; z --) {
+                        const TileID parentTileID = tileID.parent(z,info->maxZoom);
+                        const TileData::State parentState = hasTile(parentTileID);
+                        retain.emplace_back(parentTileID);
+                        if (parentState == TileData::State::invalid) {
+                            addTile(parentTileID, parameters);
+                            allTilesUpdated = false;
+                        } else
+                            if (TileData::isReadyState(parentState))
+                                break;
+                    }
             }
         }
     }
