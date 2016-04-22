@@ -68,10 +68,11 @@ Style::Style(FileSource& fileSource_, float pixelRatio)
     spriteStore->setObserver(this);
 }
 
-void Style::setJSON(const std::string& json, const std::string&) {
+void Style::setJSON(const std::string& json, const std::string&, uint8_t maxZoomlimit_) {
     sources.clear();
     layers.clear();
     classes.clear();
+    maxZoomLimit = maxZoomlimit_;
 
     StyleParser parser;
     parser.parse(json);
@@ -208,7 +209,7 @@ void Style::recalculate(float z, const TimePoint& timePoint, MapMode mode) {
         if (source && layer->needsRendering()) {
             source->enabled = true;
             if (!source->loaded && !source->isLoading()) {
-                source->load(fileSource);
+                source->load(fileSource, maxZoomLimit);
             }
         }
     }

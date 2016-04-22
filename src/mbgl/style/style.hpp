@@ -71,7 +71,7 @@ public:
          virtual void onResourceError(std::exception_ptr) {};
     };
 
-    void setJSON(const std::string& data, const std::string& base);
+    void setJSON(const std::string& data, const std::string& base, uint8_t maxZoomLimit);
 
     void setObserver(Observer*);
 
@@ -149,6 +149,8 @@ private:
 
     ZoomHistory zoomHistory;
     bool hasPendingTransitions = false;
+                  
+    uint8_t maxZoomLimit = std::numeric_limits<uint8_t>::max();
 
 public:
     bool shouldReparsePartialTiles = false;
