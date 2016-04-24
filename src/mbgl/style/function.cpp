@@ -14,14 +14,15 @@ template <> inline bool defaultStopsValue() { return true; }
 template <> inline float defaultStopsValue() { return 1.0f; }
 template <> inline Color defaultStopsValue() { return {{ 0, 0, 0, 1 }}; }
 template <> inline std::vector<float> defaultStopsValue() { return {{ 1, 0 }}; }
+template <> inline std::vector<std::string> defaultStopsValue() { return {{}}; }
 template <> inline std::array<float, 2> defaultStopsValue() { return {{ 0, 0 }}; }
 
-template <> inline std:: string defaultStopsValue() { return {}; }
+template <> inline std::string defaultStopsValue() { return {}; }
 template <> inline TranslateAnchorType defaultStopsValue() { return {}; };
 template <> inline RotateAnchorType defaultStopsValue() { return {}; };
-template <> inline CapType defaultStopsValue() { return {}; };
-template <> inline JoinType defaultStopsValue() { return {}; };
-template <> inline PlacementType defaultStopsValue() { return {}; };
+template <> inline LineCapType defaultStopsValue() { return {}; };
+template <> inline LineJoinType defaultStopsValue() { return {}; };
+template <> inline SymbolPlacementType defaultStopsValue() { return {}; };
 template <> inline TextAnchorType defaultStopsValue() { return {}; };
 template <> inline TextJustifyType defaultStopsValue() { return {}; };
 template <> inline TextTransformType defaultStopsValue() { return {}; };
@@ -79,14 +80,15 @@ template class Function<bool>;
 template class Function<float>;
 template class Function<Color>;
 template class Function<std::vector<float>>;
+template class Function<std::vector<std::string>>;
 template class Function<std::array<float, 2>>;
 
 template class Function<std::string>;
 template class Function<TranslateAnchorType>;
 template class Function<RotateAnchorType>;
-template class Function<CapType>;
-template class Function<JoinType>;
-template class Function<PlacementType>;
+template class Function<LineCapType>;
+template class Function<LineJoinType>;
+template class Function<SymbolPlacementType>;
 template class Function<TextAnchorType>;
 template class Function<TextJustifyType>;
 template class Function<TextTransformType>;

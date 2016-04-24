@@ -257,13 +257,13 @@ RenderData Style::getRenderData() const {
             continue;
 
         if (const BackgroundLayer* background = layer->as<BackgroundLayer>()) {
-            if (layer.get() == layers[0].get() && background->paint.pattern.value.from.empty()) {
+            if (layer.get() == layers[0].get() && background->paint.backgroundPattern.value.from.empty()) {
                 // This is a solid background. We can use glClear().
-                result.backgroundColor = background->paint.color;
-                result.backgroundColor[0] *= background->paint.opacity;
-                result.backgroundColor[1] *= background->paint.opacity;
-                result.backgroundColor[2] *= background->paint.opacity;
-                result.backgroundColor[3] *= background->paint.opacity;
+                result.backgroundColor = background->paint.backgroundColor;
+                result.backgroundColor[0] *= background->paint.backgroundOpacity;
+                result.backgroundColor[1] *= background->paint.backgroundOpacity;
+                result.backgroundColor[2] *= background->paint.backgroundOpacity;
+                result.backgroundColor[3] *= background->paint.backgroundOpacity;
             } else {
                 // This is a textured background, or not the bottommost layer. We need to render it with a quad.
                 result.order.emplace_back(*layer);
@@ -331,16 +331,16 @@ void Style::setObserver(Observer* observer_) {
     observer = observer_;
 }
 
-void Style::onGlyphsLoaded(const std::string& fontStack, const GlyphRange& glyphRange) {
+void Style::onGlyphsLoaded(const FontStack& fontStack, const GlyphRange& glyphRange) {
     shouldReparsePartialTiles = true;
     observer->onGlyphsLoaded(fontStack, glyphRange);
     observer->onResourceLoaded();
 }
 
-void Style::onGlyphsError(const std::string& fontStack, const GlyphRange& glyphRange, std::exception_ptr error) {
+void Style::onGlyphsError(const FontStack& fontStack, const GlyphRange& glyphRange, std::exception_ptr error) {
     lastError = error;
     Log::Error(Event::Style, "Failed to load glyph range %d-%d for font stack %s: %s",
-               glyphRange.first, glyphRange.second, fontStack.c_str(), util::toString(error).c_str());
+               glyphRange.first, glyphRange.second, fontStackToString(fontStack).c_str(), util::toString(error).c_str());
     observer->onGlyphsError(fontStack, glyphRange, error);
     observer->onResourceError(error);
 }

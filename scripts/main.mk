@@ -34,6 +34,20 @@ export PLATFORM_OUTPUT = ./build/$(PLATFORM_SLUG)
 export PLATFORM_CONFIG_INPUT = platform/$(MASON_PLATFORM)/scripts/configure.sh
 export PLATFORM_CONFIG_OUTPUT = $(PLATFORM_OUTPUT)/config.gypi
 
+ifeq ($(PLATFORM),qt)
+  ifeq ($(shell uname -s), Darwin)
+    export MASON_PLATFORM = osx
+    export MASON_PLATFORM_VERSION = $(SUBPLATFORM)
+    export PLATFORM_SLUG = qt-osx-$(SUBPLATFORM)
+    export PLATFORM_CONFIG_INPUT = platform/qt/scripts/configure.sh
+  else ifeq ($(shell uname -s), Linux)
+    export MASON_PLATFORM = linux
+    export MASON_PLATFORM_VERSION = $(SUBPLATFORM)
+    export PLATFORM_SLUG = qt-linux-$(SUBPLATFORM)
+    export PLATFORM_CONFIG_INPUT = platform/qt/scripts/configure.sh
+  endif
+endif
+
 ifneq (,$(findstring clang,$(CXX)))
 	CXX_HOST = "clang"
 else ifneq (,$(findstring g++,$(CXX)))
@@ -77,13 +91,6 @@ Makefile/__project__: $(PLATFORM_CONFIG_OUTPUT)
 	@printf "$(TEXT_BOLD)$(COLOR_GREEN)* Recreating project...$(FORMAT_END)\n"
 	$(ENV) deps/run_gyp platform/$(PLATFORM)/platform.gyp $(GYP_FLAGS) -f make$(GYP_FLAVOR_SUFFIX)
 
-.PHONY: Xcode/__project__
-Xcode/__project__: $(PLATFORM_CONFIG_OUTPUT)
-	@printf "$(TEXT_BOLD)$(COLOR_GREEN)* Exporting gyp variables to xcconfig...$(FORMAT_END)\n"
-	$(ENV) ./scripts/export-xcconfig.py $(PLATFORM_CONFIG_OUTPUT) $(PLATFORM_OUTPUT)/mbgl.xcconfig
-	@printf "$(TEXT_BOLD)$(COLOR_GREEN)* Recreating project...$(FORMAT_END)\n"
-	$(ENV) deps/run_gyp platform/$(PLATFORM)/platform.gyp $(GYP_FLAGS) -f xcode$(GYP_FLAVOR_SUFFIX)
-
 .PHONY: Ninja/__project__
 Ninja/__project__: $(PLATFORM_CONFIG_OUTPUT)
 	@printf "$(TEXT_BOLD)$(COLOR_GREEN)* Recreating project...$(FORMAT_END)\n"
@@ -108,16 +115,6 @@ Makefile/%: Makefile/__project__
 	@printf "$(TEXT_BOLD)$(COLOR_GREEN)* Building target $*...$(FORMAT_END)\n"
 	$(ENV) $(MAKE) -j$(JOBS) -C $(PLATFORM_OUTPUT) BUILDTYPE=$(BUILDTYPE) $*
 
-Xcode/%: Xcode/__project__
-	@printf "$(TEXT_BOLD)$(COLOR_GREEN)* Building target $*...$(FORMAT_END)\n"
-	set -o pipefail && xcodebuild \
-		CODE_SIGNING_REQUIRED=NO \
-		CODE_SIGN_IDENTITY= \
-		-project $(PLATFORM_OUTPUT)/platform/$(PLATFORM)/platform.xcodeproj \
-		-configuration $(BUILDTYPE) \
-		-target $* \
-		-jobs $(JOBS) | xcpretty
-
 Ninja/%: Ninja/__project__
 	@printf "$(TEXT_BOLD)$(COLOR_GREEN)* Building target $*...$(FORMAT_END)\n"
 	$(ENV) deps/ninja/ninja-$(PLATFORM) -C $(PLATFORM_OUTPUT)/$(BUILDTYPE) $*
@@ -139,17 +136,20 @@ tidy: Ninja/compdb
 #### Run tests #################################################################
 
 run-glfw-app:
-	$(PLATFORM_OUTPUT)/$(BUILDTYPE)/mapbox-glfw
+	cd $(PLATFORM_OUTPUT)/$(BUILDTYPE) && ./mapbox-glfw
+
+run-qt-app:
+	cd $(PLATFORM_OUTPUT)/$(BUILDTYPE) && ./qmapboxgl
 
 run-valgrind-glfw-app:
-	valgrind --leak-check=full --suppressions=../../../scripts/valgrind.sup $(PLATFORM_OUTPUT)/$(BUILDTYPE)/mapbox-glfw
+	cd $(PLATFORM_OUTPUT)/$(BUILDTYPE) && valgrind --leak-check=full --suppressions=../../../scripts/valgrind.sup ./mapbox-glfw
 
-ifneq (,$(shell command -v gdb))
+ifneq (,$(shell which gdb))
   GDB = gdb -batch -return-child-result -ex 'set print thread-events off' -ex 'run' -ex 'thread apply all bt' --args
 endif
 
 test-%: Makefile/test
-	$(GDB) $(PLATFORM_OUTPUT)/$(BUILDTYPE)/test --gtest_filter=$*
+	$(GDB) $(PLATFORM_OUTPUT)/$(BUILDTYPE)/test --gtest_catch_exceptions=0 --gtest_filter=$*
 
 check: Makefile/test
 	./scripts/collect-coverage.sh

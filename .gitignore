@@ -4,6 +4,7 @@
 *.gcda
 *~
 offline.db
+xcuserdata
 /platform/node/test/actual
 /platform/node/test/diff
 /mason_packages
@@ -19,3 +20,5 @@ offline.db
 /test/fixtures/**/diff.png
 /test/output
 /node_modules
+/platform/ios/benchmark/assets/glyphs/DIN*
+/platform/ios/benchmark/assets/tiles/mapbox.mapbox-terrain-v2,mapbox.mapbox-streets-v6
