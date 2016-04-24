@@ -2,7 +2,6 @@
 
 #import "AppDelegate.h"
 #import "DroppedPinAnnotation.h"
-#import "NSValue+Additions.h"
 
 #import <Mapbox/Mapbox.h>
 
@@ -211,10 +210,18 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
     if (appDelegate.pendingDebugMask) {
         self.mapView.debugMask = appDelegate.pendingDebugMask;
     }
+    if (appDelegate.pendingMinimumZoomLevel >= 0) {
+        self.mapView.zoomLevel = MAX(appDelegate.pendingMinimumZoomLevel, self.mapView.zoomLevel);
+        appDelegate.pendingMaximumZoomLevel = -1;
+    }
+    if (appDelegate.pendingMaximumZoomLevel >= 0) {
+        self.mapView.zoomLevel = MIN(appDelegate.pendingMaximumZoomLevel, self.mapView.zoomLevel);
+        appDelegate.pendingMaximumZoomLevel = -1;
+    }
     
     // Temporarily set the display name to the default center coordinate instead
     // of “Untitled” until the binding kicks in.
-    NSValue *coordinateValue = [NSValue valueWithCLLocationCoordinate2D:self.mapView.centerCoordinate];
+    NSValue *coordinateValue = [NSValue valueWithMGLCoordinate:self.mapView.centerCoordinate];
     self.displayName = [[NSValueTransformer valueTransformerForName:@"LocationCoordinate2DTransformer"]
                         transformedValue:coordinateValue];
 }

@@ -128,7 +128,6 @@ const NSTimeInterval MGLFlushInterval = 180;
 @end
 
 @implementation MGLMapboxEvents {
-    id _userDefaultsObserver;
     NSString *_instanceID;
 }
 
@@ -145,8 +144,12 @@ const NSTimeInterval MGLFlushInterval = 180;
 }
 
 + (BOOL)isEnabled {
+#if TARGET_OS_SIMULATOR
+    return NO;
+#else
     return ([[NSUserDefaults standardUserDefaults] boolForKey:@"MGLMapboxMetricsEnabled"] &&
             [[NSUserDefaults standardUserDefaults] integerForKey:@"MGLMapboxAccountType"] == 0);
+#endif
 }
 
 - (BOOL)debugLoggingEnabled {
@@ -195,17 +198,8 @@ const NSTimeInterval MGLFlushInterval = 180;
             self.canEnableDebugLogging = YES;
         }
         
-
         // Watch for changes to telemetry settings by the user
-        __weak MGLMapboxEvents *weakSelf = self;
-        _userDefaultsObserver = [[NSNotificationCenter defaultCenter] addObserverForName:NSUserDefaultsDidChangeNotification
-                                                                                  object:nil
-                                                                                   queue:[NSOperationQueue mainQueue]
-                                                                              usingBlock:
-         ^(NSNotification *notification) {
-             MGLMapboxEvents *strongSelf = weakSelf;
-             [strongSelf pauseOrResumeMetricsCollectionIfRequired];
-         }];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(userDefaultsDidChange:) name:NSUserDefaultsDidChangeNotification object:nil];
        
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(pauseOrResumeMetricsCollectionIfRequired) name:UIApplicationDidEnterBackgroundNotification object:nil];
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(pauseOrResumeMetricsCollectionIfRequired) name:UIApplicationWillEnterForegroundNotification object:nil];
@@ -229,7 +223,7 @@ const NSTimeInterval MGLFlushInterval = 180;
 }
 
 - (void)dealloc {
-    [[NSNotificationCenter defaultCenter] removeObserver:_userDefaultsObserver];
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
     [self pauseMetricsCollection];
 }
 
@@ -243,6 +237,12 @@ const NSTimeInterval MGLFlushInterval = 180;
         self.instanceIDRotationDate = [[NSDate date] dateByAddingTimeInterval:twentyFourHourTimeInterval];
     }
     return _instanceID;
+}
+
+- (void)userDefaultsDidChange:(NSNotification *)notification {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self pauseOrResumeMetricsCollectionIfRequired];
+    });
 }
 
 - (void)pauseOrResumeMetricsCollectionIfRequired {
@@ -360,7 +360,7 @@ const NSTimeInterval MGLFlushInterval = 180;
         [self pushTurnstileEvent];
     }
     
-    if ([self isPaused]) {
+    if (self.paused) {
         return;
     }
     
@@ -450,7 +450,7 @@ const NSTimeInterval MGLFlushInterval = 180;
 // Called implicitly from public use of +flush.
 //
 - (void)postEvents:(NS_ARRAY_OF(MGLMapboxEventAttributes *) *)events {
-    if ([self isPaused]) {
+    if (self.paused) {
         return;
     }
     

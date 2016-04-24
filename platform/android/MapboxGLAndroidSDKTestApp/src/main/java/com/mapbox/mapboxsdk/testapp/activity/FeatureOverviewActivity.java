@@ -6,8 +6,10 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 
+import android.content.res.Resources;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.annotation.StringRes;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
@@ -46,7 +48,7 @@ public class FeatureOverviewActivity extends AppCompatActivity {
         setSupportActionBar(toolbar);
 
         ActionBar actionBar = getSupportActionBar();
-        if(actionBar!=null){
+        if (actionBar != null) {
             actionBar.setElevation(getResources().getDimension(R.dimen.toolbar_shadow));
         }
 
@@ -115,11 +117,12 @@ public class FeatureOverviewActivity extends AppCompatActivity {
             List<Feature> features = new ArrayList<>();
             PackageInfo app = params[0];
 
+            String packageName = getApplicationContext().getPackageName();
             String metaDataKey = getString(R.string.category);
             for (ActivityInfo info : app.activities) {
-                if (!info.name.equals(FeatureOverviewActivity.class.getName())) {
+                if (info.name.startsWith(packageName) && !info.name.equals(FeatureOverviewActivity.class.getName())) {
                     String label = getString(info.labelRes);
-                    String description = getString(info.descriptionRes);
+                    String description = resolveString(info.descriptionRes);
                     String category = resolveMetaData(info.metaData, metaDataKey);
                     features.add(new Feature(info.name, label, description, category));
                 }
@@ -144,6 +147,14 @@ public class FeatureOverviewActivity extends AppCompatActivity {
                 category = bundle.getString(key);
             }
             return category;
+        }
+
+        private String resolveString(@StringRes int stringRes){
+            try{
+                return getString(stringRes);
+            }catch (Resources.NotFoundException e){
+                return "-";
+            }
         }
 
         @Override

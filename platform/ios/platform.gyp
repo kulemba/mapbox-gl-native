@@ -2,13 +2,10 @@
   'variables': {
     'loop_lib': 'darwin',
     'headless_lib': 'eagl',
-  },
-  'xcode_settings': {
-     # Force all build output to the build directory. Must
-     # be an absolute path or xcodebuild will ignore it.
-    'SYMROOT': '<!(cd ../../build/ios-all && pwd)',
+    'coverage': 0,
   },
   'includes': [
+    '../../build/ios/config.gypi',
     '../../mbgl.gypi',
     '../../test/test.gypi',
   ],
@@ -88,6 +85,7 @@
         '../default',
         '../../include',
         '../../src', # TODO: eliminate
+        '<(SHARED_INTERMEDIATE_DIR)/include',
       ],
 
       'sources': [

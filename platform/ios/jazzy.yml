@@ -1,0 +1,75 @@
+module: Mapbox
+author: Mapbox
+author_url: https://www.mapbox.com/
+github_url: https://github.com/mapbox/mapbox-gl-native
+dash_url: https://www.mapbox.com/ios-sdk/docsets/Mapbox.xml
+copyright: '© 2014–2016 [Mapbox](https://www.mapbox.com/). See [license](https://github.com/mapbox/mapbox-gl-native/blob/master/LICENSE.md) for more details.'
+
+head: |
+  <link rel='shortcut icon' href='https://www.mapbox.com/img/favicon.ico' type='image/x-icon' />
+
+objc: Yes
+skip_undocumented: Yes
+hide_documentation_coverage: Yes
+umbrella_header: platform/ios/include/Mapbox.h
+framework_root: platform/darwin/include
+
+custom_categories:
+  - name: Maps
+    children:
+      - MGLAccountManager
+      - MGLMapCamera
+      - MGLMapDebugMaskOptions
+      - MGLMapView
+      - MGLMapViewDelegate
+      - MGLStyle
+      - MGLUserTrackingMode
+  - name: Annotations
+    children:
+      - MGLAnnotation
+      - MGLAnnotationImage
+      - MGLAnnotationVerticalAlignment
+      - MGLCalloutView
+      - MGLCalloutViewDelegate
+      - MGLMultiPoint
+      - MGLPointAnnotation
+      - MGLPolygon
+      - MGLPolyline
+      - MGLOverlay
+      - MGLShape
+      - MGLUserLocation
+  - name: Offline Maps
+    children:
+      - MGLOfflineRegion
+      - MGLOfflineStorage
+      - MGLOfflinePack
+      - MGLOfflinePackAdditionCompletionHandler
+      - MGLOfflinePackErrorNotification
+      - MGLOfflinePackErrorUserInfoKey
+      - MGLOfflinePackMaximumCountUserInfoKey
+      - MGLOfflinePackMaximumMapboxTilesReachedNotification
+      - MGLOfflinePackProgress
+      - MGLOfflinePackProgressChangedNotification
+      - MGLOfflinePackProgressUserInfoKey
+      - MGLOfflinePackRemovalCompletionHandler
+      - MGLOfflinePackState
+      - MGLOfflinePackStateUserInfoKey
+      - MGLTilePyramidOfflineRegion
+  - name: Geometry
+    children:
+      - MGLClockDirectionFormatter
+      - MGLCompassDirectionFormatter
+      - MGLCoordinateBounds
+      - MGLCoordinateBoundsEqualToCoordinateBounds
+      - MGLCoordinateBoundsGetCoordinateSpan
+      - MGLCoordinateBoundsIsEmpty
+      - MGLCoordinateBoundsMake
+      - MGLCoordinateBoundsOffset
+      - MGLCoordinateFormatter
+      - MGLCoordinateSpan
+      - MGLCoordinateSpanEqualToCoordinateSpan
+      - MGLCoordinateSpanMake
+      - MGLCoordinateSpanZero
+      - MGLDegreesFromRadians
+      - MGLRadiansFromDegrees
+      - MGLStringFromCoordinateBounds

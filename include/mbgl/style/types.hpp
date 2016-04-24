@@ -5,12 +5,21 @@
 
 #include <string>
 #include <array>
+#include <vector>
 
 namespace mbgl {
 
 // Stores a premultiplied color, with all four channels ranging from 0..1
-typedef std::array<float, 4> Color;
+using Color = std::array<float, 4>;
 
+// An array of font names
+using FontStack = std::vector<std::string>;
+
+std::string fontStackToString(const FontStack&);
+
+struct FontStackHash {
+    std::size_t operator()(const FontStack&) const;
+};
 
 template <typename T>
 struct Faded {
@@ -56,21 +65,21 @@ MBGL_DEFINE_ENUM_CLASS(VisibilityTypeClass, VisibilityType, {
 
 // -------------------------------------------------------------------------------------------------
 
-enum class CapType : uint8_t {
+enum class LineCapType : uint8_t {
     Round,
     Butt,
     Square,
 };
 
-MBGL_DEFINE_ENUM_CLASS(CapTypeClass, CapType, {
-    { CapType::Round, "round" },
-    { CapType::Butt, "butt" },
-    { CapType::Square, "square" },
+MBGL_DEFINE_ENUM_CLASS(LineCapTypeClass, LineCapType, {
+    { LineCapType::Round, "round" },
+    { LineCapType::Butt, "butt" },
+    { LineCapType::Square, "square" },
 });
 
 // -------------------------------------------------------------------------------------------------
 
-enum class JoinType : uint8_t {
+enum class LineJoinType : uint8_t {
     Miter,
     Bevel,
     Round,
@@ -79,12 +88,12 @@ enum class JoinType : uint8_t {
     FlipBevel
 };
 
-MBGL_DEFINE_ENUM_CLASS(JoinTypeClass, JoinType, {
-    { JoinType::Miter, "miter" },
-    { JoinType::Bevel, "bevel" },
-    { JoinType::Round, "round" },
-    { JoinType::FakeRound, "fakeround" },
-    { JoinType::FlipBevel, "flipbevel" },
+MBGL_DEFINE_ENUM_CLASS(LineJoinTypeClass, LineJoinType, {
+    { LineJoinType::Miter, "miter" },
+    { LineJoinType::Bevel, "bevel" },
+    { LineJoinType::Round, "round" },
+    { LineJoinType::FakeRound, "fakeround" },
+    { LineJoinType::FlipBevel, "flipbevel" },
 });
 
 // -------------------------------------------------------------------------------------------------
@@ -113,14 +122,14 @@ MBGL_DEFINE_ENUM_CLASS(RotateAnchorTypeClass, RotateAnchorType, {
 
 // -------------------------------------------------------------------------------------------------
 
-enum class PlacementType : bool {
+enum class SymbolPlacementType : bool {
     Point,
     Line,
 };
 
-MBGL_DEFINE_ENUM_CLASS(PlacementTypeClass, PlacementType, {
-    { PlacementType::Point, "point" },
-    { PlacementType::Line, "line" },
+MBGL_DEFINE_ENUM_CLASS(SymbolPlacementTypeClass, SymbolPlacementType, {
+    { SymbolPlacementType::Point, "point" },
+    { SymbolPlacementType::Line, "line" },
 });
 
 // -------------------------------------------------------------------------------------------------
