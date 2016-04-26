@@ -1027,6 +1027,8 @@ IB_DESIGNABLE
  */
 - (void)resetPosition;
 
+@property (nonatomic, readonly, getter=isReachable) BOOL reachable;
+
 @end
 
 #pragma mark - MGLMapViewDelegate
