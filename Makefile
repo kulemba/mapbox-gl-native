@@ -9,63 +9,92 @@ else
   $(error Cannot determine host platform)
 endif
 
+ifneq (,$(wildcard .git/.))
+.mason:
+	git submodule update --init
+else
+.mason: ;
+endif
+
 RUN = +$(MAKE) -f scripts/main.mk
 
 default:
 	@printf "You must specify a valid target\n"
 
+# Depend on gyp includes plus directories, so that projects are regenerated when
+# files are added or removed.
+GYP_DEPENDENCIES = mbgl.gypi test/test.gypi bin/*.gypi $(shell find src include -type d)
+
 #### OS X targets ##############################################################
 
-OSX_PROJ_PATH = build/osx-x86_64/platform/osx/platform.xcodeproj
+OSX_OUTPUT_PATH = build/osx
+OSX_PROJ_PATH = $(OSX_OUTPUT_PATH)/platform/osx/platform.xcodeproj
 OSX_WORK_PATH = platform/osx/osx.xcworkspace
-OSX_DERIVED_DATA_PATH = build/DerivedData/osx
+OSX_USER_DATA_PATH = $(OSX_WORK_PATH)/xcuserdata/$(USER).xcuserdatad
 
-$(OSX_PROJ_PATH): platform/osx/platform.gyp platform/osx/scripts/configure.sh mbgl.gypi test/test.gypi bin/*.gypi
-	$(RUN) PLATFORM=osx Xcode/__project__
+$(OSX_OUTPUT_PATH)/config.gypi: platform/osx/scripts/configure.sh .mason configure
+	MASON_PLATFORM=osx ./configure $< $@
+
+$(OSX_OUTPUT_PATH)/mbgl.xcconfig: $(OSX_OUTPUT_PATH)/config.gypi
+	./scripts/export-xcconfig.py $< $@
+
+$(OSX_PROJ_PATH): platform/osx/platform.gyp $(OSX_OUTPUT_PATH)/config.gypi $(OSX_OUTPUT_PATH)/mbgl.xcconfig $(GYP_DEPENDENCIES)
+	./deps/run_gyp -f xcode --depth=. --generator-output=$(OSX_OUTPUT_PATH) $<
 
 osx: $(OSX_PROJ_PATH)
 	set -o pipefail && xcodebuild \
-	  -derivedDataPath $(OSX_DERIVED_DATA_PATH) \
+	  -derivedDataPath $(OSX_OUTPUT_PATH) \
 	  -configuration $(BUILDTYPE) \
 	  -workspace $(OSX_WORK_PATH) -scheme CI build | xcpretty
 
-xproj: $(OSX_PROJ_PATH)
+xproj: $(OSX_PROJ_PATH) $(OSX_WORK_PATH)
+	mkdir -p "$(OSX_USER_DATA_PATH)"
+	cp platform/osx/WorkspaceSettings.xcsettings "$(OSX_USER_DATA_PATH)/WorkspaceSettings.xcsettings"
 	open $(OSX_WORK_PATH)
 
 test-osx: osx node_modules/express
-	ulimit -c unlimited && ($(OSX_DERIVED_DATA_PATH)/Build/Products/$(BUILDTYPE)/test & pid=$$! && wait $$pid \
+	ulimit -c unlimited && ($(OSX_OUTPUT_PATH)/Build/Products/$(BUILDTYPE)/test & pid=$$! && wait $$pid \
 	  || (lldb -c /cores/core.$$pid --batch --one-line 'thread backtrace all' --one-line 'quit' && exit 1))
 	set -o pipefail && xcodebuild \
-	  -derivedDataPath $(OSX_DERIVED_DATA_PATH) \
+	  -derivedDataPath $(OSX_OUTPUT_PATH) \
 	  -configuration $(BUILDTYPE) \
 	  -workspace $(OSX_WORK_PATH) -scheme CI test | xcpretty
 
 #### iOS targets ##############################################################
 
-IOS_PROJ_PATH = build/ios-all/platform/ios/platform.xcodeproj
+IOS_OUTPUT_PATH = build/ios
+IOS_PROJ_PATH = $(IOS_OUTPUT_PATH)/platform/ios/platform.xcodeproj
 IOS_WORK_PATH = platform/ios/ios.xcworkspace
-IOS_DERIVED_DATA_PATH = build/DerivedData/ios
+IOS_USER_DATA_PATH = $(IOS_WORK_PATH)/xcuserdata/$(USER).xcuserdatad
 
-$(IOS_PROJ_PATH): platform/ios/platform.gyp platform/ios/scripts/configure.sh mbgl.gypi test/test.gypi
-	$(RUN) PLATFORM=ios Xcode/__project__
+$(IOS_OUTPUT_PATH)/config.gypi: platform/ios/scripts/configure.sh .mason configure
+	MASON_PLATFORM=ios ./configure $< $@
+
+$(IOS_OUTPUT_PATH)/mbgl.xcconfig: $(IOS_OUTPUT_PATH)/config.gypi
+	./scripts/export-xcconfig.py $< $@
+
+$(IOS_PROJ_PATH): platform/ios/platform.gyp $(IOS_OUTPUT_PATH)/config.gypi $(IOS_OUTPUT_PATH)/mbgl.xcconfig $(GYP_DEPENDENCIES)
+	./deps/run_gyp -f xcode --depth=. --generator-output=$(IOS_OUTPUT_PATH) $<
 
 ios: $(IOS_PROJ_PATH)
 	set -o pipefail && xcodebuild \
 	  ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES \
-	  -derivedDataPath $(IOS_DERIVED_DATA_PATH) \
+	  -derivedDataPath $(IOS_OUTPUT_PATH) \
 	  -configuration $(BUILDTYPE) -sdk iphonesimulator \
 	  -destination 'platform=iOS Simulator,name=iPhone 6,OS=latest' \
 	  -workspace $(IOS_WORK_PATH) -scheme CI build | xcpretty
 
 iproj: $(IOS_PROJ_PATH)
+	mkdir -p "$(IOS_USER_DATA_PATH)"
+	cp platform/ios/WorkspaceSettings.xcsettings "$(IOS_USER_DATA_PATH)/WorkspaceSettings.xcsettings"
 	open $(IOS_WORK_PATH)
 
 test-ios: ios
 	ios-sim start --devicetypeid 'com.apple.CoreSimulator.SimDeviceType.iPhone-6,9.3'
-	ios-sim launch $(IOS_DERIVED_DATA_PATH)/Build/Products/$(BUILDTYPE)-iphonesimulator/ios-test.app --verbose --devicetypeid 'com.apple.CoreSimulator.SimDeviceType.iPhone-6,9.3'
+	ios-sim launch $(IOS_OUTPUT_PATH)/Build/Products/$(BUILDTYPE)-iphonesimulator/ios-test.app --verbose --devicetypeid 'com.apple.CoreSimulator.SimDeviceType.iPhone-6,9.3'
 	set -o pipefail && xcodebuild \
 	  ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES \
-	  -derivedDataPath $(IOS_DERIVED_DATA_PATH) \
+	  -derivedDataPath $(IOS_OUTPUT_PATH) \
 	  -configuration $(BUILDTYPE) -sdk iphonesimulator \
 	  -destination 'platform=iOS Simulator,name=iPhone 6,OS=latest' \
 	  -workspace $(IOS_WORK_PATH) -scheme CI test | xcpretty
@@ -140,6 +169,24 @@ test-node: node
 	npm test
 	npm run test-suite
 
+#### Qt targets #####################################################
+
+.PHONY: qt-lib
+qt-lib:
+	$(RUN) PLATFORM=qt Makefile/qt-lib
+
+.PHONY: qt-app
+qt-app:
+	$(RUN) PLATFORM=qt Makefile/qt-app
+
+.PHONY: run-qt-app
+run-qt-app: qt-app
+	$(RUN) PLATFORM=qt run-qt-app
+
+.PHONY: test-qt
+test-qt: node_modules/express
+	$(RUN) PLATFORM=qt test-*
+
 #### Miscellaneous targets #####################################################
 
 .PHONY: linux
@@ -197,8 +244,8 @@ tidy:
 
 clean:
 	-find ./deps/gyp -name "*.pyc" -exec rm {} \;
-	-find ./build -type f -not -path '*/*.xcodeproj/*' -exec rm {} \;
-	-rm -rf ./platform/android/MapboxGLAndroidSDK/build \
+	-rm -rf ./build \
+	        ./platform/android/MapboxGLAndroidSDK/build \
 	        ./platform/android/MapboxGLAndroidSDKTestApp/build \
 	        ./platform/android/MapboxGLAndroidSDK/src/main/jniLibs \
 	        ./platform/android/MapboxGLAndroidSDKTestApp/src/main/jniLibs \

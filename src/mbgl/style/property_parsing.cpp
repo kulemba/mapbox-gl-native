@@ -32,28 +32,6 @@ optional<float> parseProperty(const char* name, const JSValue& value) {
 
 template <>
 optional<std::string> parseProperty(const char* name, const JSValue& value) {
-    if (std::string { "text-font" } == name) {
-        if (!value.IsArray()) {
-            Log::Warning(Event::ParseStyle, "value of '%s' must be an array of strings", name);
-            return {};
-        }
-
-        std::string result = "";
-        for (rapidjson::SizeType i = 0; i < value.Size(); ++i) {
-            const JSValue& stop = value[i];
-            if (stop.IsString()) {
-                result += stop.GetString();
-                if (i < value.Size()-1) {
-                    result += ",";
-                }
-            } else {
-                Log::Warning(Event::ParseStyle, "text-font members must be strings");
-                return {};
-            }
-        }
-        return result;
-    }
-
     if (!value.IsString()) {
         Log::Warning(Event::ParseStyle, "value of '%s' must be a string", name);
         return {};
@@ -101,33 +79,33 @@ optional<RotateAnchorType> parseProperty<RotateAnchorType>(const char* name, con
 }
 
 template <>
-optional<CapType> parseProperty<CapType>(const char* name, const JSValue& value) {
+optional<LineCapType> parseProperty<LineCapType>(const char* name, const JSValue& value) {
     if (!value.IsString()) {
         Log::Warning(Event::ParseStyle, "value of '%s' must be a string", name);
         return {};
     }
 
-    return { CapTypeClass({ value.GetString(), value.GetStringLength() }) };
+    return { LineCapTypeClass({ value.GetString(), value.GetStringLength() }) };
 }
 
 template <>
-optional<JoinType> parseProperty<JoinType>(const char* name, const JSValue& value) {
+optional<LineJoinType> parseProperty<LineJoinType>(const char* name, const JSValue& value) {
     if (!value.IsString()) {
         Log::Warning(Event::ParseStyle, "value of '%s' must be a string", name);
         return {};
     }
 
-    return { JoinTypeClass({ value.GetString(), value.GetStringLength() }) };
+    return { LineJoinTypeClass({ value.GetString(), value.GetStringLength() }) };
 }
 
 template <>
-optional<PlacementType> parseProperty<PlacementType>(const char* name, const JSValue& value) {
+optional<SymbolPlacementType> parseProperty<SymbolPlacementType>(const char* name, const JSValue& value) {
     if (!value.IsString()) {
         Log::Warning(Event::ParseStyle, "value of '%s' must be a string", name);
         return {};
     }
 
-    return { PlacementTypeClass({ value.GetString(), value.GetStringLength() }) };
+    return { SymbolPlacementTypeClass({ value.GetString(), value.GetStringLength() }) };
 }
 
 template <>
@@ -203,6 +181,29 @@ optional<std::vector<float>> parseProperty(const char* name, const JSValue& valu
         }
 
         result.push_back(part.GetDouble());
+    }
+
+    return result;
+}
+
+template <>
+optional<std::vector<std::string>> parseProperty(const char* name, const JSValue& value) {
+    if (!value.IsArray()) {
+        Log::Warning(Event::ParseStyle, "value of '%s' must be an array of strings", name);
+        return {};
+    }
+
+    std::vector<std::string> result;
+
+    for (rapidjson::SizeType i = 0; i < value.Size(); ++i) {
+        const JSValue& part = value[i];
+
+        if (!part.IsString()) {
+            Log::Warning(Event::ParseStyle, "value of '%s' must be an array of strings", name);
+            return {};
+        }
+
+        result.push_back({ part.GetString(), part.GetStringLength() });
     }
 
     return result;
@@ -322,16 +323,16 @@ template <> optional<Function<RotateAnchorType>> parseProperty(const char* name,
     return parseFunction<RotateAnchorType>(name, value);
 }
 
-template <> optional<Function<CapType>> parseProperty(const char* name, const JSValue& value) {
-    return parseFunction<CapType>(name, value);
+template <> optional<Function<LineCapType>> parseProperty(const char* name, const JSValue& value) {
+    return parseFunction<LineCapType>(name, value);
 }
 
-template <> optional<Function<JoinType>> parseProperty(const char* name, const JSValue& value) {
-    return parseFunction<JoinType>(name, value);
+template <> optional<Function<LineJoinType>> parseProperty(const char* name, const JSValue& value) {
+    return parseFunction<LineJoinType>(name, value);
 }
 
-template <> optional<Function<PlacementType>> parseProperty(const char* name, const JSValue& value) {
-    return parseFunction<PlacementType>(name, value);
+template <> optional<Function<SymbolPlacementType>> parseProperty(const char* name, const JSValue& value) {
+    return parseFunction<SymbolPlacementType>(name, value);
 }
 
 template <> optional<Function<TextAnchorType>> parseProperty(const char* name, const JSValue& value) {
@@ -360,6 +361,10 @@ template<> optional<Function<float>> parseProperty(const char* name, const JSVal
 
 template<> optional<Function<Color>> parseProperty(const char* name, const JSValue& value) {
     return parseFunction<Color>(name, value);
+}
+
+template<> optional<Function<std::vector<std::string>>> parseProperty(const char* name, const JSValue& value) {
+    return parseFunction<std::vector<std::string>>(name, value);
 }
 
 template <typename T>
