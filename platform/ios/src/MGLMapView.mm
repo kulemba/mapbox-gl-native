@@ -201,6 +201,7 @@ public:
     NSDate *_userLocationAnimationCompletionDate;
 
     BOOL _isWaitingForRedundantReachableNotification;
+    BOOL _isReachable;
     BOOL _isTargetingInterfaceBuilder;
 
     CLLocationDegrees _pendingLatitude;
@@ -334,7 +335,8 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
                                                object:nil];
 
     MGLReachability* reachability = [MGLReachability reachabilityForInternetConnection];
-    if ([reachability isReachable])
+    _isReachable = [reachability isReachable];
+    if (_isReachable)
     {
         _isWaitingForRedundantReachableNotification = YES;
     }
@@ -496,10 +498,13 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 - (void)reachabilityChanged:(NSNotification *)notification
 {
     MGLReachability *reachability = [notification object];
-    if ( ! _isWaitingForRedundantReachableNotification && [reachability isReachable])
+    [self willChangeValueForKey:@"reachable"];
+    _isReachable = [reachability isReachable];
+    if ( ! _isWaitingForRedundantReachableNotification && _isReachable)
     {
         mbgl::NetworkStatus::Reachable();
     }
+    [self didChangeValueForKey:@"reachable"];
     _isWaitingForRedundantReachableNotification = NO;
 }
 
@@ -1736,6 +1741,11 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 - (void)emptyMemoryCache
 {
     _mbglMap->onLowMemory();
+}
+
+- (BOOL)isReachable
+{
+    return _isReachable;
 }
 
 #pragma mark - Geography -
