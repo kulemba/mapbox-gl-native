@@ -1456,6 +1456,8 @@ MGL_EXPORT IB_DESIGNABLE
 
 - (void)emptyMemoryCache __attribute__((deprecated));
 
+@property (nonatomic, readonly, getter=isReachable) BOOL reachable;
+
 @end
 
 NS_ASSUME_NONNULL_END
