@@ -301,6 +301,7 @@ public:
     BOOL _isObservingTopLayoutGuide;
     BOOL _isObservingBottomLayoutGuide;
     BOOL _isWaitingForRedundantReachableNotification;
+    BOOL _isReachable;
     BOOL _isTargetingInterfaceBuilder;
 
     CLLocationDegrees _pendingLatitude;
@@ -656,10 +657,13 @@ public:
     MGLAssertIsMainThread();
 
     MGLReachability *reachability = [notification object];
-    if ( ! _isWaitingForRedundantReachableNotification && [reachability isReachable])
+    [self willChangeValueForKey:@"reachable"];
+    _isReachable = [reachability isReachable];
+    if ( ! _isWaitingForRedundantReachableNotification && _isReachable)
     {
         mbgl::NetworkStatus::Reachable();
     }
+    [self didChangeValueForKey:@"reachable"];
     _isWaitingForRedundantReachableNotification = NO;
 }
 
@@ -2203,6 +2207,11 @@ public:
 {
     _pitchEnabled = pitchEnabled;
     self.twoFingerDrag.enabled = pitchEnabled;
+}
+
+- (BOOL)isReachable
+{
+    return _isReachable;
 }
 
 #pragma mark - Accessibility -
