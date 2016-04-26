@@ -1241,14 +1241,15 @@ bool OfflineDatabase::exceedsOfflineMapboxTileCountLimit(const Resource& resourc
     
 void OfflineDatabase::checkURLTemplateIndexing()
 {
-    Statement checkTiles = getStatement("PRAGMA table_info(tiles)");
-    Statement checkURLTemplates = getStatement("PRAGMA table_info(url_templates)");
-    bool urlTemplatesPresent = checkURLTemplates->run();
+    mapbox::sqlite::Query checkTiles{ getStatement("PRAGMA table_info(tiles)") };
+    mapbox::sqlite::Query checkURLTemplates{ getStatement("PRAGMA table_info(url_templates)") };
+
+    bool urlTemplatesPresent = checkURLTemplates.run();
     bool urlTemplatePresent = false;
     bool urlTemplateIDPresent = false;
 
-    while (checkTiles->run()) {
-        std::string columnName = checkTiles->get<std::string>(1);
+    while (checkTiles.run()) {
+        std::string columnName = checkTiles.get<std::string>(1);
         if (columnName == "url_template") {
             urlTemplatePresent = true;
         } else if (columnName == "url_template_id") {
