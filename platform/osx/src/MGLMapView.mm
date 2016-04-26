@@ -1,12 +1,13 @@
 #import "MGLMapView_Private.h"
+#import "MGLAnnotationImage_Private.h"
 #import "MGLAttributionButton.h"
 #import "MGLCompassCell.h"
 #import "MGLOpenGLLayer.h"
 #import "MGLStyle.h"
 
-#import "../../darwin/src/MGLGeometry_Private.h"
-#import "../../darwin/src/MGLMultiPoint_Private.h"
-#import "../../darwin/src/MGLOfflineStorage_Private.h"
+#import "MGLGeometry_Private.h"
+#import "MGLMultiPoint_Private.h"
+#import "MGLOfflineStorage_Private.h"
 
 #import "MGLAccountManager.h"
 #import "MGLMapCamera.h"
@@ -31,10 +32,10 @@
 #import <map>
 #import <unordered_set>
 
-#import "../../darwin/src/NSBundle+MGLAdditions.h"
-#import "../../darwin/src/NSProcessInfo+MGLAdditions.h"
-#import "../../darwin/src/NSException+MGLAdditions.h"
-#import "../../darwin/src/NSString+MGLAdditions.h"
+#import "NSBundle+MGLAdditions.h"
+#import "NSProcessInfo+MGLAdditions.h"
+#import "NSException+MGLAdditions.h"
+#import "NSString+MGLAdditions.h"
 
 #import <QuartzCore/QuartzCore.h>
 
@@ -130,9 +131,8 @@ mbgl::Color MGLColorObjectFromNSColor(NSColor *color) {
 class MGLAnnotationContext {
 public:
     id <MGLAnnotation> annotation;
-    /// mbgl-given identifier for the annotation image used by this annotation.
-    /// Based on the annotation image’s reusable identifier.
-    NSString *symbolIdentifier;
+    /// The annotation’s image’s reuse identifier.
+    NSString *imageReuseIdentifier;
 };
 
 @interface MGLMapView () <NSPopoverDelegate, MGLMultiPointDelegate>
@@ -450,6 +450,9 @@ public:
     [self.calloutForSelectedAnnotation close];
     self.calloutForSelectedAnnotation = nil;
     
+    // Removing the annotations unregisters any outstanding KVO observers.
+    [self removeAnnotations:self.annotations];
+    
     if (_mbglMap) {
         delete _mbglMap;
         _mbglMap = nullptr;
@@ -460,10 +463,29 @@ public:
     }
 }
 
-- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(__unused id)object change:(__unused NSDictionary *)change context:(__unused void *)context {
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(__unused NSDictionary *)change context:(void *)context {
     if ([keyPath isEqualToString:@"contentLayoutRect"] ||
         [keyPath isEqualToString:@"titlebarAppearsTransparent"]) {
         [self adjustContentInsets];
+    } else if ([keyPath isEqualToString:@"coordinate"] &&
+               [object conformsToProtocol:@protocol(MGLAnnotation)] &&
+               ![object isKindOfClass:[MGLMultiPoint class]]) {
+        id <MGLAnnotation> annotation = object;
+        MGLAnnotationTag annotationTag = (MGLAnnotationTag)(NSUInteger)context;
+        // We can get here because a subclass registered itself as an observer
+        // of the coordinate key path of a non-multipoint annotation but failed
+        // to handle the change. This check deters us from treating the
+        // subclass’s context as an annotation tag. If the context happens to
+        // match a valid annotation tag, the annotation will be unnecessarily
+        // but safely updated.
+        if (annotation == [self annotationWithTag:annotationTag]) {
+            const mbgl::LatLng latLng = MGLLatLngFromLocationCoordinate2D(annotation.coordinate);
+            MGLAnnotationImage *annotationImage = [self imageOfAnnotationWithTag:annotationTag];
+            _mbglMap->updatePointAnnotation(annotationTag, { latLng, annotationImage.styleIconIdentifier.UTF8String ?: "" });
+            if (annotationTag == _selectedAnnotationTag) {
+                [self deselectAnnotation:annotation];
+            }
+        }
     }
 }
 
@@ -981,14 +1003,8 @@ public:
 }
 
 - (MGLMapCamera *)camera {
-    CGFloat pitch = _mbglMap->getPitch();
-    CLLocationDistance altitude = MGLAltitudeForZoomLevel(self.zoomLevel, pitch,
-                                                          self.centerCoordinate.latitude,
-                                                          self.frame.size);
-    return [MGLMapCamera cameraLookingAtCenterCoordinate:self.centerCoordinate
-                                            fromDistance:altitude
-                                                   pitch:pitch
-                                                 heading:self.direction];
+    mbgl::EdgeInsets padding = MGLEdgeInsetsFromNSEdgeInsets(self.contentInsets);
+    return [self cameraForCameraOptions:_mbglMap->getCameraOptions(padding)];
 }
 
 - (void)setCamera:(MGLMapCamera *)camera {
@@ -1118,6 +1134,31 @@ public:
         [self didChangeValueForKey:@"visibleCoordinateBounds"];
     };
     _mbglMap->easeTo(cameraOptions, animationOptions);
+}
+
+- (MGLMapCamera *)cameraThatFitsCoordinateBounds:(MGLCoordinateBounds)bounds {
+    return [self cameraThatFitsCoordinateBounds:bounds edgePadding:NSEdgeInsetsZero];
+}
+
+- (MGLMapCamera *)cameraThatFitsCoordinateBounds:(MGLCoordinateBounds)bounds edgePadding:(NSEdgeInsets)insets {
+    mbgl::EdgeInsets padding = MGLEdgeInsetsFromNSEdgeInsets(insets);
+    padding += MGLEdgeInsetsFromNSEdgeInsets(self.contentInsets);
+    mbgl::CameraOptions cameraOptions = _mbglMap->cameraForLatLngBounds(MGLLatLngBoundsFromCoordinateBounds(bounds), padding);
+    return [self cameraForCameraOptions:cameraOptions];
+}
+
+- (MGLMapCamera *)cameraForCameraOptions:(const mbgl::CameraOptions &)cameraOptions {
+    CLLocationCoordinate2D centerCoordinate = MGLLocationCoordinate2DFromLatLng(cameraOptions.center ? *cameraOptions.center : _mbglMap->getLatLng());
+    double zoomLevel = cameraOptions.zoom ? *cameraOptions.zoom : self.zoomLevel;
+    CLLocationDirection direction = cameraOptions.angle ? -MGLDegreesFromRadians(*cameraOptions.angle) : self.direction;
+    CGFloat pitch = cameraOptions.pitch ? MGLDegreesFromRadians(*cameraOptions.pitch) : _mbglMap->getPitch();
+    CLLocationDistance altitude = MGLAltitudeForZoomLevel(zoomLevel, pitch,
+                                                          centerCoordinate.latitude,
+                                                          self.frame.size);
+    return [MGLMapCamera cameraLookingAtCenterCoordinate:centerCoordinate
+                                            fromDistance:altitude
+                                                   pitch:pitch
+                                                 heading:direction];
 }
 
 - (void)setAutomaticallyAdjustsContentInsets:(BOOL)automaticallyAdjustsContentInsets {
@@ -1539,6 +1580,7 @@ public:
     
     std::vector<mbgl::PointAnnotation> points;
     std::vector<mbgl::ShapeAnnotation> shapes;
+    NSMutableArray *annotationImages = [NSMutableArray arrayWithCapacity:annotations.count];
     
     for (id <MGLAnnotation> annotation in annotations) {
         NSAssert([annotation conformsToProtocol:@protocol(MGLAnnotation)], @"Annotation does not conform to MGLAnnotation");
@@ -1555,25 +1597,22 @@ public:
                 annotationImage = [self dequeueReusableAnnotationImageWithIdentifier:MGLDefaultStyleMarkerSymbolName];
             }
             if (!annotationImage) {
-                // Create a default annotation image that depicts a round pin
-                // rising from the center, with a shadow slightly below center.
-                // The alignment rect therefore excludes the bottom half.
-                NSImage *image = MGLDefaultMarkerImage();
-                NSRect alignmentRect = image.alignmentRect;
-                alignmentRect.origin.y = NSMidY(alignmentRect);
-                alignmentRect.size.height /= 2;
-                image.alignmentRect = alignmentRect;
-                annotationImage = [MGLAnnotationImage annotationImageWithImage:image
-                                                               reuseIdentifier:MGLDefaultStyleMarkerSymbolName];
+                annotationImage = self.defaultAnnotationImage;
+            }
+            
+            NSString *symbolName = annotationImage.styleIconIdentifier;
+            if (!symbolName) {
+                symbolName = [MGLAnnotationSpritePrefix stringByAppendingString:annotationImage.reuseIdentifier];
+                annotationImage.styleIconIdentifier = symbolName;
             }
             
             if (!self.annotationImagesByIdentifier[annotationImage.reuseIdentifier]) {
                 self.annotationImagesByIdentifier[annotationImage.reuseIdentifier] = annotationImage;
                 [self installAnnotationImage:annotationImage];
             }
+            [annotationImages addObject:annotationImage];
             
-            NSString *symbolName = [MGLAnnotationSpritePrefix stringByAppendingString:annotationImage.reuseIdentifier];
-            points.emplace_back(MGLLatLngFromLocationCoordinate2D(annotation.coordinate), symbolName ? [symbolName UTF8String] : "");
+            points.emplace_back(MGLLatLngFromLocationCoordinate2D(annotation.coordinate), symbolName.UTF8String ?: "");
             
             // Opt into potentially expensive tooltip tracking areas.
             if (annotation.toolTip.length) {
@@ -1584,24 +1623,37 @@ public:
     
     // Add any point annotations to mbgl and our own index.
     if (points.size()) {
-        std::vector<MGLAnnotationTag> pointAnnotationTags = _mbglMap->addPointAnnotations(points);
+        std::vector<MGLAnnotationTag> annotationTags = _mbglMap->addPointAnnotations(points);
         
-        for (size_t i = 0; i < pointAnnotationTags.size(); ++i) {
+        for (size_t i = 0; i < annotationTags.size(); ++i) {
+            MGLAnnotationTag annotationTag = annotationTags[i];
+            MGLAnnotationImage *annotationImage = annotationImages[i];
+            annotationImage.styleIconIdentifier = @(points[i].icon.c_str());
+            id <MGLAnnotation> annotation = annotations[i];
+            
             MGLAnnotationContext context;
-            context.annotation = annotations[i];
-            context.symbolIdentifier = @(points[i].icon.c_str());
-            _annotationContextsByAnnotationTag[pointAnnotationTags[i]] = context;
+            context.annotation = annotation;
+            context.imageReuseIdentifier = annotationImage.reuseIdentifier;
+            _annotationContextsByAnnotationTag[annotationTag] = context;
+            
+            if ([annotation isKindOfClass:[NSObject class]]) {
+                NSAssert(![annotation isKindOfClass:[MGLMultiPoint class]], @"Point annotation should not be MGLMultiPoint.");
+                [(NSObject *)annotation addObserver:self forKeyPath:@"coordinate" options:0 context:(void *)(NSUInteger)annotationTag];
+            }
         }
     }
     
     // Add any shape annotations to mbgl and our own index.
     if (shapes.size()) {
-        std::vector<MGLAnnotationTag> shapeAnnotationTags = _mbglMap->addShapeAnnotations(shapes);
+        std::vector<MGLAnnotationTag> annotationTags = _mbglMap->addShapeAnnotations(shapes);
         
-        for (size_t i = 0; i < shapeAnnotationTags.size(); ++i) {
+        for (size_t i = 0; i < annotationTags.size(); ++i) {
+            MGLAnnotationTag annotationTag = annotationTags[i];
+            id <MGLAnnotation> annotation = annotations[i];
+            
             MGLAnnotationContext context;
-            context.annotation = annotations[i];
-            _annotationContextsByAnnotationTag[shapeAnnotationTags[i]] = context;
+            context.annotation = annotation;
+            _annotationContextsByAnnotationTag[annotationTag] = context;
         }
     }
     
@@ -1610,9 +1662,25 @@ public:
     [self updateAnnotationTrackingAreas];
 }
 
+/// Initializes and returns a default annotation image that depicts a round pin
+/// rising from the center, with a shadow slightly below center. The alignment
+/// rect therefore excludes the bottom half.
+- (MGLAnnotationImage *)defaultAnnotationImage {
+    NSImage *image = MGLDefaultMarkerImage();
+    NSRect alignmentRect = image.alignmentRect;
+    alignmentRect.origin.y = NSMidY(alignmentRect);
+    alignmentRect.size.height /= 2;
+    image.alignmentRect = alignmentRect;
+    return [MGLAnnotationImage annotationImageWithImage:image
+                                        reuseIdentifier:MGLDefaultStyleMarkerSymbolName];
+}
+
 /// Sends the raw pixel data of the annotation image’s image to mbgl and
 /// calculates state needed for hit testing later.
 - (void)installAnnotationImage:(MGLAnnotationImage *)annotationImage {
+    NSString *iconIdentifier = annotationImage.styleIconIdentifier;
+    self.annotationImagesByIdentifier[annotationImage.reuseIdentifier] = annotationImage;
+    
     NSImage *image = annotationImage.image;
     NSSize size = image.size;
     if (size.width == 0 || size.height == 0 || !image.valid) {
@@ -1634,8 +1702,7 @@ public:
     std::copy(rep.bitmapData, rep.bitmapData + cPremultipliedImage.size(), cPremultipliedImage.data.get());
     auto cSpriteImage = std::make_shared<mbgl::SpriteImage>(std::move(cPremultipliedImage),
                                                             (float)(rep.pixelsWide / size.width));
-    NSString *symbolName = [MGLAnnotationSpritePrefix stringByAppendingString:annotationImage.reuseIdentifier];
-    _mbglMap->addAnnotationIcon(symbolName.UTF8String, cSpriteImage);
+    _mbglMap->addAnnotationIcon(iconIdentifier.UTF8String, cSpriteImage);
     
     // Create a slop area with a “radius” equal to the annotation image’s entire
     // size, allowing the eventual click to be on any point within this image.
@@ -1678,6 +1745,11 @@ public:
         }
         
         _annotationContextsByAnnotationTag.erase(annotationTag);
+        
+        if ([annotation isKindOfClass:[NSObject class]] &&
+            ![annotation isKindOfClass:[MGLMultiPoint class]]) {
+            [(NSObject *)annotation removeObserver:self forKeyPath:@"coordinate" context:(void *)(NSUInteger)annotationTag];
+        }
     }
     
     [self willChangeValueForKey:@"annotations"];
@@ -1688,11 +1760,6 @@ public:
 }
 
 - (nullable MGLAnnotationImage *)dequeueReusableAnnotationImageWithIdentifier:(NSString *)identifier {
-    // This prefix is used to avoid collisions with style-defined sprites in
-    // mbgl, but reusable identifiers are never prefixed.
-    if ([identifier hasPrefix:MGLAnnotationSpritePrefix]) {
-        identifier = [identifier substringFromIndex:MGLAnnotationSpritePrefix.length];
-    }
     return self.annotationImagesByIdentifier[identifier];
 }
 
@@ -1951,6 +2018,9 @@ public:
     }
     NSImage *image = [self imageOfAnnotationWithTag:annotationTag].image;
     if (!image) {
+        image = [self dequeueReusableAnnotationImageWithIdentifier:MGLDefaultStyleMarkerSymbolName].image;
+    }
+    if (!image) {
         return NSZeroRect;
     }
     
@@ -1974,7 +2044,7 @@ public:
         return nil;
     }
     
-    NSString *customSymbol = _annotationContextsByAnnotationTag.at(annotationTag).symbolIdentifier;
+    NSString *customSymbol = _annotationContextsByAnnotationTag.at(annotationTag).imageReuseIdentifier;
     NSString *symbolName = customSymbol.length ? customSymbol : MGLDefaultStyleMarkerSymbolName;
     
     return [self dequeueReusableAnnotationImageWithIdentifier:symbolName];

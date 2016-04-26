@@ -1,4 +1,6 @@
 #import "MBXViewController.h"
+
+#import "MBXAppDelegate.h"
 #import "MBXCustomCalloutView.h"
 #import "MBXOfflinePacksTableViewController.h"
 
@@ -40,7 +42,6 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
             @"MBXUserTrackingMode": @(MGLUserTrackingModeNone),
             @"MBXShowsUserLocation": @NO,
             @"MBXDebug": @NO,
-            @"MGLTelemetryTestServerURL": @"https://cloudfront-staging.tilestream.net",
         }];
     }
 }
@@ -53,10 +54,48 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(restoreState:) name:UIApplicationWillEnterForegroundNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(saveState:) name:UIApplicationWillTerminateNotification object:nil];
 
-    self.styleIndex = -1;
-    [self cycleStyles:self];
-
     [self restoreState:nil];
+}
+
+- (void)viewDidAppear:(BOOL)animated
+{
+    [super viewDidAppear:animated];
+    
+    if ([MGLAccountManager accessToken].length)
+    {
+        self.styleIndex = -1;
+        [self cycleStyles:self];
+    }
+    else
+    {
+        UIAlertController *alertController = [UIAlertController alertControllerWithTitle:@"Access Token" message:@"Enter your Mapbox access token to load Mapbox-hosted tiles and styles:" preferredStyle:UIAlertControllerStyleAlert];
+        [alertController addTextFieldWithConfigurationHandler:^(UITextField * _Nonnull textField)
+         {
+             textField.keyboardType = UIKeyboardTypeURL;
+             textField.autocorrectionType = UITextAutocorrectionTypeNo;
+             textField.autocapitalizationType = UITextAutocapitalizationTypeNone;
+         }];
+        
+        [alertController addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+        UIAlertAction *OKAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action)
+        {
+            UITextField *textField = alertController.textFields.firstObject;
+            NSString *accessToken = textField.text;
+            [[NSUserDefaults standardUserDefaults] setObject:accessToken forKey:MBXMapboxAccessTokenDefaultsKey];
+            [MGLAccountManager setAccessToken:accessToken];
+            
+            self.styleIndex = -1;
+            [self cycleStyles:self];
+            [self.mapView reloadStyle:self];
+        }];
+        [alertController addAction:OKAction];
+        
+        if ([alertController respondsToSelector:@selector(setPreferredAction:)])
+        {
+            alertController.preferredAction = OKAction;
+        }
+        [self presentViewController:alertController animated:YES completion:nil];
+    }
 }
 
 - (void)saveState:(__unused NSNotification *)notification
@@ -129,7 +168,6 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
                             ((debugMask & MGLMapDebugCollisionBoxesMask)
                              ? @"Hide Collision Boxes"
                              : @"Show Collision Boxes"),
-                            @"Empty Memory",
                             @"Add 100 Points",
                             @"Add 1,000 Points",
                             @"Add 10,000 Points",
@@ -171,21 +209,17 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
     }
     else if (buttonIndex == actionSheet.firstOtherButtonIndex + 5)
     {
-        [self.mapView emptyMemoryCache];
+        [self parseFeaturesAddingCount:100];
     }
     else if (buttonIndex == actionSheet.firstOtherButtonIndex + 6)
     {
-        [self parseFeaturesAddingCount:100];
+        [self parseFeaturesAddingCount:1000];
     }
     else if (buttonIndex == actionSheet.firstOtherButtonIndex + 7)
     {
-        [self parseFeaturesAddingCount:1000];
-    }
-    else if (buttonIndex == actionSheet.firstOtherButtonIndex + 8)
-    {
         [self parseFeaturesAddingCount:10000];
     }
-    else if (buttonIndex == actionSheet.firstOtherButtonIndex + 9)
+    else if (buttonIndex == actionSheet.firstOtherButtonIndex + 8)
     {
         // PNW triangle
         //
@@ -252,19 +286,19 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
             free(polygonCoordinates);
         }
     }
-    else if (buttonIndex == actionSheet.firstOtherButtonIndex + 10)
+    else if (buttonIndex == actionSheet.firstOtherButtonIndex + 9)
     {
         [self startWorldTour:actionSheet];
     }
-    else if (buttonIndex == actionSheet.firstOtherButtonIndex + 11)
+    else if (buttonIndex == actionSheet.firstOtherButtonIndex + 10)
     {
         [self presentAnnotationWithCustomCallout];
     }
-    else if (buttonIndex == actionSheet.firstOtherButtonIndex + 12)
+    else if (buttonIndex == actionSheet.firstOtherButtonIndex + 11)
     {
         [self.mapView removeAnnotations:self.mapView.annotations];
     }
-    else if (buttonIndex == actionSheet.firstOtherButtonIndex + 13)
+    else if (buttonIndex == actionSheet.firstOtherButtonIndex + 12)
     {
         if (_isShowingCustomStyleLayer)
         {
@@ -275,12 +309,12 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
             [self insertCustomStyleLayer];
         }
     }
-    else if (buttonIndex == actionSheet.firstOtherButtonIndex + 14)
+    else if (buttonIndex == actionSheet.firstOtherButtonIndex + 13)
     {
         NSString *fileContents = [NSString stringWithContentsOfFile:[self telemetryDebugLogfilePath] encoding:NSUTF8StringEncoding error:nil];
         NSLog(@"%@", fileContents);
     }
-    else if (buttonIndex == actionSheet.firstOtherButtonIndex + 15)
+    else if (buttonIndex == actionSheet.firstOtherButtonIndex + 14)
     {
         NSString *filePath = [self telemetryDebugLogfilePath];
         if ([[NSFileManager defaultManager] isDeletableFileAtPath:filePath]) {
@@ -416,7 +450,7 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
         point.coordinate = [self.mapView convertPoint:[longPress locationInView:longPress.view]
                                  toCoordinateFromView:self.mapView];
         point.title = @"Dropped Marker";
-        point.subtitle = [NSString stringWithFormat:@"lat: %.3f, lon: %.3f", point.coordinate.latitude, point.coordinate.longitude];
+        point.subtitle = [[[MGLCoordinateFormatter alloc] init] stringFromCoordinate:point.coordinate];
         [self.mapView addAnnotation:point];
         [self.mapView selectAnnotation:point animated:YES];
     }
@@ -570,50 +604,68 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
     if (!title.length) return nil;
     NSString *lastTwoCharacters = [title substringFromIndex:title.length - 2];
 
-    UIColor *color;
+    MGLAnnotationImage *annotationImage = [mapView dequeueReusableAnnotationImageWithIdentifier:lastTwoCharacters];
 
-    // make every tenth annotation blue
-    if ([lastTwoCharacters hasSuffix:@"0"]) {
-        color = [UIColor blueColor];
-    } else {
-        color = [UIColor redColor];
-    }
-
-    MGLAnnotationImage *image = [mapView dequeueReusableAnnotationImageWithIdentifier:lastTwoCharacters];
-
-    if ( ! image)
+    if ( ! annotationImage)
     {
-        CGRect rect = CGRectMake(0, 0, 20, 15);
-
-        UIGraphicsBeginImageContextWithOptions(rect.size, NO, [[UIScreen mainScreen] scale]);
-
-        CGContextRef ctx = UIGraphicsGetCurrentContext();
-
-        CGContextSetFillColorWithColor(ctx, [[color colorWithAlphaComponent:0.75] CGColor]);
-        CGContextFillRect(ctx, rect);
-
-        CGContextSetStrokeColorWithColor(ctx, [[UIColor blackColor] CGColor]);
-        CGContextStrokeRectWithWidth(ctx, rect, 2);
-
-        NSAttributedString *drawString = [[NSAttributedString alloc] initWithString:lastTwoCharacters attributes:@{
-            NSFontAttributeName: [UIFont fontWithName:@"Arial-BoldMT" size:12],
-            NSForegroundColorAttributeName: [UIColor whiteColor] }];
-        CGSize stringSize = drawString.size;
-        CGRect stringRect = CGRectMake((rect.size.width - stringSize.width) / 2,
-                                       (rect.size.height - stringSize.height) / 2,
-                                       stringSize.width,
-                                       stringSize.height);
-        [drawString drawInRect:stringRect];
-
-        image = [MGLAnnotationImage annotationImageWithImage:UIGraphicsGetImageFromCurrentImageContext() reuseIdentifier:lastTwoCharacters];
+        UIColor *color;
+        
+        // make every tenth annotation blue
+        if ([lastTwoCharacters hasSuffix:@"0"]) {
+            color = [UIColor blueColor];
+        } else {
+            color = [UIColor redColor];
+        }
+        
+        UIImage *image = [self imageWithText:lastTwoCharacters backgroundColor:color];
+        annotationImage = [MGLAnnotationImage annotationImageWithImage:image reuseIdentifier:lastTwoCharacters];
 
         // don't allow touches on blue annotations
-        if ([color isEqual:[UIColor blueColor]]) image.enabled = NO;
-
-        UIGraphicsEndImageContext();
+        if ([color isEqual:[UIColor blueColor]]) annotationImage.enabled = NO;
     }
 
+    return annotationImage;
+}
+
+- (UIImage *)imageWithText:(NSString *)text backgroundColor:(UIColor *)color
+{
+    CGRect rect = CGRectMake(0, 0, 20, 15);
+    
+    UIGraphicsBeginImageContextWithOptions(rect.size, NO, [[UIScreen mainScreen] scale]);
+    
+    CGContextRef ctx = UIGraphicsGetCurrentContext();
+    
+    CGContextSetFillColorWithColor(ctx, [[color colorWithAlphaComponent:0.75] CGColor]);
+    CGContextFillRect(ctx, rect);
+    
+    CGContextSetStrokeColorWithColor(ctx, [[UIColor blackColor] CGColor]);
+    CGContextStrokeRectWithWidth(ctx, rect, 2);
+    
+    NSAttributedString *drawString = [[NSAttributedString alloc] initWithString:text attributes:@{
+        NSFontAttributeName: [UIFont fontWithName:@"Arial-BoldMT" size:12],
+        NSForegroundColorAttributeName: [UIColor whiteColor],
+    }];
+    CGSize stringSize = drawString.size;
+    CGRect stringRect = CGRectMake((rect.size.width - stringSize.width) / 2,
+                                   (rect.size.height - stringSize.height) / 2,
+                                   stringSize.width,
+                                   stringSize.height);
+    [drawString drawInRect:stringRect];
+    
+    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
     return image;
+}
+
+- (void)mapView:(MGLMapView *)mapView didDeselectAnnotation:(id<MGLAnnotation>)annotation {
+    NSString *title = [(MGLPointAnnotation *)annotation title];
+    if ( ! title.length)
+    {
+        return;
+    }
+    NSString *lastTwoCharacters = [title substringFromIndex:title.length - 2];
+    MGLAnnotationImage *annotationImage = [mapView dequeueReusableAnnotationImageWithIdentifier:lastTwoCharacters];
+    annotationImage.image = annotationImage.image ? nil : [self imageWithText:lastTwoCharacters backgroundColor:[UIColor grayColor]];
 }
 
 - (BOOL)mapView:(__unused MGLMapView *)mapView annotationCanShowCallout:(__unused id <MGLAnnotation>)annotation
@@ -675,6 +727,17 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
         return calloutView;
     }
     return nil;
+}
+
+- (void)mapView:(MGLMapView *)mapView tapOnCalloutForAnnotation:(id <MGLAnnotation>)annotation
+{
+    if ( ! [annotation isKindOfClass:[MGLPointAnnotation class]])
+    {
+        return;
+    }
+    
+    MGLPointAnnotation *point = annotation;
+    point.coordinate = [self.mapView convertPoint:self.mapView.center toCoordinateFromView:self.mapView];
 }
 
 @end

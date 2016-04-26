@@ -161,11 +161,17 @@ public:
         supplementaryOfflineDatabases.erase(cachePath);
         for (auto i = supplementaryCachePaths.begin(); i != supplementaryCachePaths.end(); ++ i) {
             auto &latLngBoundsCachePathTree = i->second;
-            auto qCachePathsBegin = latLngBoundsCachePathTree.qbegin(boost::geometry::index::satisfies([cachePath] (const LatLngBoundsCachePath &latLngBoundsCachePath) {
-                return latLngBoundsCachePath.second == cachePath;
-            }));
-            auto qCachePathsEnd = latLngBoundsCachePathTree.qend();
-            latLngBoundsCachePathTree.remove(qCachePathsBegin, qCachePathsEnd);
+            bool completed = false;
+            while (! completed) {
+                auto qCachePathsBegin = latLngBoundsCachePathTree.qbegin(boost::geometry::index::satisfies([cachePath] (const LatLngBoundsCachePath &latLngBoundsCachePath) {
+                    return latLngBoundsCachePath.second == cachePath;
+                }));
+                auto qCachePathsEnd = latLngBoundsCachePathTree.qend();
+                if (qCachePathsBegin == qCachePathsEnd)
+                    completed = true;
+                else
+                    latLngBoundsCachePathTree.remove(*qCachePathsBegin);
+            }
         }
     }
     
@@ -268,11 +274,11 @@ void DefaultFileSource::setOfflineMapboxTileCountLimit(uint64_t limit) const {
 }
 
 void DefaultFileSource::addSupplementaryOfflineDatabase(Resource::Kind kind, optional<LatLngBounds> latLngBounds, const std::string& cachePath) {
-    thread->invoke(&Impl::addSupplementaryOfflineDatabase, kind, latLngBounds, cachePath);
+    thread->invokeSync(&Impl::addSupplementaryOfflineDatabase, kind, latLngBounds, cachePath);
 }
 
 void DefaultFileSource::removeSupplementaryOfflineDatabases(const std::string& cachePath) {
-    thread->invoke(&Impl::removeSupplementaryOfflineDatabases, cachePath);
+    thread->invokeSync(&Impl::removeSupplementaryOfflineDatabases, cachePath);
 }
 
 // For testing only:

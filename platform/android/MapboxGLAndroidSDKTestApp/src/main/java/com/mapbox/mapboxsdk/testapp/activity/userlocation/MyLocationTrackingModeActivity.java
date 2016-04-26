@@ -4,6 +4,7 @@ import android.location.Location;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.StringDef;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
@@ -24,6 +25,7 @@ import com.mapbox.mapboxsdk.maps.MapView;
 import com.mapbox.mapboxsdk.maps.MapboxMap;
 import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
 import com.mapbox.mapboxsdk.maps.TrackingSettings;
+import com.mapbox.mapboxsdk.maps.widgets.MyLocationViewSettings;
 import com.mapbox.mapboxsdk.testapp.R;
 
 public class MyLocationTrackingModeActivity extends AppCompatActivity implements MapboxMap.OnMyLocationChangeListener, AdapterView.OnItemSelectedListener {
@@ -49,12 +51,15 @@ public class MyLocationTrackingModeActivity extends AppCompatActivity implements
         }
 
         mMapView = (MapView) findViewById(R.id.mapView);
-        mMapView.setAccessToken(getString(R.string.mapbox_access_token));
         mMapView.onCreate(savedInstanceState);
         mMapView.getMapAsync(new OnMapReadyCallback() {
             @Override
             public void onMapReady(@NonNull MapboxMap mapboxMap) {
                 mMapboxMap = mapboxMap;
+
+                // disable dismissal when a gesture occurs
+                mMapboxMap.getTrackingSettings().setDismissTrackingOnGesture(false);
+                mMapboxMap.getTrackingSettings().setDismissBearingTrackingOnGesture(false);
 
                 mapboxMap.setOnMyLocationChangeListener(MyLocationTrackingModeActivity.this);
 
@@ -70,14 +75,6 @@ public class MyLocationTrackingModeActivity extends AppCompatActivity implements
                 mBearingSpinner.setAdapter(bearingTrackingAdapter);
                 mBearingSpinner.setOnItemSelectedListener(MyLocationTrackingModeActivity.this);
 
-                try {
-                    mapboxMap.setMyLocationEnabled(true);
-                } catch (SecurityException e) {
-                    //should not occur, permission was checked in FeatureOverviewActivity
-                    Toast.makeText(MyLocationTrackingModeActivity.this,
-                            "Location permission is not available", Toast.LENGTH_SHORT).show();
-                    finish();
-                }
 
                 mapboxMap.setOnMyLocationTrackingModeChangeListener(new MapboxMap.OnMyLocationTrackingModeChangeListener() {
                     @Override
@@ -110,6 +107,7 @@ public class MyLocationTrackingModeActivity extends AppCompatActivity implements
             if (mLocation == null) {
                 // initial location to reposition map
                 mMapboxMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(location.getLatitude(), location.getLongitude()), 14));
+                mMapboxMap.setMyLocationEnabled(true);
                 mLocationSpinner.setEnabled(true);
                 mBearingSpinner.setEnabled(true);
             }
@@ -129,6 +127,10 @@ public class MyLocationTrackingModeActivity extends AppCompatActivity implements
             desc += String.format("Alt = %.0f m ", mLocation.getAltitude());
             noInfo = false;
         }
+        if(mLocation.hasAccuracy()){
+            desc += String.format("Acc = %.0f m",mLocation.getAccuracy());
+        }
+
         if (noInfo) {
             desc += "No extra info";
         }
@@ -208,16 +210,22 @@ public class MyLocationTrackingModeActivity extends AppCompatActivity implements
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
+        boolean state;
         switch (item.getItemId()) {
             case android.R.id.home:
                 onBackPressed();
                 return true;
             case R.id.action_toggle_dismissible_tracking:
-                boolean state = !item.isChecked();
-                mMapboxMap.getTrackingSettings().setDismissTrackingOnGesture(state);
+                state = !item.isChecked();
+                mMapboxMap.getTrackingSettings().setDismissLocationTrackingOnGesture(state);
                 Toast.makeText(this, "Dismiss tracking mode on gesture = " + state, Toast.LENGTH_SHORT).show();
                 item.setChecked(state);
                 return true;
+            case R.id.action_toggle_dismissible_bearing:
+                state = !item.isChecked();
+                mMapboxMap.getTrackingSettings().setDismissBearingTrackingOnGesture(state);
+                Toast.makeText(this, "Dismiss bearing mode on gesture = " + state, Toast.LENGTH_SHORT).show();
+                item.setChecked(state);
             default:
                 return super.onOptionsItemSelected(item);
         }
