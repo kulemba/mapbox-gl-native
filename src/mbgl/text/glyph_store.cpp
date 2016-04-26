@@ -11,9 +11,9 @@ GlyphStore::GlyphStore(FileSource& fileSource_)
 
 GlyphStore::~GlyphStore() = default;
 
-void GlyphStore::requestGlyphRange(const std::string& fontStackName, const GlyphRange& range) {
+void GlyphStore::requestGlyphRange(const FontStack& fontStack, const GlyphRange& range) {
     std::lock_guard<std::mutex> lock(rangesMutex);
-    auto& rangeSets = ranges[fontStackName];
+    auto& rangeSets = ranges[fontStack];
 
     const auto& rangeSetsIt = rangeSets.find(range);
     if (rangeSetsIt != rangeSets.end()) {
@@ -21,17 +21,17 @@ void GlyphStore::requestGlyphRange(const std::string& fontStackName, const Glyph
     }
 
     rangeSets.emplace(range,
-        std::make_unique<GlyphPBF>(this, fontStackName, range, observer, fileSource));
+        std::make_unique<GlyphPBF>(this, fontStack, range, observer, fileSource));
 }
 
 
-bool GlyphStore::hasGlyphRanges(const std::string& fontStackName, const std::set<GlyphRange>& glyphRanges) {
+bool GlyphStore::hasGlyphRanges(const FontStack& fontStack, const std::set<GlyphRange>& glyphRanges) {
     if (glyphRanges.empty()) {
         return true;
     }
 
     std::lock_guard<std::mutex> lock(rangesMutex);
-    const auto& rangeSets = ranges[fontStackName];
+    const auto& rangeSets = ranges[fontStack];
 
     bool hasRanges = true;
     for (const auto& range : glyphRanges) {
@@ -39,7 +39,7 @@ bool GlyphStore::hasGlyphRanges(const std::string& fontStackName, const std::set
         if (rangeSetsIt == rangeSets.end()) {
             // Push the request to the MapThread, so we can easly cancel
             // if it is still pending when we destroy this object.
-            workQueue.push(std::bind(&GlyphStore::requestGlyphRange, this, fontStackName, range));
+            workQueue.push(std::bind(&GlyphStore::requestGlyphRange, this, fontStack, range));
 
             hasRanges = false;
             continue;
@@ -53,15 +53,15 @@ bool GlyphStore::hasGlyphRanges(const std::string& fontStackName, const std::set
     return hasRanges;
 }
 
-util::exclusive<FontStack> GlyphStore::getFontStack(const std::string& fontStack) {
-    auto lock = std::make_unique<std::lock_guard<std::mutex>>(stacksMutex);
+util::exclusive<GlyphSet> GlyphStore::getGlyphSet(const FontStack& fontStack) {
+    auto lock = std::make_unique<std::lock_guard<std::mutex>>(glyphSetsMutex);
 
-    auto it = stacks.find(fontStack);
-    if (it == stacks.end()) {
-        it = stacks.emplace(fontStack, std::make_unique<FontStack>()).first;
+    auto it = glyphSets.find(fontStack);
+    if (it == glyphSets.end()) {
+        it = glyphSets.emplace(fontStack, std::make_unique<GlyphSet>()).first;
     }
 
-    // FIXME: We lock all FontStacks, but what we should
+    // FIXME: We lock all GlyphSets, but what we should
     // really do is lock only the one we are returning.
     return { it->second.get(), std::move(lock) };
 }

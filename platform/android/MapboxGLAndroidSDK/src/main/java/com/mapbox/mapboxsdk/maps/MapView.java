@@ -19,6 +19,7 @@ import android.graphics.Canvas;
 import android.graphics.PointF;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
+import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -78,7 +79,10 @@ import com.mapbox.mapboxsdk.exceptions.TelemetryServiceNotConfiguredException;
 import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.geometry.LatLngBounds;
 import com.mapbox.mapboxsdk.layers.CustomLayer;
+import com.mapbox.mapboxsdk.location.LocationListener;
+import com.mapbox.mapboxsdk.location.LocationServices;
 import com.mapbox.mapboxsdk.maps.widgets.CompassView;
+import com.mapbox.mapboxsdk.maps.widgets.MyLocationViewSettings;
 import com.mapbox.mapboxsdk.maps.widgets.UserLocationView;
 import com.mapbox.mapboxsdk.telemetry.MapboxEvent;
 import com.mapbox.mapboxsdk.telemetry.MapboxEventManager;
@@ -259,6 +263,7 @@ public class MapView extends FrameLayout {
         if (!TextUtils.isEmpty(style)) {
             mMapboxMap.setStyleUrl(style);
         }
+
 
         mMapboxMap.setMyLocationEnabled(options.getLocationEnabled());
 
@@ -468,11 +473,11 @@ public class MapView extends FrameLayout {
         outState.putBoolean(MapboxConstants.STATE_ZOOM_ENABLED, uiSettings.isZoomGesturesEnabled());
         outState.putBoolean(MapboxConstants.STATE_ZOOM_ENABLED_CHANGE, uiSettings.isZoomGestureChangeAllowed());
         outState.putBoolean(MapboxConstants.STATE_SCROLL_ENABLED, uiSettings.isScrollGesturesEnabled());
-        outState.putBoolean(MapboxConstants.STATE_SCROLL_ENABLED_CHANGE,uiSettings.isScrollGestureChangeAllowed());
+        outState.putBoolean(MapboxConstants.STATE_SCROLL_ENABLED_CHANGE, uiSettings.isScrollGestureChangeAllowed());
         outState.putBoolean(MapboxConstants.STATE_ROTATE_ENABLED, uiSettings.isRotateGesturesEnabled());
-        outState.putBoolean(MapboxConstants.STATE_ROTATE_ENABLED_CHANGE,uiSettings.isRotateGestureChangeAllowed());
+        outState.putBoolean(MapboxConstants.STATE_ROTATE_ENABLED_CHANGE, uiSettings.isRotateGestureChangeAllowed());
         outState.putBoolean(MapboxConstants.STATE_TILT_ENABLED, uiSettings.isTiltGesturesEnabled());
-        outState.putBoolean(MapboxConstants.STATE_TILT_ENABLED_CHANGE,uiSettings.isTiltGestureChangeAllowed());
+        outState.putBoolean(MapboxConstants.STATE_TILT_ENABLED_CHANGE, uiSettings.isTiltGestureChangeAllowed());
         outState.putBoolean(MapboxConstants.STATE_ZOOM_CONTROLS_ENABLED, uiSettings.isZoomControlsEnabled());
 
         // UiSettings - Compass
@@ -587,8 +592,10 @@ public class MapView extends FrameLayout {
         if (duration != null) {
             actualDuration = duration;
         }
+        mUserLocationView.setTilt(pitch);
         mNativeMapView.setPitch(pitch, actualDuration);
     }
+
 
     //
     // Direction
@@ -888,22 +895,17 @@ public class MapView extends FrameLayout {
         if (mDestroyed) {
             return new LatLng();
         }
-        float x = point.x;
-        float y = point.y;
-
-        return mNativeMapView.latLngForPixel(new PointF(x / mScreenDensity, y / mScreenDensity));
+        point.set(point.x / mScreenDensity, point.y / mScreenDensity);
+        return mNativeMapView.latLngForPixel(point);
     }
 
     PointF toScreenLocation(@NonNull LatLng location) {
-        if (mDestroyed) {
+        if (mDestroyed || location == null) {
             return new PointF();
         }
-        PointF point = mNativeMapView.pixelForLatLng(location);
-
-        float x = point.x * mScreenDensity;
-        float y = point.y * mScreenDensity;
-
-        return new PointF(x, y);
+        PointF  pointF = mNativeMapView.pixelForLatLng(location);
+        pointF.set(pointF.x * mScreenDensity, pointF.y * mScreenDensity);
+        return pointF;
     }
 
     //
@@ -1068,7 +1070,7 @@ public class MapView extends FrameLayout {
     }
 
     private List<Marker> getMarkersInBounds(@NonNull LatLngBounds bbox) {
-        if (mDestroyed || bbox==null) {
+        if (mDestroyed || bbox == null) {
             return new ArrayList<>();
         }
 
@@ -1107,16 +1109,26 @@ public class MapView extends FrameLayout {
             return;
         }
 
-        if (left == mContentPaddingLeft && top == mContentPaddingTop && right == mContentPaddingRight && bottom == mContentPaddingBottom) {
-            return;
-        }
+//        if (left == mContentPaddingLeft && top == mContentPaddingTop && right == mContentPaddingRight && bottom == mContentPaddingBottom) {
+//            return;
+//        }
 
         mContentPaddingLeft = left;
         mContentPaddingTop = top;
         mContentPaddingRight = right;
         mContentPaddingBottom = bottom;
 
+        int[] userLocationViewPadding = mMapboxMap.getMyLocationViewSettings().getPadding();
+        left += userLocationViewPadding[0];
+        top += userLocationViewPadding[1];
+        right += userLocationViewPadding[2];
+        bottom += userLocationViewPadding[3];
+
         mNativeMapView.setContentPadding(top / mScreenDensity, left / mScreenDensity, bottom / mScreenDensity, right / mScreenDensity);
+    }
+
+    public void invalidateContentPadding() {
+        setContentPadding(mContentPaddingLeft, mContentPaddingTop, mContentPaddingRight, mContentPaddingBottom);
     }
 
     double getMetersPerPixelAtLatitude(@FloatRange(from = -180, to = 180) double latitude) {
@@ -1547,8 +1559,7 @@ public class MapView extends FrameLayout {
                         zoom(true, e.getX(), e.getY());
                     } else {
                         // Zoom in on user location view
-                        PointF centerPoint = mUserLocationView.getMarkerScreenPoint();
-                        zoom(true, centerPoint.x, centerPoint.y);
+                        zoom(true, mUserLocationView.getCenterX(), mUserLocationView.getCenterY());
                     }
                     break;
             }
@@ -1653,9 +1664,7 @@ public class MapView extends FrameLayout {
             }
 
             // reset tracking modes if gesture occurs
-            if (mMapboxMap.getTrackingSettings().isDismissTrackingOnGesture()) {
-                resetTrackingModes();
-            }
+            resetTrackingModesIfRequired();
 
             // Fling the map
             float ease = 0.25f;
@@ -1691,10 +1700,9 @@ public class MapView extends FrameLayout {
                 return false;
             }
 
-            if (mMapboxMap.getTrackingSettings().isDismissTrackingOnGesture()) {
-                // reset tracking modes if gesture occurs
-                resetTrackingModes();
-            }
+            // reset tracking modes if gesture occurs
+            resetTrackingModesIfRequired();
+
 
             // Cancel any animation
             mNativeMapView.cancelTransitions();
@@ -1723,10 +1731,8 @@ public class MapView extends FrameLayout {
                 return false;
             }
 
-            if (mMapboxMap.getTrackingSettings().isDismissTrackingOnGesture()) {
-                // reset tracking modes if gesture occurs
-                resetTrackingModes();
-            }
+            // reset tracking modes if gesture occurs
+            resetTrackingModesIfRequired();
 
             mBeginTime = detector.getEventTime();
             trackGestureEvent(MapboxEvent.GESTURE_PINCH_START, detector.getFocusX(), detector.getFocusY());
@@ -1786,8 +1792,9 @@ public class MapView extends FrameLayout {
                     mNativeMapView.scaleBy(detector.getScaleFactor(), (getWidth() / 2) / mScreenDensity, (getHeight() / 2) / mScreenDensity);
                 } else {
                     // around user location view
-                    PointF centerPoint = mUserLocationView.getMarkerScreenPoint();
-                    mNativeMapView.scaleBy(detector.getScaleFactor(), centerPoint.x / mScreenDensity, centerPoint.y / mScreenDensity);
+                    float x = mUserLocationView.getX() + mUserLocationView.getWidth() / 2;
+                    float y = mUserLocationView.getY() + mUserLocationView.getHeight() / 2;
+                    mNativeMapView.scaleBy(detector.getScaleFactor(), x / mScreenDensity, y / mScreenDensity);
                 }
             }
             return true;
@@ -1808,10 +1815,8 @@ public class MapView extends FrameLayout {
                 return false;
             }
 
-            if (mMapboxMap.getTrackingSettings().isDismissTrackingOnGesture()) {
-                // reset tracking modes if gesture occurs
-                resetTrackingModes();
-            }
+            // reset tracking modes if gesture occurs
+            resetTrackingModesIfRequired();
 
             mBeginTime = detector.getEventTime();
             trackGestureEvent(MapboxEvent.GESTURE_ROTATION_START, detector.getFocusX(), detector.getFocusY());
@@ -1868,8 +1873,9 @@ public class MapView extends FrameLayout {
                         detector.getFocusY() / mScreenDensity);
             } else {
                 // around center userlocation
-                PointF centerPoint = mUserLocationView.getMarkerScreenPoint();
-                mNativeMapView.setBearing(bearing, centerPoint.x / mScreenDensity, centerPoint.y / mScreenDensity);
+                float x = mUserLocationView.getX() + mUserLocationView.getWidth() / 2;
+                float y = mUserLocationView.getY() + mUserLocationView.getHeight() / 2;
+                mNativeMapView.setBearing(bearing, x / mScreenDensity, y / mScreenDensity);
             }
             return true;
         }
@@ -1889,10 +1895,8 @@ public class MapView extends FrameLayout {
                 return false;
             }
 
-            if (mMapboxMap.getTrackingSettings().isDismissTrackingOnGesture()) {
-                // reset tracking modes if gesture occurs
-                resetTrackingModes();
-            }
+            // reset tracking modes if gesture occurs
+            resetTrackingModesIfRequired();
 
             mBeginTime = detector.getEventTime();
             trackGestureEvent(MapboxEvent.GESTURE_PITCH_START, detector.getFocusX(), detector.getFocusY());
@@ -2341,8 +2345,13 @@ public class MapView extends FrameLayout {
         return mUserLocationView.getLocation();
     }
 
-    void setOnMyLocationChangeListener(@Nullable MapboxMap.OnMyLocationChangeListener listener) {
-        mUserLocationView.setOnMyLocationChangeListener(listener);
+    void setOnMyLocationChangeListener(@Nullable final MapboxMap.OnMyLocationChangeListener listener) {
+        LocationServices.getLocationServices(getContext()).addLocationListener(new LocationListener() {
+            @Override
+            public void onLocationChanged(Location location) {
+                listener.onMyLocationChange(location);
+            }
+        });
     }
 
     void setMyLocationTrackingMode(@MyLocationTracking.Mode int myLocationTrackingMode) {
@@ -2372,11 +2381,28 @@ public class MapView extends FrameLayout {
                 ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
-    private void resetTrackingModes() {
+    private void resetTrackingModesIfRequired() {
+        TrackingSettings trackingSettings = mMapboxMap.getTrackingSettings();
+        if (trackingSettings.isDismissLocationTrackingOnGesture()) {
+            resetLocationTrackingMode();
+        }
+        if (trackingSettings.isDismissBearingTrackingOnGesture()) {
+            resetBearingTrackingMode();
+        }
+    }
+
+    private void resetLocationTrackingMode() {
         try {
             TrackingSettings trackingSettings = mMapboxMap.getTrackingSettings();
             trackingSettings.setMyLocationTrackingMode(MyLocationTracking.TRACKING_NONE);
-            trackingSettings.setMyBearingTrackingMode(MyBearingTracking.NONE);
+        } catch (SecurityException ignore) {
+            // User did not accept location permissions
+        }
+    }
+
+    private void resetBearingTrackingMode() {
+        try {
+            setMyBearingTrackingMode(MyBearingTracking.NONE);
         } catch (SecurityException ignore) {
             // User did not accept location permissions
         }
@@ -2479,6 +2505,10 @@ public class MapView extends FrameLayout {
 
     void setMapboxMap(MapboxMap mapboxMap) {
         mMapboxMap = mapboxMap;
+    }
+
+    UserLocationView getUserLocationView() {
+        return mUserLocationView;
     }
 
     @UiThread
