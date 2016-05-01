@@ -23,13 +23,13 @@ public class MyLocationViewSettingsTest {
     MapView mMapView = mock(MapView.class);
 
     @InjectMocks
-    UserLocationView userLocationView = mock(UserLocationView.class);
+    MyLocationView myLocationView = mock(MyLocationView.class);
 
     MyLocationViewSettings locationViewSettings;
 
     @Before
     public void beforeTest() {
-        locationViewSettings = new MyLocationViewSettings(mMapView, userLocationView);
+        locationViewSettings = new MyLocationViewSettings(mMapView, myLocationView);
     }
 
     @Test
@@ -49,14 +49,9 @@ public class MyLocationViewSettingsTest {
     @Test
     public void testBackgroundDrawable() {
         Drawable backgroundDrawable = mock(Drawable.class);
-        locationViewSettings.setBackgroundDrawable(backgroundDrawable);
-        assertEquals("foreground should match", backgroundDrawable, locationViewSettings.getBackgroundDrawable());
-    }
-
-    @Test
-    public void testBackgroundOffset() {
         int[] offset = new int[]{1, 2, 3, 4};
-        locationViewSettings.setBackgroundOffset(1, 2, 3, 4);
+        locationViewSettings.setBackgroundDrawable(backgroundDrawable, offset);
+        assertEquals("foreground should match", backgroundDrawable, locationViewSettings.getBackgroundDrawable());
         assertTrue("offsets should match", Arrays.equals(offset, locationViewSettings.getBackgroundOffset()));
     }
 
@@ -68,7 +63,7 @@ public class MyLocationViewSettingsTest {
     }
 
     @Test
-    public void testBackgroundTint(){
+    public void testBackgroundTint() {
         int color = Color.RED;
         locationViewSettings.setBackgroundTintColor(Color.RED);
         assertEquals("color should match", color, locationViewSettings.getBackgroundTintColor());

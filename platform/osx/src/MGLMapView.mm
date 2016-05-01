@@ -80,8 +80,14 @@ struct MGLAttribution {
     /// URL to open when the attribution button is clicked.
     NSString *urlString;
 } MGLAttributions[] = {
-    { .title = @"Mapbox", .urlString = @"https://www.mapbox.com/about/maps/" },
-    { .title = @"OpenStreetMap", .urlString = @"http://www.openstreetmap.org/about/" },
+    {
+        .title = NSLocalizedStringWithDefaultValue(@"COPYRIGHT_MAPBOX", nil, nil, @"Mapbox", @"Linked part of copyright notice"),
+        .urlString = NSLocalizedStringWithDefaultValue(@"COPYRIGHT_MAPBOX_LINK", nil, nil, @"https://www.mapbox.com/about/maps/", @"Copyright notice link"),
+    },
+    {
+        .title = NSLocalizedStringWithDefaultValue(@"COPYRIGHT_OSM", nil, nil, @"OpenStreetMap", @"Linked part of copyright notice"),
+        .urlString = NSLocalizedStringWithDefaultValue(@"COPYRIGHT_OSM_LINK", nil, nil, @"http://www.openstreetmap.org/about/", @"Copyright notice link"),
+    },
 };
 
 /// Unique identifier representing a single annotation in mbgl.
@@ -302,12 +308,12 @@ public:
     [(NSSegmentedCell *)_zoomControls.cell setTrackingMode:NSSegmentSwitchTrackingMomentary];
     _zoomControls.continuous = YES;
     _zoomControls.segmentCount = 2;
-    [_zoomControls setLabel:@"−" forSegment:0]; // U+2212 MINUS SIGN
+    [_zoomControls setLabel:NSLocalizedStringWithDefaultValue(@"ZOOM_OUT_LABEL", nil, nil, @"−", @"Label of Zoom Out button; U+2212 MINUS SIGN") forSegment:0];
     [(NSSegmentedCell *)_zoomControls.cell setTag:0 forSegment:0];
-    [(NSSegmentedCell *)_zoomControls.cell setToolTip:@"Zoom Out" forSegment:0];
-    [_zoomControls setLabel:@"+" forSegment:1];
+    [(NSSegmentedCell *)_zoomControls.cell setToolTip:NSLocalizedStringWithDefaultValue(@"ZOOM_OUT_TOOLTIP", nil, nil, @"Zoom Out", @"Tooltip of Zoom Out button") forSegment:0];
+    [_zoomControls setLabel:NSLocalizedStringWithDefaultValue(@"ZOOM_IN_LABEL", nil, nil, @"+", @"Label of Zoom In button") forSegment:1];
     [(NSSegmentedCell *)_zoomControls.cell setTag:1 forSegment:1];
-    [(NSSegmentedCell *)_zoomControls.cell setToolTip:@"Zoom In" forSegment:1];
+    [(NSSegmentedCell *)_zoomControls.cell setToolTip:NSLocalizedStringWithDefaultValue(@"ZOOM_IN_TOOLTIP", nil, nil, @"Zoom In", @"Tooltip of Zoom In button") forSegment:1];
     _zoomControls.target = self;
     _zoomControls.action = @selector(zoomInOrOut:);
     _zoomControls.controlSize = NSRegularControlSize;
@@ -340,7 +346,7 @@ public:
     logoImage.alignmentRect = NSInsetRect(logoImage.alignmentRect, 3, 3);
     _logoView.image = logoImage;
     _logoView.translatesAutoresizingMaskIntoConstraints = NO;
-    _logoView.accessibilityTitle = @"Mapbox";
+    _logoView.accessibilityTitle = NSLocalizedStringWithDefaultValue(@"MAP_A11Y_TITLE", nil, nil, @"Mapbox", @"Accessibility title");
     [self addSubview:_logoView];
 }
 
@@ -375,7 +381,6 @@ public:
 
 /// Adds gesture recognizers for manipulating the viewport and selecting annotations.
 - (void)installGestureRecognizers {
-    self.acceptsTouchEvents = YES;
     _scrollEnabled = YES;
     _zoomEnabled = YES;
     _rotateEnabled = YES;
@@ -1411,12 +1416,20 @@ public:
     BOOL isScrollWheel = event.phase == NSEventPhaseNone && event.momentumPhase == NSEventPhaseNone && !event.hasPreciseScrollingDeltas;
     if (isScrollWheel || [[NSUserDefaults standardUserDefaults] boolForKey:MGLScrollWheelZoomsMapViewDefaultKey]) {
         // A traditional, vertical scroll wheel zooms instead of panning.
-        if (self.zoomEnabled && std::abs(event.scrollingDeltaX) < std::abs(event.scrollingDeltaY)) {
-            _mbglMap->cancelTransitions();
-            
-            NSPoint gesturePoint = [self convertPoint:event.locationInWindow fromView:nil];
-            double zoomDelta = event.scrollingDeltaY / 4;
-            [self scaleBy:exp2(zoomDelta) atPoint:gesturePoint animated:YES];
+        if (self.zoomEnabled) {
+            const double delta =
+                event.scrollingDeltaY / ([event hasPreciseScrollingDeltas] ? 100 : 10);
+            if (delta != 0) {
+                double scale = 2.0 / (1.0 + std::exp(-std::abs(delta)));
+
+                // Zooming out.
+                if (delta < 0) {
+                    scale = 1.0 / scale;
+                }
+
+                NSPoint gesturePoint = [self convertPoint:event.locationInWindow fromView:nil];
+                [self scaleBy:scale atPoint:gesturePoint animated:NO];
+            }
         }
     } else if (self.scrollEnabled
                && _magnificationGestureRecognizer.state == NSGestureRecognizerStatePossible

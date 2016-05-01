@@ -13,13 +13,15 @@
 		DA1DC96B1CB6C6B7006E619F /* MBXOfflinePacksTableViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = DA1DC9691CB6C6B7006E619F /* MBXOfflinePacksTableViewController.m */; };
 		DA1DC9701CB6C6CE006E619F /* points.geojson in Resources */ = {isa = PBXBuildFile; fileRef = DA1DC96C1CB6C6CE006E619F /* points.geojson */; };
 		DA1DC9711CB6C6CE006E619F /* polyline.geojson in Resources */ = {isa = PBXBuildFile; fileRef = DA1DC96D1CB6C6CE006E619F /* polyline.geojson */; };
-		DA1DC9721CB6C6CE006E619F /* Settings.bundle in Resources */ = {isa = PBXBuildFile; fileRef = DA1DC96E1CB6C6CE006E619F /* Settings.bundle */; };
 		DA1DC9731CB6C6CE006E619F /* threestates.geojson in Resources */ = {isa = PBXBuildFile; fileRef = DA1DC96F1CB6C6CE006E619F /* threestates.geojson */; };
 		DA1DC9971CB6E046006E619F /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = DA1DC9961CB6E046006E619F /* main.m */; };
 		DA1DC9991CB6E054006E619F /* MBXAppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = DA1DC9981CB6E054006E619F /* MBXAppDelegate.m */; };
 		DA1DC99B1CB6E064006E619F /* MBXViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = DA1DC99A1CB6E064006E619F /* MBXViewController.m */; };
 		DA1DC99D1CB6E076006E619F /* Default-568h@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = DA1DC99C1CB6E076006E619F /* Default-568h@2x.png */; };
 		DA1DC99F1CB6E088006E619F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DA1DC99E1CB6E088006E619F /* Assets.xcassets */; };
+		DA25D5C01CCD9F8400607828 /* Root.plist in Resources */ = {isa = PBXBuildFile; fileRef = DA25D5BF1CCD9F8400607828 /* Root.plist */; };
+		DA25D5C61CCDA06800607828 /* Root.strings in Resources */ = {isa = PBXBuildFile; fileRef = DA25D5C41CCDA06800607828 /* Root.strings */; };
+		DA25D5CD1CCDA11500607828 /* Settings.bundle in Resources */ = {isa = PBXBuildFile; fileRef = DA25D5B91CCD9EDE00607828 /* Settings.bundle */; };
 		DA27C24E1CBB3811000B0ECD /* GLKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DA27C24D1CBB3811000B0ECD /* GLKit.framework */; };
 		DA27C24F1CBB4C11000B0ECD /* MGLAccountManager_Private.h in Headers */ = {isa = PBXBuildFile; fileRef = DA8847FF1CBAFA6200AB86E3 /* MGLAccountManager_Private.h */; };
 		DA2E88561CC036F400F24E7B /* Mapbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DA8847D21CBAF91600AB86E3 /* Mapbox.framework */; };
@@ -47,8 +49,8 @@
 		DA35A2CA1CCAAAD200E826B2 /* NSValue+MGLAdditions.h in Headers */ = {isa = PBXBuildFile; fileRef = DA35A2C71CCAAAD200E826B2 /* NSValue+MGLAdditions.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		DA35A2CB1CCAAAD200E826B2 /* NSValue+MGLAdditions.m in Sources */ = {isa = PBXBuildFile; fileRef = DA35A2C81CCAAAD200E826B2 /* NSValue+MGLAdditions.m */; };
 		DA35A2CC1CCAAAD200E826B2 /* NSValue+MGLAdditions.m in Sources */ = {isa = PBXBuildFile; fileRef = DA35A2C81CCAAAD200E826B2 /* NSValue+MGLAdditions.m */; };
-		DA4A26941CB6E337000B7809 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = DA1DC9561CB6C1C2006E619F /* Main.storyboard */; };
-		DA4A26951CB6E337000B7809 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = DA1DC95B1CB6C1C2006E619F /* LaunchScreen.storyboard */; };
+		DA821D061CCC6D59007508D4 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = DA821D041CCC6D59007508D4 /* LaunchScreen.storyboard */; };
+		DA821D071CCC6D59007508D4 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = DA821D051CCC6D59007508D4 /* Main.storyboard */; };
 		DA8847D91CBAF91600AB86E3 /* Mapbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DA8847D21CBAF91600AB86E3 /* Mapbox.framework */; };
 		DA8847DA1CBAF91600AB86E3 /* Mapbox.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = DA8847D21CBAF91600AB86E3 /* Mapbox.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		DA8847EF1CBAFA5100AB86E3 /* MGLAccountManager.h in Headers */ = {isa = PBXBuildFile; fileRef = DA8847DF1CBAFA5100AB86E3 /* MGLAccountManager.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -134,6 +136,25 @@
 		DA88488C1CBB037E00AB86E3 /* SMCalloutView.m in Sources */ = {isa = PBXBuildFile; fileRef = DA88488A1CBB037E00AB86E3 /* SMCalloutView.m */; };
 		DA88488E1CBB047F00AB86E3 /* reachability.h in Headers */ = {isa = PBXBuildFile; fileRef = DA88488D1CBB047F00AB86E3 /* reachability.h */; };
 		DA8848901CBB048E00AB86E3 /* reachability.m in Sources */ = {isa = PBXBuildFile; fileRef = DA88488F1CBB048E00AB86E3 /* reachability.m */; };
+		DA8933A31CCC95B000E68420 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = DA89339F1CCC951200E68420 /* Localizable.strings */; };
+		DA8933BC1CCD2CA100E68420 /* Foundation.strings in Resources */ = {isa = PBXBuildFile; fileRef = DA8933BA1CCD2CA100E68420 /* Foundation.strings */; };
+		DA8933BF1CCD2CAD00E68420 /* Foundation.stringsdict in Resources */ = {isa = PBXBuildFile; fileRef = DA8933BD1CCD2CAD00E68420 /* Foundation.stringsdict */; };
+		DA8933DB1CCD31D400E68420 /* Foundation.strings in Resources */ = {isa = PBXBuildFile; fileRef = DA8933BA1CCD2CA100E68420 /* Foundation.strings */; };
+		DA8933DC1CCD31D400E68420 /* Foundation.stringsdict in Resources */ = {isa = PBXBuildFile; fileRef = DA8933BD1CCD2CAD00E68420 /* Foundation.stringsdict */; };
+		DA8933DD1CCD31D400E68420 /* api_mapbox_com-digicert.der in Resources */ = {isa = PBXBuildFile; fileRef = DA8848771CBAFD5C00AB86E3 /* api_mapbox_com-digicert.der */; };
+		DA8933DE1CCD31D400E68420 /* api_mapbox_com-geotrust.der in Resources */ = {isa = PBXBuildFile; fileRef = DA8848781CBAFD5C00AB86E3 /* api_mapbox_com-geotrust.der */; };
+		DA8933DF1CCD31D400E68420 /* star_tilestream_net.der in Resources */ = {isa = PBXBuildFile; fileRef = DA8848791CBAFD5C00AB86E3 /* star_tilestream_net.der */; };
+		DA8933E01CCD31DF00E68420 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = DA89339F1CCC951200E68420 /* Localizable.strings */; };
+		DA8933E11CCD31DF00E68420 /* Compass.png in Resources */ = {isa = PBXBuildFile; fileRef = DA8848631CBAFCC100AB86E3 /* Compass.png */; };
+		DA8933E21CCD31DF00E68420 /* Compass@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = DA8848641CBAFCC100AB86E3 /* Compass@2x.png */; };
+		DA8933E31CCD31DF00E68420 /* Compass@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = DA8848651CBAFCC100AB86E3 /* Compass@3x.png */; };
+		DA8933E41CCD31DF00E68420 /* default_marker.png in Resources */ = {isa = PBXBuildFile; fileRef = DA8848661CBAFCC100AB86E3 /* default_marker.png */; };
+		DA8933E51CCD31DF00E68420 /* default_marker@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = DA8848671CBAFCC100AB86E3 /* default_marker@2x.png */; };
+		DA8933E61CCD31DF00E68420 /* default_marker@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = DA8848681CBAFCC100AB86E3 /* default_marker@3x.png */; };
+		DA8933E71CCD31DF00E68420 /* mapbox.png in Resources */ = {isa = PBXBuildFile; fileRef = DA8848691CBAFCC100AB86E3 /* mapbox.png */; };
+		DA8933E81CCD31DF00E68420 /* mapbox@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = DA88486A1CBAFCC100AB86E3 /* mapbox@2x.png */; };
+		DA8933E91CCD31DF00E68420 /* mapbox@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = DA88486B1CBAFCC100AB86E3 /* mapbox@3x.png */; };
+		DA8933F01CCD387900E68420 /* strip-frameworks.sh in Resources */ = {isa = PBXBuildFile; fileRef = DA8933EF1CCD387900E68420 /* strip-frameworks.sh */; };
 		DA8963371CC549A100684375 /* glyphs in Resources */ = {isa = PBXBuildFile; fileRef = DA8963331CC549A100684375 /* glyphs */; };
 		DA8963381CC549A100684375 /* sprites in Resources */ = {isa = PBXBuildFile; fileRef = DA8963341CC549A100684375 /* sprites */; };
 		DA8963391CC549A100684375 /* styles in Resources */ = {isa = PBXBuildFile; fileRef = DA8963351CC549A100684375 /* styles */; };
@@ -199,9 +220,32 @@
 		DABFB8711CBE9A0F00D62B32 /* MGLMapView+MGLCustomStyleLayerAdditions.h in Headers */ = {isa = PBXBuildFile; fileRef = DA8848381CBAFB8500AB86E3 /* MGLMapView+MGLCustomStyleLayerAdditions.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		DABFB8721CBE9A0F00D62B32 /* MGLUserLocation.h in Headers */ = {isa = PBXBuildFile; fileRef = DA8848391CBAFB8500AB86E3 /* MGLUserLocation.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		DABFB8731CBE9A9900D62B32 /* Mapbox.h in Headers */ = {isa = PBXBuildFile; fileRef = DA88485E1CBAFC2E00AB86E3 /* Mapbox.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		DAC49C5C1CD02BC9009E1AA3 /* Localizable.stringsdict in Resources */ = {isa = PBXBuildFile; fileRef = DAC49C5F1CD02BC9009E1AA3 /* Localizable.stringsdict */; };
+		DAC49C5D1CD02BC9009E1AA3 /* Localizable.stringsdict in Resources */ = {isa = PBXBuildFile; fileRef = DAC49C5F1CD02BC9009E1AA3 /* Localizable.stringsdict */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		DA25D5C71CCDA0C100607828 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DA1DC9421CB6C1C2006E619F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DA25D5B81CCD9EDE00607828;
+			remoteInfo = settings;
+		};
+		DA25D5C91CCDA0CC00607828 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DA1DC9421CB6C1C2006E619F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DA8933D41CCD306400E68420;
+			remoteInfo = bundle;
+		};
+		DA25D5CB1CCDA0CC00607828 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DA1DC9421CB6C1C2006E619F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DA25D5B81CCD9EDE00607828;
+			remoteInfo = settings;
+		};
 		DA2E88571CC036F400F24E7B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = DA1DC9421CB6C1C2006E619F /* Project object */;
@@ -264,8 +308,6 @@
 		DA1DC94A1CB6C1C2006E619F /* Mapbox GL.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Mapbox GL.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA1DC9501CB6C1C2006E619F /* MBXAppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MBXAppDelegate.h; sourceTree = "<group>"; };
 		DA1DC9531CB6C1C2006E619F /* MBXViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MBXViewController.h; sourceTree = "<group>"; };
-		DA1DC9571CB6C1C2006E619F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
-		DA1DC95C1CB6C1C2006E619F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		DA1DC95E1CB6C1C2006E619F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		DA1DC9661CB6C6B7006E619F /* MBXCustomCalloutView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MBXCustomCalloutView.h; sourceTree = "<group>"; };
 		DA1DC9671CB6C6B7006E619F /* MBXCustomCalloutView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MBXCustomCalloutView.m; sourceTree = "<group>"; };
@@ -273,13 +315,15 @@
 		DA1DC9691CB6C6B7006E619F /* MBXOfflinePacksTableViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MBXOfflinePacksTableViewController.m; sourceTree = "<group>"; };
 		DA1DC96C1CB6C6CE006E619F /* points.geojson */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = points.geojson; sourceTree = "<group>"; };
 		DA1DC96D1CB6C6CE006E619F /* polyline.geojson */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = polyline.geojson; sourceTree = "<group>"; };
-		DA1DC96E1CB6C6CE006E619F /* Settings.bundle */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.plug-in"; name = Settings.bundle; path = ../framework/Settings.bundle; sourceTree = "<group>"; };
 		DA1DC96F1CB6C6CE006E619F /* threestates.geojson */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = threestates.geojson; sourceTree = "<group>"; };
 		DA1DC9961CB6E046006E619F /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		DA1DC9981CB6E054006E619F /* MBXAppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MBXAppDelegate.m; sourceTree = "<group>"; };
 		DA1DC99A1CB6E064006E619F /* MBXViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MBXViewController.m; sourceTree = "<group>"; };
 		DA1DC99C1CB6E076006E619F /* Default-568h@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Default-568h@2x.png"; sourceTree = "<group>"; };
 		DA1DC99E1CB6E088006E619F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		DA25D5B91CCD9EDE00607828 /* Settings.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Settings.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		DA25D5BF1CCD9F8400607828 /* Root.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Root.plist; sourceTree = "<group>"; };
+		DA25D5C51CCDA06800607828 /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Base; path = Base.lproj/Root.strings; sourceTree = "<group>"; };
 		DA27C24D1CBB3811000B0ECD /* GLKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLKit.framework; path = System/Library/Frameworks/GLKit.framework; sourceTree = SDKROOT; };
 		DA2E88511CC036F400F24E7B /* test.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = test.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA2E88551CC036F400F24E7B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -301,6 +345,8 @@
 		DA35A2C81CCAAAD200E826B2 /* NSValue+MGLAdditions.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSValue+MGLAdditions.m"; sourceTree = "<group>"; };
 		DA35A2D11CCAB25200E826B2 /* jazzy.yml */ = {isa = PBXFileReference; lastKnownFileType = text; path = jazzy.yml; sourceTree = "<group>"; };
 		DA4A26961CB6E795000B7809 /* Mapbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = Mapbox.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		DA821D041CCC6D59007508D4 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		DA821D051CCC6D59007508D4 /* Main.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; path = Main.storyboard; sourceTree = "<group>"; };
 		DA8847D21CBAF91600AB86E3 /* Mapbox.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Mapbox.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA8847D61CBAF91600AB86E3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		DA8847DF1CBAFA5100AB86E3 /* MGLAccountManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MGLAccountManager.h; sourceTree = "<group>"; };
@@ -387,6 +433,12 @@
 		DA88488A1CBB037E00AB86E3 /* SMCalloutView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SMCalloutView.m; sourceTree = "<group>"; };
 		DA88488D1CBB047F00AB86E3 /* reachability.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = reachability.h; path = ../../include/mbgl/platform/darwin/reachability.h; sourceTree = "<group>"; };
 		DA88488F1CBB048E00AB86E3 /* reachability.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = reachability.m; path = src/reachability.m; sourceTree = "<group>"; };
+		DA8933A01CCC951200E68420 /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Base; path = Base.lproj/Localizable.strings; sourceTree = "<group>"; };
+		DA8933BB1CCD2CA100E68420 /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Base; path = Base.lproj/Foundation.strings; sourceTree = "<group>"; };
+		DA8933BE1CCD2CAD00E68420 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = en; path = en.lproj/Foundation.stringsdict; sourceTree = "<group>"; };
+		DA8933D51CCD306400E68420 /* Mapbox.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Mapbox.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		DA8933EF1CCD387900E68420 /* strip-frameworks.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "strip-frameworks.sh"; path = "framework/strip-frameworks.sh"; sourceTree = SOURCE_ROOT; };
+		DA8933F11CCD3FD700E68420 /* Info-static.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-static.plist"; sourceTree = "<group>"; };
 		DA8963331CC549A100684375 /* glyphs */ = {isa = PBXFileReference; lastKnownFileType = folder; path = glyphs; sourceTree = "<group>"; };
 		DA8963341CC549A100684375 /* sprites */ = {isa = PBXFileReference; lastKnownFileType = folder; path = sprites; sourceTree = "<group>"; };
 		DA8963351CC549A100684375 /* styles */ = {isa = PBXFileReference; lastKnownFileType = folder; path = styles; sourceTree = "<group>"; };
@@ -409,6 +461,7 @@
 		DABCABBF1CB80717000A7C39 /* locations.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = locations.cpp; sourceTree = "<group>"; };
 		DABCABC01CB80717000A7C39 /* locations.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = locations.hpp; sourceTree = "<group>"; };
 		DAC07C961CBB2CD6000CB309 /* mbgl.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = mbgl.xcconfig; path = ../../build/ios/mbgl.xcconfig; sourceTree = "<group>"; };
+		DAC49C621CD07D74009E1AA3 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = en; path = en.lproj/Localizable.stringsdict; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -479,6 +532,8 @@
 				DA8847D21CBAF91600AB86E3 /* Mapbox.framework */,
 				DAA4E4131CBB71D400178DFB /* libMapbox.a */,
 				DA2E88511CC036F400F24E7B /* test.xctest */,
+				DA8933D51CCD306400E68420 /* Mapbox.bundle */,
+				DA25D5B91CCD9EDE00607828 /* Settings.bundle */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -494,13 +549,12 @@
 				DA1DC9691CB6C6B7006E619F /* MBXOfflinePacksTableViewController.m */,
 				DA1DC9531CB6C1C2006E619F /* MBXViewController.h */,
 				DA1DC99A1CB6E064006E619F /* MBXViewController.m */,
-				DA1DC9561CB6C1C2006E619F /* Main.storyboard */,
-				DA1DC95B1CB6C1C2006E619F /* LaunchScreen.storyboard */,
+				DA821D051CCC6D59007508D4 /* Main.storyboard */,
+				DA821D041CCC6D59007508D4 /* LaunchScreen.storyboard */,
 				DA1DC99E1CB6E088006E619F /* Assets.xcassets */,
 				DA1DC96C1CB6C6CE006E619F /* points.geojson */,
 				DA1DC96D1CB6C6CE006E619F /* polyline.geojson */,
 				DA1DC96F1CB6C6CE006E619F /* threestates.geojson */,
-				DA1DC96E1CB6C6CE006E619F /* Settings.bundle */,
 				DA1DC95E1CB6C1C2006E619F /* Info.plist */,
 				DA1DC99C1CB6E076006E619F /* Default-568h@2x.png */,
 				DA1DC94D1CB6C1C2006E619F /* Supporting Files */,
@@ -531,6 +585,16 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		DA25D5BA1CCD9EDE00607828 /* Example Settings Bundle */ = {
+			isa = PBXGroup;
+			children = (
+				DA25D5BF1CCD9F8400607828 /* Root.plist */,
+				DA25D5C41CCDA06800607828 /* Root.strings */,
+			);
+			name = "Example Settings Bundle";
+			path = Settings.bundle;
+			sourceTree = "<group>";
+		};
 		DA2E88521CC036F400F24E7B /* SDK Tests */ = {
 			isa = PBXGroup;
 			children = (
@@ -553,9 +617,12 @@
 			children = (
 				DA88485E1CBAFC2E00AB86E3 /* Mapbox.h */,
 				DA8847DE1CBAFA3E00AB86E3 /* Foundation */,
+				DA8933B91CCD2C6700E68420 /* Foundation Resources */,
 				DA8848331CBAFB2A00AB86E3 /* Kit */,
-				DA8848621CBAFCC100AB86E3 /* Resources */,
+				DA8848621CBAFCC100AB86E3 /* Kit Resources */,
+				DA25D5BA1CCD9EDE00607828 /* Example Settings Bundle */,
 				DA8847D61CBAF91600AB86E3 /* Info.plist */,
+				DA8933F11CCD3FD700E68420 /* Info-static.plist */,
 			);
 			name = SDK;
 			path = framework;
@@ -652,11 +719,14 @@
 			path = src;
 			sourceTree = SOURCE_ROOT;
 		};
-		DA8848621CBAFCC100AB86E3 /* Resources */ = {
+		DA8848621CBAFCC100AB86E3 /* Kit Resources */ = {
 			isa = PBXGroup;
 			children = (
+				DA89339F1CCC951200E68420 /* Localizable.strings */,
+				DAC49C5F1CD02BC9009E1AA3 /* Localizable.stringsdict */,
 				DA8848771CBAFD5C00AB86E3 /* api_mapbox_com-digicert.der */,
 				DA8848781CBAFD5C00AB86E3 /* api_mapbox_com-geotrust.der */,
+				DA8848791CBAFD5C00AB86E3 /* star_tilestream_net.der */,
 				DA8848631CBAFCC100AB86E3 /* Compass.png */,
 				DA8848641CBAFCC100AB86E3 /* Compass@2x.png */,
 				DA8848651CBAFCC100AB86E3 /* Compass@3x.png */,
@@ -666,9 +736,9 @@
 				DA8848691CBAFCC100AB86E3 /* mapbox.png */,
 				DA88486A1CBAFCC100AB86E3 /* mapbox@2x.png */,
 				DA88486B1CBAFCC100AB86E3 /* mapbox@3x.png */,
-				DA8848791CBAFD5C00AB86E3 /* star_tilestream_net.der */,
+				DA8933EF1CCD387900E68420 /* strip-frameworks.sh */,
 			);
-			name = Resources;
+			name = "Kit Resources";
 			path = resources;
 			sourceTree = SOURCE_ROOT;
 		};
@@ -702,6 +772,16 @@
 			);
 			name = reachability;
 			path = ..;
+			sourceTree = "<group>";
+		};
+		DA8933B91CCD2C6700E68420 /* Foundation Resources */ = {
+			isa = PBXGroup;
+			children = (
+				DA8933BA1CCD2CA100E68420 /* Foundation.strings */,
+				DA8933BD1CCD2CAD00E68420 /* Foundation.stringsdict */,
+			);
+			name = "Foundation Resources";
+			path = ../../darwin/resources;
 			sourceTree = "<group>";
 		};
 		DA8963321CC5498400684375 /* Fixtures */ = {
@@ -870,6 +950,21 @@
 			productReference = DA1DC94A1CB6C1C2006E619F /* Mapbox GL.app */;
 			productType = "com.apple.product-type.application";
 		};
+		DA25D5B81CCD9EDE00607828 /* settings */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DA25D5BE1CCD9EDE00607828 /* Build configuration list for PBXNativeTarget "settings" */;
+			buildPhases = (
+				DA25D5B71CCD9EDE00607828 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = settings;
+			productName = settings;
+			productReference = DA25D5B91CCD9EDE00607828 /* Settings.bundle */;
+			productType = "com.apple.product-type.bundle";
+		};
 		DA2E88501CC036F400F24E7B /* test */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = DA2E88591CC036F400F24E7B /* Build configuration list for PBXNativeTarget "test" */;
@@ -900,11 +995,27 @@
 			buildRules = (
 			);
 			dependencies = (
+				DA25D5C81CCDA0C100607828 /* PBXTargetDependency */,
 			);
 			name = dynamic;
 			productName = framework;
 			productReference = DA8847D21CBAF91600AB86E3 /* Mapbox.framework */;
 			productType = "com.apple.product-type.framework";
+		};
+		DA8933D41CCD306400E68420 /* bundle */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DA8933D81CCD306400E68420 /* Build configuration list for PBXNativeTarget "bundle" */;
+			buildPhases = (
+				DA8933D31CCD306400E68420 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = bundle;
+			productName = bundle;
+			productReference = DA8933D51CCD306400E68420 /* Mapbox.bundle */;
+			productType = "com.apple.product-type.bundle";
 		};
 		DAA4E4121CBB71D400178DFB /* static */ = {
 			isa = PBXNativeTarget;
@@ -918,6 +1029,8 @@
 			buildRules = (
 			);
 			dependencies = (
+				DA25D5CA1CCDA0CC00607828 /* PBXTargetDependency */,
+				DA25D5CC1CCDA0CC00607828 /* PBXTargetDependency */,
 			);
 			name = static;
 			productName = static;
@@ -956,10 +1069,16 @@
 					DA1DC9491CB6C1C2006E619F = {
 						CreatedOnToolsVersion = 7.3;
 					};
+					DA25D5B81CCD9EDE00607828 = {
+						CreatedOnToolsVersion = 7.3;
+					};
 					DA2E88501CC036F400F24E7B = {
 						CreatedOnToolsVersion = 7.3;
 					};
 					DA8847D11CBAF91600AB86E3 = {
+						CreatedOnToolsVersion = 7.3;
+					};
+					DA8933D41CCD306400E68420 = {
 						CreatedOnToolsVersion = 7.3;
 					};
 					DAA4E4121CBB71D400178DFB = {
@@ -987,6 +1106,8 @@
 				DABCABA71CB80692000A7C39 /* bench */,
 				DA8847D11CBAF91600AB86E3 /* dynamic */,
 				DAA4E4121CBB71D400178DFB /* static */,
+				DA8933D41CCD306400E68420 /* bundle */,
+				DA25D5B81CCD9EDE00607828 /* settings */,
 				DA2E88501CC036F400F24E7B /* test */,
 			);
 		};
@@ -997,14 +1118,23 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DA4A26941CB6E337000B7809 /* Main.storyboard in Resources */,
-				DA4A26951CB6E337000B7809 /* LaunchScreen.storyboard in Resources */,
+				DA25D5CD1CCDA11500607828 /* Settings.bundle in Resources */,
 				DA1DC9701CB6C6CE006E619F /* points.geojson in Resources */,
 				DA1DC9711CB6C6CE006E619F /* polyline.geojson in Resources */,
 				DA1DC99D1CB6E076006E619F /* Default-568h@2x.png in Resources */,
+				DA821D071CCC6D59007508D4 /* Main.storyboard in Resources */,
 				DA1DC9731CB6C6CE006E619F /* threestates.geojson in Resources */,
+				DA821D061CCC6D59007508D4 /* LaunchScreen.storyboard in Resources */,
 				DA1DC99F1CB6E088006E619F /* Assets.xcassets in Resources */,
-				DA1DC9721CB6C6CE006E619F /* Settings.bundle in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA25D5B71CCD9EDE00607828 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DA25D5C61CCDA06800607828 /* Root.strings in Resources */,
+				DA25D5C01CCD9F8400607828 /* Root.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1020,8 +1150,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				DA8848731CBAFCC100AB86E3 /* mapbox.png in Resources */,
+				DA8933BC1CCD2CA100E68420 /* Foundation.strings in Resources */,
 				DA8848741CBAFCC100AB86E3 /* mapbox@2x.png in Resources */,
 				DA88487A1CBAFD5C00AB86E3 /* api_mapbox_com-digicert.der in Resources */,
+				DA8933A31CCC95B000E68420 /* Localizable.strings in Resources */,
 				DA88486D1CBAFCC100AB86E3 /* Compass.png in Resources */,
 				DA8848721CBAFCC100AB86E3 /* default_marker@3x.png in Resources */,
 				DA88487C1CBAFD5C00AB86E3 /* star_tilestream_net.der in Resources */,
@@ -1029,8 +1161,34 @@
 				DA88486E1CBAFCC100AB86E3 /* Compass@2x.png in Resources */,
 				DA8848701CBAFCC100AB86E3 /* default_marker.png in Resources */,
 				DA8848711CBAFCC100AB86E3 /* default_marker@2x.png in Resources */,
+				DA8933F01CCD387900E68420 /* strip-frameworks.sh in Resources */,
 				DA8848751CBAFCC100AB86E3 /* mapbox@3x.png in Resources */,
 				DA88487B1CBAFD5C00AB86E3 /* api_mapbox_com-geotrust.der in Resources */,
+				DAC49C5C1CD02BC9009E1AA3 /* Localizable.stringsdict in Resources */,
+				DA8933BF1CCD2CAD00E68420 /* Foundation.stringsdict in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA8933D31CCD306400E68420 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DA8933E01CCD31DF00E68420 /* Localizable.strings in Resources */,
+				DA8933E11CCD31DF00E68420 /* Compass.png in Resources */,
+				DA8933E21CCD31DF00E68420 /* Compass@2x.png in Resources */,
+				DA8933E31CCD31DF00E68420 /* Compass@3x.png in Resources */,
+				DA8933E41CCD31DF00E68420 /* default_marker.png in Resources */,
+				DA8933E51CCD31DF00E68420 /* default_marker@2x.png in Resources */,
+				DA8933E61CCD31DF00E68420 /* default_marker@3x.png in Resources */,
+				DA8933E71CCD31DF00E68420 /* mapbox.png in Resources */,
+				DA8933E81CCD31DF00E68420 /* mapbox@2x.png in Resources */,
+				DA8933E91CCD31DF00E68420 /* mapbox@3x.png in Resources */,
+				DA8933DB1CCD31D400E68420 /* Foundation.strings in Resources */,
+				DA8933DC1CCD31D400E68420 /* Foundation.stringsdict in Resources */,
+				DA8933DD1CCD31D400E68420 /* api_mapbox_com-digicert.der in Resources */,
+				DAC49C5D1CD02BC9009E1AA3 /* Localizable.stringsdict in Resources */,
+				DA8933DE1CCD31D400E68420 /* api_mapbox_com-geotrust.der in Resources */,
+				DA8933DF1CCD31D400E68420 /* star_tilestream_net.der in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1165,6 +1323,21 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		DA25D5C81CCDA0C100607828 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DA25D5B81CCD9EDE00607828 /* settings */;
+			targetProxy = DA25D5C71CCDA0C100607828 /* PBXContainerItemProxy */;
+		};
+		DA25D5CA1CCDA0CC00607828 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DA8933D41CCD306400E68420 /* bundle */;
+			targetProxy = DA25D5C91CCDA0CC00607828 /* PBXContainerItemProxy */;
+		};
+		DA25D5CC1CCDA0CC00607828 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DA25D5B81CCD9EDE00607828 /* settings */;
+			targetProxy = DA25D5CB1CCDA0CC00607828 /* PBXContainerItemProxy */;
+		};
 		DA2E88581CC036F400F24E7B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = DA8847D11CBAF91600AB86E3 /* dynamic */;
@@ -1183,20 +1356,36 @@
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
-		DA1DC9561CB6C1C2006E619F /* Main.storyboard */ = {
+		DA25D5C41CCDA06800607828 /* Root.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
-				DA1DC9571CB6C1C2006E619F /* Base */,
+				DA25D5C51CCDA06800607828 /* Base */,
 			);
-			name = Main.storyboard;
+			name = Root.strings;
 			sourceTree = "<group>";
 		};
-		DA1DC95B1CB6C1C2006E619F /* LaunchScreen.storyboard */ = {
+		DA89339F1CCC951200E68420 /* Localizable.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
-				DA1DC95C1CB6C1C2006E619F /* Base */,
+				DA8933A01CCC951200E68420 /* Base */,
 			);
-			name = LaunchScreen.storyboard;
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+		DA8933BA1CCD2CA100E68420 /* Foundation.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				DA8933BB1CCD2CA100E68420 /* Base */,
+			);
+			name = Foundation.strings;
+			sourceTree = "<group>";
+		};
+		DA8933BD1CCD2CAD00E68420 /* Foundation.stringsdict */ = {
+			isa = PBXVariantGroup;
+			children = (
+				DA8933BE1CCD2CAD00E68420 /* en */,
+			);
+			name = Foundation.stringsdict;
 			sourceTree = "<group>";
 		};
 		DABCABB81CB80692000A7C39 /* LaunchScreen.storyboard */ = {
@@ -1205,6 +1394,14 @@
 				DABCABB91CB80692000A7C39 /* Base */,
 			);
 			name = LaunchScreen.storyboard;
+			sourceTree = "<group>";
+		};
+		DAC49C5F1CD02BC9009E1AA3 /* Localizable.stringsdict */ = {
+			isa = PBXVariantGroup;
+			children = (
+				DAC49C621CD07D74009E1AA3 /* en */,
+			);
+			name = Localizable.stringsdict;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */
@@ -1230,6 +1427,9 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				COPY_PHASE_STRIP = NO;
+				CURRENT_COMMIT_HASH = deadbeef;
+				CURRENT_SEMANTIC_VERSION = 1.0.0;
+				CURRENT_SHORT_VERSION = 1.0;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -1276,6 +1476,9 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				COPY_PHASE_STRIP = NO;
+				CURRENT_COMMIT_HASH = deadbeef;
+				CURRENT_SEMANTIC_VERSION = 1.0.0;
+				CURRENT_SHORT_VERSION = 1.0;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1317,6 +1520,24 @@
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mapbox.MapboxGL;
 				PRODUCT_NAME = "Mapbox GL";
+			};
+			name = Release;
+		};
+		DA25D5BC1CCD9EDE00607828 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = Settings;
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = Debug;
+		};
+		DA25D5BD1CCD9EDE00607828 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = Settings;
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = bundle;
 			};
 			name = Release;
 		};
@@ -1426,6 +1647,28 @@
 			};
 			name = Release;
 		};
+		DA8933D91CCD306400E68420 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = "framework/Info-static.plist";
+				PRODUCT_BUNDLE_IDENTIFIER = com.mapbox.sdk.ios;
+				PRODUCT_NAME = Mapbox;
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = Debug;
+		};
+		DA8933DA1CCD306400E68420 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = "framework/Info-static.plist";
+				PRODUCT_BUNDLE_IDENTIFIER = com.mapbox.sdk.ios;
+				PRODUCT_NAME = Mapbox;
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = Release;
+		};
 		DAA4E41A1CBB71D500178DFB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DAC07C961CBB2CD6000CB309 /* mbgl.xcconfig */;
@@ -1531,6 +1774,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		DA25D5BE1CCD9EDE00607828 /* Build configuration list for PBXNativeTarget "settings" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DA25D5BC1CCD9EDE00607828 /* Debug */,
+				DA25D5BD1CCD9EDE00607828 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		DA2E88591CC036F400F24E7B /* Build configuration list for PBXNativeTarget "test" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -1545,6 +1797,15 @@
 			buildConfigurations = (
 				DA8847DB1CBAF91600AB86E3 /* Debug */,
 				DA8847DC1CBAF91600AB86E3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DA8933D81CCD306400E68420 /* Build configuration list for PBXNativeTarget "bundle" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DA8933D91CCD306400E68420 /* Debug */,
+				DA8933DA1CCD306400E68420 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

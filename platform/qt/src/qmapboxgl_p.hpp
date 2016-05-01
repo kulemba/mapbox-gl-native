@@ -11,11 +11,6 @@
 #include <QObject>
 #include <QSize>
 
-#include <memory>
-
-class QMapboxGL;
-class QMapboxGLSettings;
-
 class QMapboxGLPrivate : public QObject, public mbgl::View
 {
     Q_OBJECT
@@ -44,12 +39,14 @@ public:
     std::unique_ptr<mbgl::DefaultFileSource> fileSourceObj;
     std::unique_ptr<mbgl::Map> mapObj;
 
+    bool dirty = false;
+
 public slots:
     void connectionEstablished();
 
 signals:
-    void mapRegionDidChange();
     void needsRendering();
+    void mapChanged(QMapboxGL::MapChange);
 };
 
 #endif // QMAPBOXGL_P_H
