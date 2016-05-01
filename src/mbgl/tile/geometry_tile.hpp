@@ -1,19 +1,19 @@
 #ifndef MBGL_MAP_GEOMETRY_TILE
 #define MBGL_MAP_GEOMETRY_TILE
 
-#include <mapbox/variant.hpp>
-
-#include <mbgl/style/value.hpp>
+#include <mbgl/util/value.hpp>
 #include <mbgl/util/chrono.hpp>
 #include <mbgl/util/ptr.hpp>
 #include <mbgl/util/vec.hpp>
 #include <mbgl/util/noncopyable.hpp>
 #include <mbgl/util/optional.hpp>
+#include <mbgl/util/variant.hpp>
 #include <mbgl/util/constants.hpp>
 
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include <functional>
 
 namespace mbgl {
@@ -39,6 +39,8 @@ public:
     virtual ~GeometryTileFeature() = default;
     virtual FeatureType getType() const = 0;
     virtual optional<Value> getValue(const std::string& key) const = 0;
+    virtual std::unordered_map<std::string,Value> getProperties() const { return std::unordered_map<std::string,Value>{}; };
+    virtual uint64_t getID() const { return 0; }
     virtual GeometryCollection getGeometries() const = 0;
     virtual uint32_t getExtent() const { return defaultExtent; }
 };
@@ -48,6 +50,7 @@ public:
     virtual ~GeometryTileLayer() = default;
     virtual std::size_t featureCount() const = 0;
     virtual util::ptr<const GeometryTileFeature> getFeature(std::size_t) const = 0;
+    virtual std::string getName() const = 0;
 };
 
 class GeometryTile : private util::noncopyable {

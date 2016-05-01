@@ -13,7 +13,7 @@
 #include <mbgl/text/collision_feature.hpp>
 #include <mbgl/text/shaping.hpp>
 #include <mbgl/text/quads.hpp>
-#include <mbgl/style/filter_expression.hpp>
+#include <mbgl/style/filter.hpp>
 #include <mbgl/layer/symbol_layer.hpp>
 
 #include <memory>
@@ -32,12 +32,14 @@ class SpriteAtlas;
 class SpriteStore;
 class GlyphAtlas;
 class GlyphStore;
+class IndexedSubfeature;
 
 class SymbolFeature {
 public:
     GeometryCollection geometry;
     std::u32string label;
     std::string sprite;
+    std::size_t index;
 };
 
 struct Anchor;
@@ -49,7 +51,7 @@ class SymbolInstance {
                 const SymbolLayoutProperties& layout, const bool inside, const uint32_t index,
                 const float textBoxScale, const float textPadding, const float textAlongLine,
                 const float iconBoxScale, const float iconPadding, const float iconAlongLine,
-                const GlyphPositions& face);
+                const GlyphPositions& face, const IndexedSubfeature& indexedfeature);
         float x;
         float y;
         uint32_t index;
@@ -67,7 +69,7 @@ class SymbolBucket : public Bucket {
     typedef ElementGroup<1> CollisionBoxElementGroup;
 
 public:
-    SymbolBucket(uint32_t overscaling, float zoom, const MapMode);
+    SymbolBucket(uint32_t overscaling, float zoom, const MapMode, const std::string& bucketName_, const std::string& sourceLayerName_);
     ~SymbolBucket() override;
 
     void upload(gl::GLObjectStore&) override;
@@ -88,15 +90,15 @@ public:
     void drawIcons(IconShader&, gl::GLObjectStore&);
     void drawCollisionBoxes(CollisionBoxShader&, gl::GLObjectStore&);
 
-    void parseFeatures(const GeometryTileLayer&,
-                       const FilterExpression&);
+    void parseFeatures(const GeometryTileLayer&, const Filter&);
     bool needsDependencies(GlyphStore&, SpriteStore&);
     void placeFeatures(CollisionTile&) override;
 
 private:
     void addFeature(const GeometryCollection &lines,
             const Shaping &shapedText, const PositionedIcon &shapedIcon,
-            const GlyphPositions &face);
+            const GlyphPositions &face,
+            const size_t index);
     bool anchorIsTooClose(const std::u32string &text, const float repeatDistance, Anchor &anchor);
     std::map<std::u32string, std::vector<Anchor>> compareText;
     
@@ -125,6 +127,8 @@ private:
     const uint32_t tileSize;
     const float tilePixelRatio;
     const MapMode mode;
+    const std::string bucketName;
+    const std::string sourceLayerName;
 
     std::set<GlyphRange> ranges;
     std::vector<SymbolInstance> symbolInstances;

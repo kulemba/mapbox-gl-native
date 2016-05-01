@@ -9,6 +9,12 @@ else
   $(error Cannot determine host platform)
 endif
 
+ifeq ($(V), 1)
+  export XCPRETTY
+else
+  export XCPRETTY ?= | xcpretty
+endif
+
 ifneq (,$(wildcard .git/.))
 .mason:
 	git submodule update --init
@@ -45,7 +51,7 @@ osx: $(OSX_PROJ_PATH)
 	set -o pipefail && xcodebuild \
 	  -derivedDataPath $(OSX_OUTPUT_PATH) \
 	  -configuration $(BUILDTYPE) \
-	  -workspace $(OSX_WORK_PATH) -scheme CI build | xcpretty
+	  -workspace $(OSX_WORK_PATH) -scheme CI build $(XCPRETTY)
 
 xproj: $(OSX_PROJ_PATH) $(OSX_WORK_PATH)
 	mkdir -p "$(OSX_USER_DATA_PATH)"
@@ -58,7 +64,15 @@ test-osx: osx node_modules/express
 	set -o pipefail && xcodebuild \
 	  -derivedDataPath $(OSX_OUTPUT_PATH) \
 	  -configuration $(BUILDTYPE) \
-	  -workspace $(OSX_WORK_PATH) -scheme CI test | xcpretty
+	  -workspace $(OSX_WORK_PATH) -scheme CI test $(XCPRETTY)
+
+genstrings:
+	genstrings -u -o platform/osx/sdk/Base.lproj platform/darwin/src/*.{m,mm}
+	genstrings -u -o platform/osx/sdk/Base.lproj platform/osx/src/*.{m,mm}
+	genstrings -u -o platform/ios/resources/Base.lproj platform/ios/src/*.{m,mm}
+	-find platform/ios/resources platform/osx/sdk -path '*/Base.lproj/*.strings' -exec \
+		textutil -convert txt -extension strings -inputencoding UTF-16 -encoding UTF-8 {} \;
+	mv platform/osx/sdk/Base.lproj/Foundation.strings platform/darwin/resources/Base.lproj/
 
 #### iOS targets ##############################################################
 
@@ -82,7 +96,7 @@ ios: $(IOS_PROJ_PATH)
 	  -derivedDataPath $(IOS_OUTPUT_PATH) \
 	  -configuration $(BUILDTYPE) -sdk iphonesimulator \
 	  -destination 'platform=iOS Simulator,name=iPhone 6,OS=latest' \
-	  -workspace $(IOS_WORK_PATH) -scheme CI build | xcpretty
+	  -workspace $(IOS_WORK_PATH) -scheme CI build $(XCPRETTY)
 
 iproj: $(IOS_PROJ_PATH)
 	mkdir -p "$(IOS_USER_DATA_PATH)"
@@ -97,21 +111,18 @@ test-ios: ios
 	  -derivedDataPath $(IOS_OUTPUT_PATH) \
 	  -configuration $(BUILDTYPE) -sdk iphonesimulator \
 	  -destination 'platform=iOS Simulator,name=iPhone 6,OS=latest' \
-	  -workspace $(IOS_WORK_PATH) -scheme CI test | xcpretty
+	  -workspace $(IOS_WORK_PATH) -scheme CI test $(XCPRETTY)
 
 ipackage: $(IOS_PROJ_PATH)
 	BITCODE=$(BITCODE) FORMAT=$(FORMAT) BUILD_DEVICE=$(BUILD_DEVICE) SYMBOLS=$(SYMBOLS) \
-	BUNDLE_RESOURCES=YES PLACE_RESOURCE_BUNDLES_OUTSIDE_FRAMEWORK=YES \
 	./platform/ios/scripts/package.sh
 
 ipackage-strip: $(IOS_PROJ_PATH)
 	BITCODE=$(BITCODE) FORMAT=$(FORMAT) BUILD_DEVICE=$(BUILD_DEVICE) SYMBOLS=NO \
-	BUNDLE_RESOURCES=YES PLACE_RESOURCE_BUNDLES_OUTSIDE_FRAMEWORK=YES \
 	./platform/ios/scripts/package.sh
 
 ipackage-sim: $(IOS_PROJ_PATH)
 	BUILDTYPE=Debug BITCODE=$(BITCODE) FORMAT=dynamic BUILD_DEVICE=false SYMBOLS=$(SYMBOLS) \
-	BUNDLE_RESOURCES=YES PLACE_RESOURCE_BUNDLES_OUTSIDE_FRAMEWORK=YES \
 	./platform/ios/scripts/package.sh
 
 iframework: $(IOS_PROJ_PATH)
@@ -119,7 +130,7 @@ iframework: $(IOS_PROJ_PATH)
 	./platform/ios/scripts/package.sh
 
 ifabric: $(IOS_PROJ_PATH)
-	BITCODE=$(BITCODE) FORMAT=$(FORMAT) BUILD_DEVICE=$(BUILD_DEVICE) SYMBOLS=NO BUNDLE_RESOURCES=YES \
+	BITCODE=$(BITCODE) FORMAT=static BUILD_DEVICE=$(BUILD_DEVICE) SYMBOLS=NO SELF_CONTAINED=YES \
 	./platform/ios/scripts/package.sh
 
 idocument:
@@ -183,6 +194,14 @@ qt-app:
 run-qt-app: qt-app
 	$(RUN) PLATFORM=qt run-qt-app
 
+.PHONY: qt-qml-app
+qt-qml-app:
+	$(RUN) PLATFORM=qt Makefile/qt-qml-app
+
+.PHONY: run-qt-qml-app
+run-qt-qml-app: qt-qml-app
+	$(RUN) PLATFORM=qt run-qt-qml-app
+
 .PHONY: test-qt
 test-qt: node_modules/express
 	$(RUN) PLATFORM=qt test-*
@@ -245,7 +264,8 @@ clean:
 	        ./platform/android/MapboxGLAndroidSDKTestApp/build \
 	        ./platform/android/MapboxGLAndroidSDK/src/main/jniLibs \
 	        ./platform/android/MapboxGLAndroidSDKTestApp/src/main/jniLibs \
-	        ./platform/android/MapboxGLAndroidSDK/src/main/assets
+	        ./platform/android/MapboxGLAndroidSDK/src/main/assets \
+	        ./node_modules
 
 distclean: clean
 	-rm -rf ./mason_packages
