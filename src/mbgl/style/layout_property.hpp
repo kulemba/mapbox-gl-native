@@ -3,6 +3,7 @@
 
 #include <mbgl/style/property_parsing.hpp>
 #include <mbgl/style/function.hpp>
+#include <mbgl/style/function_evaluator.hpp>
 #include <mbgl/util/rapidjson.hpp>
 
 #include <utility>
@@ -16,13 +17,14 @@ public:
 
     void parse(const char * name, const JSValue& layout) {
         if (layout.HasMember(name)) {
-            parsedValue = parseProperty<Function<T>>(name, layout[name]);
+            parsedValue = parseProperty<T>(name, layout[name]);
         }
     }
 
     void calculate(const StyleCalculationParameters& parameters) {
         if (parsedValue) {
-            value = (*parsedValue).evaluate(parameters);
+            NormalFunctionEvaluator<T> evaluator;
+            value = evaluator(*parsedValue, parameters);
         }
     }
 

@@ -27,9 +27,9 @@
 #include <mbgl/util/chrono.hpp>
 
 #import "Mapbox.h"
-#import "../../darwin/src/MGLGeometry_Private.h"
-#import "../../darwin/src/MGLMultiPoint_Private.h"
-#import "../../darwin/src/MGLOfflineStorage_Private.h"
+#import "MGLGeometry_Private.h"
+#import "MGLMultiPoint_Private.h"
+#import "MGLOfflineStorage_Private.h"
 
 #import "NSBundle+MGLAdditions.h"
 #import "NSString+MGLAdditions.h"
@@ -58,8 +58,6 @@ typedef NS_ENUM(NSUInteger, MGLUserTrackingState) {
     /// The map view has finished moving to the first reported user location.
     MGLUserTrackingStateChanged,
 };
-
-NSString *const MGLMapboxSetupDocumentationURLDisplayString = @"mapbox.com/help/first-steps-ios-sdk";
 
 const NSTimeInterval MGLAnimationDuration = 0.3;
 
@@ -131,13 +129,66 @@ mbgl::Color MGLColorObjectFromUIColor(UIColor *color)
     return {{ (float)r, (float)g, (float)b, (float)a }};
 }
 
+@interface MGLAnnotationAccessibilityElement : UIAccessibilityElement
+
+@property (nonatomic) MGLAnnotationTag tag;
+
+- (instancetype)initWithAccessibilityContainer:(id)container tag:(MGLAnnotationTag)identifier NS_DESIGNATED_INITIALIZER;
+
+@end
+
+@implementation MGLAnnotationAccessibilityElement
+
+- (instancetype)initWithAccessibilityContainer:(id)container tag:(MGLAnnotationTag)tag
+{
+    if (self = [super initWithAccessibilityContainer:container])
+    {
+        _tag = tag;
+        self.accessibilityTraits = UIAccessibilityTraitButton | UIAccessibilityTraitAdjustable;
+    }
+    return self;
+}
+
+- (void)accessibilityIncrement
+{
+    [self.accessibilityContainer accessibilityIncrement];
+}
+
+- (void)accessibilityDecrement
+{
+    [self.accessibilityContainer accessibilityDecrement];
+}
+
+@end
+
 /// Lightweight container for metadata about an annotation, including the annotation itself.
 class MGLAnnotationContext {
 public:
     id <MGLAnnotation> annotation;
     /// The annotation’s image’s reuse identifier.
     NSString *imageReuseIdentifier;
+    MGLAnnotationAccessibilityElement *accessibilityElement;
 };
+
+/** An accessibility element representing the MGLMapView at large. */
+@interface MGLMapViewProxyAccessibilityElement : UIAccessibilityElement
+
+@end
+
+@implementation MGLMapViewProxyAccessibilityElement
+
+- (instancetype)initWithAccessibilityContainer:(id)container
+{
+    if (self = [super initWithAccessibilityContainer:container])
+    {
+        self.accessibilityTraits = UIAccessibilityTraitButton;
+        self.accessibilityLabel = [self.accessibilityContainer accessibilityLabel];
+        self.accessibilityHint = @"Returns to the map";
+    }
+    return self;
+}
+
+@end
 
 #pragma mark - Private -
 
@@ -178,6 +229,7 @@ public:
 @property (nonatomic) CGFloat quickZoomStart;
 @property (nonatomic, getter=isDormant) BOOL dormant;
 @property (nonatomic, readonly, getter=isRotationAllowed) BOOL rotationAllowed;
+@property (nonatomic) MGLMapViewProxyAccessibilityElement *mapViewProxyAccessibilityElement;
 
 @end
 
@@ -219,6 +271,8 @@ public:
     BOOL _delegateHasStrokeColorsForShapeAnnotations;
     BOOL _delegateHasFillColorsForShapeAnnotations;
     BOOL _delegateHasLineWidthsForShapeAnnotations;
+    
+    MGLCompassDirectionFormatter *_accessibilityCompassFormatter;
 }
 
 #pragma mark - Setup & Teardown -
@@ -320,7 +374,14 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         [self createGLView];
     }
 
-    self.accessibilityLabel = @"Map";
+    // setup accessibility
+    //
+//    self.isAccessibilityElement = YES;
+    self.accessibilityLabel = NSLocalizedStringWithDefaultValue(@"MAP_A11Y_LABEL", nil, nil, @"Map", @"Accessibility label");
+    self.accessibilityTraits = UIAccessibilityTraitAllowsDirectInteraction | UIAccessibilityTraitAdjustable;
+    _accessibilityCompassFormatter = [[MGLCompassDirectionFormatter alloc] init];
+    _accessibilityCompassFormatter.unitStyle = NSFormattingUnitStyleLong;
+    
     self.backgroundColor = [UIColor clearColor];
     self.clipsToBounds = YES;
 
@@ -365,7 +426,8 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     //
     UIImage *logo = [[MGLMapView resourceImageNamed:@"mapbox.png"] imageWithAlignmentRectInsets:UIEdgeInsetsMake(1.5, 4, 3.5, 2)];
     _logoView = [[UIImageView alloc] initWithImage:logo];
-    _logoView.accessibilityLabel = @"Mapbox logo";
+    _logoView.accessibilityTraits = UIAccessibilityTraitStaticText;
+    _logoView.accessibilityLabel = NSLocalizedStringWithDefaultValue(@"LOGO_A11Y_LABEL", nil, nil, @"Mapbox", @"Accessibility label");
     _logoView.translatesAutoresizingMaskIntoConstraints = NO;
     [self addSubview:_logoView];
     _logoViewConstraints = [NSMutableArray array];
@@ -373,7 +435,8 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     // setup attribution
     //
     _attributionButton = [UIButton buttonWithType:UIButtonTypeInfoLight];
-    _attributionButton.accessibilityLabel = @"Attribution info";
+    _attributionButton.accessibilityLabel = NSLocalizedStringWithDefaultValue(@"INFO_A11Y_LABEL", nil, nil, @"About this map", @"Accessibility label");
+    _attributionButton.accessibilityHint = NSLocalizedStringWithDefaultValue(@"INFO_A11Y_HINT", nil, nil, @"Shows credits, a feedback form, and more", @"Accessibility hint");
     [_attributionButton addTarget:self action:@selector(showAttribution) forControlEvents:UIControlEventTouchUpInside];
     _attributionButton.translatesAutoresizingMaskIntoConstraints = NO;
     [self addSubview:_attributionButton];
@@ -382,12 +445,14 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
     // setup compass
     //
-    _compassView = [[UIImageView alloc] initWithImage:[MGLMapView resourceImageNamed:@"Compass.png"]];
-    _compassView.accessibilityLabel = @"Compass";
-    _compassView.frame = CGRectMake(0, 0, _compassView.image.size.width, _compassView.image.size.height);
+    _compassView = [[UIImageView alloc] initWithImage:self.compassImage];
+    _compassView.frame = { CGPointZero, _compassView.image.size };
     _compassView.alpha = 0;
     _compassView.userInteractionEnabled = YES;
     [_compassView addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleCompassTapGesture:)]];
+    _compassView.accessibilityTraits = UIAccessibilityTraitButton;
+    _compassView.accessibilityLabel = NSLocalizedStringWithDefaultValue(@"COMPASS_A11Y_LABEL", nil, nil, @"Compass", @"Accessibility label");
+    _compassView.accessibilityHint = NSLocalizedStringWithDefaultValue(@"COMPASS_A11Y_HINT", nil, nil, @"Rotates the map to face due north", @"Accessibility hint");
     UIView *container = [[UIView alloc] initWithFrame:CGRectZero];
     [container addSubview:_compassView];
     container.translatesAutoresizingMaskIntoConstraints = NO;
@@ -508,6 +573,26 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     });
 }
 
+- (UIImage *)compassImage
+{
+    UIImage *scaleImage = [MGLMapView resourceImageNamed:@"Compass.png"];
+    UIGraphicsBeginImageContextWithOptions(scaleImage.size, NO, [UIScreen mainScreen].scale);
+    [scaleImage drawInRect:{ CGPointZero, scaleImage.size }];
+    
+    NSAttributedString *north = [[NSAttributedString alloc] initWithString:NSLocalizedStringWithDefaultValue(@"COMPASS_NORTH", nil, nil, @"N", @"Compass abbreviation for north") attributes:@{
+        NSFontAttributeName: [UIFont systemFontOfSize:9 weight:UIFontWeightUltraLight],
+        NSForegroundColorAttributeName: [UIColor whiteColor],
+    }];
+    CGRect stringRect = CGRectMake((scaleImage.size.width - north.size.width) / 2,
+                                   scaleImage.size.height * 0.45,
+                                   north.size.width, north.size.height);
+    [north drawInRect:stringRect];
+    
+    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return image;
+}
+
 - (void)reachabilityChanged:(NSNotification *)notification
 {
     MGLReachability *reachability = [notification object];
@@ -524,7 +609,11 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     [_attributionButton removeObserver:self forKeyPath:@"hidden"];
     
     // Removing the annotations unregisters any outstanding KVO observers.
-    [self removeAnnotations:self.annotations];
+    NSArray *annotations = self.annotations;
+    if (annotations)
+    {
+        [self removeAnnotations:annotations];
+    }
     
     [self validateDisplayLink];
 
@@ -651,6 +740,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
                                  multiplier:1
                                    constant:5]];
 
+    UIImage *compassImage = self.compassView.image;
     [compassContainerConstraints addObject:
      [NSLayoutConstraint constraintWithItem:compassContainer
                                   attribute:NSLayoutAttributeWidth
@@ -658,7 +748,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
                                      toItem:nil
                                   attribute:NSLayoutAttributeNotAnAttribute
                                  multiplier:1
-                                   constant:self.compassView.image.size.width]];
+                                   constant:compassImage.size.width]];
 
     [compassContainerConstraints addObject:
      [NSLayoutConstraint constraintWithItem:compassContainer
@@ -667,7 +757,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
                                      toItem:nil
                                   attribute:NSLayoutAttributeNotAnAttribute
                                  multiplier:1
-                                   constant:self.compassView.image.size.height]];
+                                   constant:compassImage.size.height]];
     [constraintParentView addConstraints:compassContainerConstraints];
 
     // logo bug
@@ -1288,6 +1378,22 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         return;
     }
     [self trackGestureEvent:MGLEventGestureSingleTap forRecognizer:singleTap];
+    
+    if (self.mapViewProxyAccessibilityElement.accessibilityElementIsFocused)
+    {
+        id nextElement;
+        if (_userLocationAnnotationIsSelected)
+        {
+            nextElement = self.userLocationAnnotationView;
+        }
+        else
+        {
+            nextElement = _annotationContextsByAnnotationTag[_selectedAnnotationTag].accessibilityElement;
+        }
+        [self deselectAnnotation:self.selectedAnnotation animated:YES];
+        UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification, nextElement);
+        return;
+    }
 
     CGPoint tapPoint = [singleTap locationInView:self];
 
@@ -1480,7 +1586,9 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     if ([self.delegate respondsToSelector:@selector(mapView:annotation:calloutAccessoryControlTapped:)])
     {
         NSAssert([tap.view isKindOfClass:[UIControl class]], @"Tapped view %@ is not a UIControl", tap.view);
-        [self.delegate mapView:self annotation:self.selectedAnnotation
+        id <MGLAnnotation> selectedAnnotation = self.selectedAnnotation;
+        NSAssert(selectedAnnotation, @"Selected annotation should not be nil.");
+        [self.delegate mapView:self annotation:selectedAnnotation
             calloutAccessoryControlTapped:(UIControl *)tap.view];
     }
 }
@@ -1494,7 +1602,9 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 {
     if ([self.delegate respondsToSelector:@selector(mapView:tapOnCalloutForAnnotation:)])
     {
-        [self.delegate mapView:self tapOnCalloutForAnnotation:self.selectedAnnotation];
+        id <MGLAnnotation> selectedAnnotation = self.selectedAnnotation;
+        NSAssert(selectedAnnotation, @"Selected annotation should not be nil.");
+        [self.delegate mapView:self tapOnCalloutForAnnotation:selectedAnnotation];
     }
 }
 
@@ -1502,8 +1612,16 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 {
     if ([self.delegate respondsToSelector:@selector(mapView:tapOnCalloutForAnnotation:)])
     {
-        [self.delegate mapView:self tapOnCalloutForAnnotation:self.selectedAnnotation];
+        id <MGLAnnotation> selectedAnnotation = self.selectedAnnotation;
+        NSAssert(selectedAnnotation, @"Selected annotation should not be nil.");
+        [self.delegate mapView:self tapOnCalloutForAnnotation:selectedAnnotation];
     }
+}
+
+- (void)calloutViewDidAppear:(UIView<MGLCalloutView> *)calloutView
+{
+    UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification, nil);
+    UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, calloutView);
 }
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
@@ -1533,15 +1651,15 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 {
     if ( ! self.attributionSheet)
     {
-        self.attributionSheet = [[UIActionSheet alloc] initWithTitle:@"Mapbox iOS SDK"
+        self.attributionSheet = [[UIActionSheet alloc] initWithTitle:NSLocalizedStringWithDefaultValue(@"SDK_NAME", nil, nil, @"Mapbox iOS SDK", @"Action sheet title")
                                                             delegate:self
-                                                   cancelButtonTitle:@"Cancel"
+                                                   cancelButtonTitle:NSLocalizedStringWithDefaultValue(@"CANCEL", nil, nil, @"Cancel", @"")
                                               destructiveButtonTitle:nil
                                                    otherButtonTitles:
-                                 @"© Mapbox",
-                                 @"© OpenStreetMap",
-                                 @"Improve This Map",
-                                 @"Mapbox Telemetry",
+                                 NSLocalizedStringWithDefaultValue(@"COPY_MAPBOX", nil, nil, @"© Mapbox", @"Copyright notice in attribution sheet"),
+                                 NSLocalizedStringWithDefaultValue(@"COPY_OSM", nil, nil, @"© OpenStreetMap", @"Copyright notice in attribution sheet"),
+                                 NSLocalizedStringWithDefaultValue(@"MAP_FEEDBACK", nil, nil, @"Improve This Map", @"Action in attribution sheet"),
+                                 NSLocalizedStringWithDefaultValue(@"TELEMETRY_NAME", nil, nil, @"Mapbox Telemetry", @"Action in attribution sheet"),
                                  nil];
 
     }
@@ -1576,22 +1694,22 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
         if ([[NSUserDefaults standardUserDefaults] boolForKey:@"MGLMapboxMetricsEnabled"])
         {
-            message = @"You are helping to make OpenStreetMap and Mapbox maps better by contributing anonymous usage data.";
-            participate = @"Keep Participating";
-            optOut = @"Stop Participating";
+            message = NSLocalizedStringWithDefaultValue(@"TELEMETRY_ENABLED_MSG", nil, nil, @"You are helping to make OpenStreetMap and Mapbox maps better by contributing anonymous usage data.", @"Telemetry prompt message");
+            participate = NSLocalizedStringWithDefaultValue(@"TELEMETRY_ENABLED_ON", nil, nil, @"Keep Participating", @"Telemetry prompt button");
+            optOut = NSLocalizedStringWithDefaultValue(@"TELEMETRY_ENABLED_OFF", nil, nil, @"Stop Participating", @"Telemetry prompt button");
         }
         else
         {
-            message = @"You can help make OpenStreetMap and Mapbox maps better by contributing anonymous usage data.";
-            participate = @"Participate";
-            optOut = @"Don’t Participate";
+            message = NSLocalizedStringWithDefaultValue(@"TELEMETRY_DISABLED_MSG", nil, nil, @"You can help make OpenStreetMap and Mapbox maps better by contributing anonymous usage data.", @"Telemetry prompt message");
+            participate = NSLocalizedStringWithDefaultValue(@"TELEMETRY_DISABLED_ON", nil, nil, @"Participate", @"Telemetry prompt button");
+            optOut = NSLocalizedStringWithDefaultValue(@"TELEMETRY_DISABLED_OFF", nil, nil, @"Don’t Participate", @"Telemetry prompt button");
         }
 
-        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Make Mapbox Maps Better"
+        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringWithDefaultValue(@"TELEMETRY_TITLE", nil, nil, @"Make Mapbox Maps Better", @"Telemetry prompt title")
                                                         message:message
                                                        delegate:self
                                               cancelButtonTitle:participate
-                                              otherButtonTitles:@"Tell Me More", optOut, nil];
+                                              otherButtonTitles:NSLocalizedStringWithDefaultValue(@"TELEMETRY_MORE", nil, nil, @"Tell Me More", @"Telemetry prompt button"), optOut, nil];
         [alert show];
     }
 }
@@ -1605,7 +1723,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     else if (buttonIndex == alertView.firstOtherButtonIndex)
     {
         [[UIApplication sharedApplication] openURL:
-         [NSURL URLWithString:@"https://mapbox.com/telemetry/"]];
+         [NSURL URLWithString:@"https://www.mapbox.com/telemetry/"]];
     }
     else if (buttonIndex == alertView.firstOtherButtonIndex + 1)
     {
@@ -1751,6 +1869,220 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 - (void)emptyMemoryCache
 {
     _mbglMap->onLowMemory();
+}
+
+#pragma mark - Accessibility -
+
+- (NSString *)accessibilityValue
+{
+    double zoomLevel = round(self.zoomLevel - 1);
+    return [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"MAP_A11Y_VALUE", nil, nil, @"Zoom %dx\n%ld annotation(s) visible", @"Map accessibility value"), (int)zoomLevel, (long)self.accessibilityAnnotationCount];
+}
+
+- (CGRect)accessibilityFrame
+{
+    CGRect frame = [super accessibilityFrame];
+    UIViewController *viewController = self.viewControllerForLayoutGuides;
+    if (viewController)
+    {
+        CGFloat topInset = viewController.topLayoutGuide.length;
+        frame.origin.y += topInset;
+        frame.size.height -= topInset + viewController.bottomLayoutGuide.length;
+    }
+    return frame;
+}
+
+- (UIBezierPath *)accessibilityPath
+{
+    UIBezierPath *path = [UIBezierPath bezierPathWithRect:self.accessibilityFrame];
+    
+    // Exclude any visible annotation callout view.
+    if (self.calloutViewForSelectedAnnotation)
+    {
+        UIBezierPath *calloutViewPath = [UIBezierPath bezierPathWithRect:self.calloutViewForSelectedAnnotation.frame];
+        [path appendPath:calloutViewPath];
+    }
+    
+    return path;
+}
+
+- (NSInteger)accessibilityElementCount
+{
+    if (self.calloutViewForSelectedAnnotation)
+    {
+        return 2 /* selectedAnnotationCalloutView, mapViewProxyAccessibilityElement */;
+    }
+    NSInteger count = self.accessibilityAnnotationCount + 2 /* compass, attributionButton */;
+    if (self.userLocationAnnotationView)
+    {
+        count++;
+    }
+    return count;
+}
+
+- (NSInteger)accessibilityAnnotationCount
+{
+    std::vector<MGLAnnotationTag> visibleAnnotations = [self annotationTagsInRect:self.bounds];
+    return visibleAnnotations.size();
+}
+
+- (id)accessibilityElementAtIndex:(NSInteger)index
+{
+    if (self.calloutViewForSelectedAnnotation)
+    {
+        if (index == 0)
+        {
+            return self.calloutViewForSelectedAnnotation;
+        }
+        if (index == 1)
+        {
+            self.mapViewProxyAccessibilityElement.accessibilityFrame = self.accessibilityFrame;
+            self.mapViewProxyAccessibilityElement.accessibilityPath = self.accessibilityPath;
+            return self.mapViewProxyAccessibilityElement;
+        }
+        return nil;
+    }
+    std::vector<MGLAnnotationTag> visibleAnnotations = [self annotationTagsInRect:self.bounds];
+    
+    // Ornaments
+    if (index == 0)
+    {
+        return self.compassView;
+    }
+    if ( ! self.userLocationAnnotationView)
+    {
+        index++;
+    }
+    else if (index == 1)
+    {
+        return self.userLocationAnnotationView;
+    }
+    if (index > 0 && (NSUInteger)index == visibleAnnotations.size() + 2 /* compass, userLocationAnnotationView */)
+    {
+        return self.attributionButton;
+    }
+    
+    std::sort(visibleAnnotations.begin(), visibleAnnotations.end());
+    CGPoint centerPoint = self.contentCenter;
+    if (self.userTrackingMode != MGLUserTrackingModeNone)
+    {
+        centerPoint = self.userLocationAnnotationViewCenter;
+    }
+    CLLocationCoordinate2D currentCoordinate = [self convertPoint:centerPoint toCoordinateFromView:self];
+    std::sort(visibleAnnotations.begin(), visibleAnnotations.end(), [&](const MGLAnnotationTag tagA, const MGLAnnotationTag tagB) {
+        CLLocationCoordinate2D coordinateA = [[self annotationWithTag:tagA] coordinate];
+        CLLocationCoordinate2D coordinateB = [[self annotationWithTag:tagB] coordinate];
+        CLLocationDegrees deltaA = hypot(coordinateA.latitude - currentCoordinate.latitude,
+                                         coordinateA.longitude - currentCoordinate.longitude);
+        CLLocationDegrees deltaB = hypot(coordinateB.latitude - currentCoordinate.latitude,
+                                         coordinateB.longitude - currentCoordinate.longitude);
+        return deltaA < deltaB;
+    });
+    
+    NSUInteger annotationIndex = MGLAnnotationTagNotFound;
+    if (index >= 0 && (NSUInteger)(index - 2) < visibleAnnotations.size())
+    {
+        annotationIndex = index - 2 /* compass, userLocationAnnotationView */;
+    }
+    MGLAnnotationTag annotationTag = visibleAnnotations[annotationIndex];
+    NSAssert(annotationTag != MGLAnnotationTagNotFound, @"Can’t get accessibility element for nonexistent or invisible annotation at index %li.", (long)index);
+    NSAssert(_annotationContextsByAnnotationTag.count(annotationTag), @"Missing annotation for tag %u.", annotationTag);
+    MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag.at(annotationTag);
+    id <MGLAnnotation> annotation = annotationContext.annotation;
+    
+    // Lazily create an accessibility element for the found annotation.
+    if ( ! annotationContext.accessibilityElement)
+    {
+        annotationContext.accessibilityElement = [[MGLAnnotationAccessibilityElement alloc] initWithAccessibilityContainer:self tag:annotationTag];
+    }
+    
+    // Update the accessibility element.
+    MGLAnnotationImage *annotationImage = [self imageOfAnnotationWithTag:annotationTag];
+    CGRect annotationFrame = [self frameOfImage:annotationImage.image centeredAtCoordinate:annotation.coordinate];
+    CGRect screenRect = UIAccessibilityConvertFrameToScreenCoordinates(annotationFrame, self);
+    annotationContext.accessibilityElement.accessibilityFrame = screenRect;
+    annotationContext.accessibilityElement.accessibilityHint = NSLocalizedStringWithDefaultValue(@"ANNOTATION_A11Y_HINT", nil, nil, @"Shows more info", @"Accessibility hint");
+    
+    if ([annotation respondsToSelector:@selector(title)])
+    {
+        annotationContext.accessibilityElement.accessibilityLabel = annotation.title;
+    }
+    if ([annotation respondsToSelector:@selector(subtitle)])
+    {
+        annotationContext.accessibilityElement.accessibilityValue = annotation.subtitle;
+    }
+    
+    return annotationContext.accessibilityElement;
+}
+
+- (NSInteger)indexOfAccessibilityElement:(id)element
+{
+    if (self.calloutViewForSelectedAnnotation)
+    {
+        return [@[self.calloutViewForSelectedAnnotation, self.mapViewProxyAccessibilityElement]
+                indexOfObject:element];
+    }
+    if (element == self.compassView)
+    {
+        return 0;
+    }
+    if (element == self.userLocationAnnotationView)
+    {
+        return 1;
+    }
+    if ( ! [element isKindOfClass:[MGLAnnotationAccessibilityElement class]] &&
+        element != self.attributionButton)
+    {
+        return NSNotFound;
+    }
+    
+    std::vector<MGLAnnotationTag> visibleAnnotations = [self annotationTagsInRect:self.bounds];
+    if (element == self.attributionButton)
+    {
+        return !!self.userLocationAnnotationView + visibleAnnotations.size();
+    }
+    std::sort(visibleAnnotations.begin(), visibleAnnotations.end());
+    auto foundElement = std::find(visibleAnnotations.begin(), visibleAnnotations.end(),
+                                  ((MGLAnnotationAccessibilityElement *)element).tag);
+    if (foundElement == visibleAnnotations.end())
+    {
+        return NSNotFound;
+    }
+    return !!self.userLocationAnnotationView + std::distance(visibleAnnotations.begin(), foundElement) + 1 /* compass */;
+}
+
+- (MGLMapViewProxyAccessibilityElement *)mapViewProxyAccessibilityElement
+{
+    if ( ! _mapViewProxyAccessibilityElement)
+    {
+        _mapViewProxyAccessibilityElement = [[MGLMapViewProxyAccessibilityElement alloc] initWithAccessibilityContainer:self];
+    }
+    return _mapViewProxyAccessibilityElement;
+}
+
+- (void)accessibilityIncrement
+{
+    // Swipe up to zoom out.
+    [self accessibilityScaleBy:0.5];
+}
+
+- (void)accessibilityDecrement
+{
+    // Swipe down to zoom in.
+    [self accessibilityScaleBy:2];
+}
+
+- (void)accessibilityScaleBy:(double)scaleFactor
+{
+    CGPoint centerPoint = self.contentCenter;
+    if (self.userTrackingMode != MGLUserTrackingModeNone)
+    {
+        centerPoint = self.userLocationAnnotationViewCenter;
+    }
+    _mbglMap->scaleBy(scaleFactor, mbgl::ScreenCoordinate { centerPoint.x, centerPoint.y });
+    [self unrotateIfNeededForGesture];
+    
+    UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, self.accessibilityValue);
 }
 
 #pragma mark - Geography -
@@ -2515,6 +2847,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     }
     
     [self didChangeValueForKey:@"annotations"];
+    UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
 }
 
 /// Initialize and return a default annotation image that depicts a round pin
@@ -2649,6 +2982,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         [self willChangeValueForKey:@"annotations"];
         _mbglMap->removeAnnotations(annotationTagsToRemove);
         [self didChangeValueForKey:@"annotations"];
+        UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
     }
 }
 
@@ -2849,7 +3183,8 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
 - (NS_ARRAY_OF(id <MGLAnnotation>) *)selectedAnnotations
 {
-    return (self.selectedAnnotation ? @[ self.selectedAnnotation ] : @[]);
+    id <MGLAnnotation> selectedAnnotation = self.selectedAnnotation;
+    return (selectedAnnotation ? @[ selectedAnnotation ] : @[]);
 }
 
 - (void)setSelectedAnnotations:(NS_ARRAY_OF(id <MGLAnnotation>) *)selectedAnnotations
@@ -2906,14 +3241,16 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         [self.delegate mapView:self annotationCanShowCallout:annotation])
     {
         // build the callout
+        UIView <MGLCalloutView> *calloutView;
         if ([self.delegate respondsToSelector:@selector(mapView:calloutViewForAnnotation:)])
         {
-            self.calloutViewForSelectedAnnotation = [self.delegate mapView:self calloutViewForAnnotation:annotation];
+            calloutView = [self.delegate mapView:self calloutViewForAnnotation:annotation];
         }
-        if (!self.calloutViewForSelectedAnnotation)
+        if (!calloutView)
         {
-            self.calloutViewForSelectedAnnotation = [self calloutViewForAnnotation:annotation];
+            calloutView = [self calloutViewForAnnotation:annotation];
         }
+        self.calloutViewForSelectedAnnotation = calloutView;
 
         if (_userLocationAnnotationIsSelected)
         {
@@ -2928,40 +3265,38 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         // consult delegate for left and/or right accessory views
         if ([self.delegate respondsToSelector:@selector(mapView:leftCalloutAccessoryViewForAnnotation:)])
         {
-            self.calloutViewForSelectedAnnotation.leftAccessoryView =
-                [self.delegate mapView:self leftCalloutAccessoryViewForAnnotation:annotation];
+            calloutView.leftAccessoryView = [self.delegate mapView:self leftCalloutAccessoryViewForAnnotation:annotation];
 
-            if ([self.calloutViewForSelectedAnnotation.leftAccessoryView isKindOfClass:[UIControl class]])
+            if ([calloutView.leftAccessoryView isKindOfClass:[UIControl class]])
             {
                 UITapGestureRecognizer *calloutAccessoryTap = [[UITapGestureRecognizer alloc] initWithTarget:self
                                                                   action:@selector(handleCalloutAccessoryTapGesture:)];
 
-                [self.calloutViewForSelectedAnnotation.leftAccessoryView addGestureRecognizer:calloutAccessoryTap];
+                [calloutView.leftAccessoryView addGestureRecognizer:calloutAccessoryTap];
             }
         }
 
         if ([self.delegate respondsToSelector:@selector(mapView:rightCalloutAccessoryViewForAnnotation:)])
         {
-            self.calloutViewForSelectedAnnotation.rightAccessoryView =
-                [self.delegate mapView:self rightCalloutAccessoryViewForAnnotation:annotation];
+            calloutView.rightAccessoryView = [self.delegate mapView:self rightCalloutAccessoryViewForAnnotation:annotation];
 
-            if ([self.calloutViewForSelectedAnnotation.rightAccessoryView isKindOfClass:[UIControl class]])
+            if ([calloutView.rightAccessoryView isKindOfClass:[UIControl class]])
             {
                 UITapGestureRecognizer *calloutAccessoryTap = [[UITapGestureRecognizer alloc] initWithTarget:self
                                                                   action:@selector(handleCalloutAccessoryTapGesture:)];
 
-                [self.calloutViewForSelectedAnnotation.rightAccessoryView addGestureRecognizer:calloutAccessoryTap];
+                [calloutView.rightAccessoryView addGestureRecognizer:calloutAccessoryTap];
             }
         }
 
         // set annotation delegate to handle taps on the callout view
-        self.calloutViewForSelectedAnnotation.delegate = self;
+        calloutView.delegate = self;
 
         // present popup
-        [self.calloutViewForSelectedAnnotation presentCalloutFromRect:positioningRect
-                                                               inView:self.glView
-                                                    constrainedToView:self.glView
-                                                             animated:animated];
+        [calloutView presentCalloutFromRect:positioningRect
+                                     inView:self.glView
+                          constrainedToView:self.glView
+                                   animated:animated];
     }
 
     // notify delegate
@@ -3442,6 +3777,13 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         duration = MAX([newLocation.timestamp timeIntervalSinceDate:oldLocation.timestamp], MGLUserLocationAnimationDuration);
     }
     [self updateUserLocationAnnotationViewAnimatedWithDuration:duration];
+    
+    if (self.userTrackingMode == MGLUserTrackingModeNone &&
+        self.userLocationAnnotationView.accessibilityElementIsFocused &&
+        [UIApplication sharedApplication].applicationState == UIApplicationStateActive)
+    {
+        UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, self.userLocationAnnotationView);
+    }
 }
 
 - (void)didUpdateLocationWithUserTrackingAnimated:(BOOL)animated
@@ -3813,6 +4155,10 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
             if ( ! [self isSuppressingChangeDelimiters] && [self.delegate respondsToSelector:@selector(mapView:regionDidChangeAnimated:)])
             {
+                if ([UIApplication sharedApplication].applicationState == UIApplicationStateActive)
+                {
+                    UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
+                }
                 BOOL animated = change == mbgl::MapChangeRegionDidChangeAnimated;
                 [self.delegate mapView:self regionDidChangeAnimated:animated];
             }
@@ -3991,11 +4337,14 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
 - (void)updateCompass
 {
-    CLLocationDirection degrees = mbgl::util::wrap(-self.direction, 0., 360.);
+    CLLocationDirection direction = self.direction;
+    CLLocationDirection plateDirection = mbgl::util::wrap(-direction, 0., 360.);
+    self.compassView.transform = CGAffineTransformMakeRotation(MGLRadiansFromDegrees(plateDirection));
+    
+    self.compassView.isAccessibilityElement = direction > 0;
+    self.compassView.accessibilityValue = [_accessibilityCompassFormatter stringFromDirection:direction];
 
-    self.compassView.transform = CGAffineTransformMakeRotation(MGLRadiansFromDegrees(degrees));
-
-    if (_mbglMap->getBearing() && self.compassView.alpha < 1)
+    if (direction > 0 && self.compassView.alpha < 1)
     {
         [UIView animateWithDuration:MGLAnimationDuration
                               delay:0
@@ -4006,7 +4355,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
                          }
                          completion:nil];
     }
-    else if (_mbglMap->getBearing() == 0 && self.compassView.alpha > 0)
+    else if (direction == 0 && self.compassView.alpha > 0)
     {
         [UIView animateWithDuration:MGLAnimationDuration
                               delay:0
@@ -4057,7 +4406,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
     // Headline
     UILabel *headlineLabel = [[UILabel alloc] init];
-    headlineLabel.text = @"MGLMapView";
+    headlineLabel.text = NSStringFromClass([self class]);
     headlineLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
     headlineLabel.textAlignment = NSTextAlignmentCenter;
     headlineLabel.numberOfLines = 1;
@@ -4068,8 +4417,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
     // Explanation
     UILabel *explanationLabel = [[UILabel alloc] init];
-    explanationLabel.text = (@"To display a Mapbox-hosted map here, set MGLMapboxAccessToken to your access token in Info.plist\n\n"
-                             @"For detailed instructions, see:");
+    explanationLabel.text = [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"DESIGNABLE", nil, nil, @"To display a Mapbox-hosted map here, set %@ to your access token in %@\n\nFor detailed instructions, see:", @"Instructions in Interface Builder designable; {key}, {plist file name}"), @"MGLMapboxAccessToken", @"Info.plist"];
     explanationLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
     explanationLabel.numberOfLines = 0;
     explanationLabel.translatesAutoresizingMaskIntoConstraints = NO;
@@ -4079,7 +4427,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
     // Link
     UIButton *linkButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    [linkButton setTitle:MGLMapboxSetupDocumentationURLDisplayString forState:UIControlStateNormal];
+    [linkButton setTitle:NSLocalizedStringWithDefaultValue(@"FIRST_STEPS_URL", nil, nil, @"mapbox.com/help/first-steps-ios-sdk", @"Setup documentation URL display string; keep as short as possible") forState:UIControlStateNormal];
     linkButton.translatesAutoresizingMaskIntoConstraints = NO;
     linkButton.titleLabel.numberOfLines = 0;
     [linkButton setContentCompressionResistancePriority:UILayoutPriorityDefaultLow

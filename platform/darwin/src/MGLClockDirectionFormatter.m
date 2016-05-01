@@ -1,5 +1,7 @@
 #import "MGLClockDirectionFormatter.h"
 
+#import "NSBundle+MGLAdditions.h"
+
 #define wrap(value, min, max) \
     (fmod((fmod((value - min), (max - min)) + (max - min)), (max - min)) + min)
 
@@ -11,41 +13,34 @@
     if (self = [super init]) {
         _unitStyle = NSFormattingUnitStyleMedium;
         _numberFormatter = [[NSNumberFormatter alloc] init];
+        _numberFormatter.numberStyle = NSNumberFormatterDecimalStyle;
     }
     return self;
 }
 
-- (NSLocale *)locale {
-    return _numberFormatter.locale;
-}
-
-- (void)setLocale:(NSLocale *)locale {
-    _numberFormatter.locale = locale;
-}
-
 - (NSString *)stringFromDirection:(CLLocationDirection)direction {
-    NSInteger hour = round(-wrap(-direction, -360, 0) / 360 * 12);
+    NSInteger hour = round(wrap(direction, 0, 360) / 360 * 12);
+    if (hour == 0) {
+        hour = 12;
+    }
     NSString *format;
-    NSNumberFormatterStyle style = NSNumberFormatterDecimalStyle;
     switch (self.unitStyle) {
         case NSFormattingUnitStyleShort:
-            format = NSLocalizedString(@"%@:00", @"Clock position format, short style");
+            format = NSLocalizedStringWithDefaultValue(@"CLOCK_FMT_SHORT", @"Foundation", nil, @"%@:00", @"Clock position format, short: {hours}:00");
             break;
             
         case NSFormattingUnitStyleMedium:
-            format = NSLocalizedString(@"%@ o’clock", @"Clock position format, medium style");
+            format = NSLocalizedStringWithDefaultValue(@"CLOCK_FMT_MEDIUM", @"Foundation", nil, @"%@ o’clock", @"Clock position format, medium: {hours} o’clock");
             
             break;
             
         case NSFormattingUnitStyleLong:
-            format = NSLocalizedString(@"%@ o’clock", @"Clock position format, long style");
-            style = NSNumberFormatterSpellOutStyle;
+            format = NSLocalizedStringWithDefaultValue(@"CLOCK_FMT_LONG", @"Foundation", nil, @"%@ o’clock", @"Clock position format, long: {hours} o’clock");
             break;
             
         default:
             break;
     }
-    _numberFormatter.numberStyle = style;
     return [NSString stringWithFormat:format, [_numberFormatter stringFromNumber:@(hour)]];
 }
 

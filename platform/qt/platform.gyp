@@ -10,6 +10,11 @@
     ],
     'qtlibversion': '1.0.0',
   },
+  'conditions': [
+    ['<(qt_version_major) == 5', {
+      'includes': [ 'qmlapp/qquickmapboxgl.gypi' ],
+    }],
+  ],
   'includes': [
     'app/qmapboxgl.gypi',
     '../../mbgl.gypi',
@@ -28,7 +33,7 @@
       ],
 
       'includes': [
-        '../../platform/qt/qt.gypi',
+        'qt.gypi',
       ],
 
       'sources': [
@@ -46,6 +51,7 @@
         '../default/webp_reader.cpp',
         'include/qmapbox.hpp',
         'include/qmapboxgl.hpp',
+        'include/qquickmapboxgl.hpp',
         'qmapbox.qrc',
         'src/async_task.cpp',
         'src/async_task_impl.hpp',
@@ -57,6 +63,9 @@
         'src/qmapbox.cpp',
         'src/qmapboxgl.cpp',
         'src/qmapboxgl_p.hpp',
+        'src/qquickmapboxgl.cpp',
+        'src/qquickmapboxglrenderer.cpp',
+        'src/qquickmapboxglrenderer.hpp',
         'src/run_loop.cpp',
         'src/run_loop_impl.hpp',
         'src/timer.cpp',
@@ -69,19 +78,22 @@
           '<@(libjpeg-turbo_cflags)',
           '<@(nunicode_cflags)',
           '<@(opengl_cflags)',
-          '<@(qt_cflags)',
+          '<@(qt_core_cflags)',
+          '<@(qt_gui_cflags)',
+          '<@(qt_network_cflags)',
           '<@(rapidjson_cflags)',
           '<@(sqlite_cflags)',
           '<@(variant_cflags)',
           '<@(webp_cflags)',
-          '-Wno-error', # TODO: eliminate
           '-fPIC',
         ],
         'ldflags': [
           '<@(libjpeg-turbo_ldflags)',
           '<@(nunicode_ldflags)',
           '<@(opengl_ldflags)',
-          '<@(qt_ldflags)',
+          '<@(qt_core_ldflags)',
+          '<@(qt_gui_ldflags)',
+          '<@(qt_network_ldflags)',
           '<@(sqlite_ldflags)',
           '<@(webp_ldflags)',
           '<@(zlib_ldflags)',
@@ -103,6 +115,28 @@
       ],
 
       'conditions': [
+        ['<(qt_version_major) == 4', {
+          'variables': {
+            'cflags': [
+              # Qt4 generates code with unused variables.
+              '-Wno-unused-variable',
+            ],
+          },
+        }],
+        ['<(qt_version_major) == 5', {
+          'variables': {
+            'cflags': [
+              '<@(qt_positioning_cflags)',
+              '<@(qt_quick_cflags)',
+            ],
+            'ldflags': [
+              '<@(qt_positioning_ldflags)',
+              '<@(qt_quick_ldflags)',
+            ],
+          },
+        }, {
+          'sources/': [ [ 'exclude', 'qquick*' ] ],
+        }],
         ['OS == "mac"', {
           'xcode_settings': {
             'OTHER_CPLUSPLUSFLAGS': [ '<@(cflags)' ],
@@ -140,8 +174,10 @@
       'link_settings': {
         'conditions': [
           ['OS == "mac"', {
-            'libraries': [ '-framework OpenGL' ],
-            'xcode_settings': { 'OTHER_LDFLAGS': [ '-all_load' ] }
+            'xcode_settings': {
+              'OTHER_LDFLAGS': [ '-all_load' ],
+              'LD_DYLIB_INSTALL_NAME': '@executable_path/libqmapboxgl.so.<(qtlibversion)',
+            }
           }]
         ],
       },
