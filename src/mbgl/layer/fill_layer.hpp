@@ -14,7 +14,7 @@ public:
     PaintProperty<Color> fillOutlineColor { {{ 0, 0, 0, -1 }} };
     PaintProperty<std::array<float, 2>> fillTranslate { {{ 0, 0 }} };
     PaintProperty<TranslateAnchorType> fillTranslateAnchor { TranslateAnchorType::Map };
-    PaintProperty<std::string, Faded<std::string>> fillPattern { "" };
+    PaintProperty<std::string, CrossFadedFunctionEvaluator> fillPattern { "" };
 };
 
 class FillLayer : public StyleLayer {
@@ -29,6 +29,13 @@ public:
     bool recalculate(const StyleCalculationParameters&) override;
 
     std::unique_ptr<Bucket> createBucket(StyleBucketParameters&) const override;
+
+    float getQueryRadius() const override;
+    bool queryIntersectsGeometry(
+            const GeometryCollection& queryGeometry,
+            const GeometryCollection& geometry,
+            const float bearing,                
+            const float pixelsToTileUnits) const override; 
 
     FillPaintProperties paint;
 };

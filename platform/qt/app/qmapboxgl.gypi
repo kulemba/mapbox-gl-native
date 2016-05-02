@@ -10,7 +10,7 @@
       ],
 
       'dependencies': [
-        'platform-lib',
+        'qt-lib',
       ],
 
       'sources': [
@@ -21,19 +21,21 @@
 
       'include_dirs': [
         '../include',
-        '../../../include',
       ],
 
       'variables': {
         'cflags': [
           '<@(opengl_cflags)',
-          '<@(qt_cflags)',
-          '-Wno-error',  # TODO: eliminate
+          '<@(qt_core_cflags)',
+          '<@(qt_gui_cflags)',
+          '<@(qt_opengl_cflags)',
           '-fPIC',
         ],
         'ldflags': [
           '<@(opengl_ldflags)',
-          '<@(qt_ldflags)'
+          '<@(qt_core_ldflags)',
+          '<@(qt_gui_ldflags)',
+          '<@(qt_opengl_ldflags)',
         ],
       },
 
@@ -41,7 +43,7 @@
         ['OS == "mac"', {
           'xcode_settings': {
             'OTHER_CPLUSPLUSFLAGS': [ '<@(cflags)' ],
-            'OTHER_LDFLAGS': [ '<@(ldflags)', '-framework OpenGL' ],
+            'OTHER_LDFLAGS': [ '<@(ldflags)' ],
           },
         }, {
           'cflags_cc': [ '<@(cflags)' ],

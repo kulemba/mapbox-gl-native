@@ -173,7 +173,7 @@ static NSString * const MBXOfflinePacksTableViewActiveCellReuseIdentifier = @"Ac
                                                                    numberStyle:NSNumberFormatterDecimalStyle];
             }
             if (progress.maximumResourcesExpected > progress.countOfResourcesExpected) {
-                expectedString = [@"at least " stringByAppendingString:expectedString];
+                expectedString = [NSString stringWithFormat:@"at least %@", expectedString];
             }
             statusString = [NSString stringWithFormat:@"Downloading %@ of %@ resources (%@ so far)…",
                             completedString, expectedString, byteCountString];
@@ -247,7 +247,7 @@ static NSString * const MBXOfflinePacksTableViewActiveCellReuseIdentifier = @"Ac
     NSError *error = notification.userInfo[MGLOfflinePackErrorUserInfoKey];
     NSAssert([error isKindOfClass:[NSError class]], @"MGLOfflineStorage notification has a non-error error.");
     
-    NSString *message = [NSString stringWithFormat:@"iosapp encountered an error while downloading the offline pack “%@”: %@", pack.name, error.localizedFailureReason];
+    NSString *message = [NSString stringWithFormat:@"Mapbox GL encountered an error while downloading the offline pack “%@”: %@", pack.name, error.localizedFailureReason];
     if (error.code == MGLErrorCodeConnectionFailed) {
         NSLog(@"%@", message);
     } else {
