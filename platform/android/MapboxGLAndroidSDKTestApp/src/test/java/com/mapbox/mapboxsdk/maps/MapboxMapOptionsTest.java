@@ -1,11 +1,13 @@
 package com.mapbox.mapboxsdk.maps;
 
+import android.graphics.Color;
 import android.view.Gravity;
 
 import com.mapbox.mapboxsdk.camera.CameraPosition;
 import com.mapbox.mapboxsdk.constants.MapboxConstants;
 import com.mapbox.mapboxsdk.constants.Style;
 import com.mapbox.mapboxsdk.geometry.LatLng;
+import com.mapbox.mapboxsdk.utils.MockParcel;
 
 import org.junit.Test;
 
@@ -68,6 +70,12 @@ public class MapboxMapOptionsTest {
     public void testLogoMargins() {
         assertTrue(Arrays.equals(new int[]{0, 1, 2, 3}, new MapboxMapOptions().logoMargins(new int[]{0, 1, 2, 3}).getLogoMargins()));
         assertFalse(Arrays.equals(new int[]{0, 1, 2, 3}, new MapboxMapOptions().logoMargins(new int[]{0, 0, 0, 0}).getLogoMargins()));
+    }
+
+    @Test
+    public void testAttributionTintColor() {
+        assertEquals(-1, new MapboxMapOptions().getAttributionTintColor());
+        assertEquals(Color.RED, new MapboxMapOptions().attributionTintColor(Color.RED).getAttributionTintColor());
     }
 
     @Test
@@ -161,11 +169,27 @@ public class MapboxMapOptionsTest {
     }
 
     @Test
+    public void testMyLocationForegroundTint() {
+        assertEquals(Color.BLUE, new MapboxMapOptions().myLocationForegroundTintColor(Color.BLUE).getMyLocationForegroundTintColor());
+    }
+
+    @Test
+    public void testMyLocationBackgroundTint() {
+        assertEquals(Color.BLUE, new MapboxMapOptions().myLocationBackgroundTintColor(Color.BLUE).getMyLocationBackgroundTintColor());
+    }
+
+    @Test
+    public void testParceable() {
+        MapboxMapOptions options = new MapboxMapOptions().camera(new CameraPosition.Builder().build()).styleUrl("s").accessToken("a").debugActive(true).compassMargins(new int[]{0, 1, 2, 3});
+        MapboxMapOptions parceled = (MapboxMapOptions) MockParcel.obtain(options);
+        assertEquals(options, parceled);
+    }
+
+    @Test
     public void testAccessToken() {
         assertNull(new MapboxMapOptions().getAccessToken());
         assertEquals("test", new MapboxMapOptions().accessToken("test").getAccessToken());
         assertNotEquals("nottest", new MapboxMapOptions().accessToken("test").getStyle());
     }
-    
 }
 
