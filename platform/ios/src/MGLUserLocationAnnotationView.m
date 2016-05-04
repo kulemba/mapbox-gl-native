@@ -7,6 +7,9 @@
 #import "MGLCoordinateFormatter.h"
 #import "NSBundle+MGLAdditions.h"
 
+@interface MGLNoHitLayer : CALayer
+@end
+
 const CGFloat MGLUserLocationAnnotationDotSize = 22.0;
 const CGFloat MGLUserLocationAnnotationHaloSize = 115.0;
 
@@ -502,7 +505,7 @@ const CGFloat MGLUserLocationAnnotationArrowSize = MGLUserLocationAnnotationPuck
 
 - (CALayer *)circleLayerWithSize:(CGFloat)layerSize
 {
-    CALayer *circleLayer = [CALayer layer];
+    CALayer *circleLayer = [MGLNoHitLayer layer];
     circleLayer.bounds = CGRectMake(0, 0, layerSize, layerSize);
     circleLayer.position = CGPointMake(super.bounds.size.width / 2.0, super.bounds.size.height / 2.0);
     circleLayer.cornerRadius = layerSize / 2.0;
@@ -598,6 +601,15 @@ const CGFloat MGLUserLocationAnnotationArrowSize = MGLUserLocationAnnotationPuck
         return [NSNull null];
     }
     return [super actionForLayer:layer forKey:event];
+}
+
+@end
+
+
+@implementation MGLNoHitLayer
+
+-(BOOL)containsPoint:(CGPoint)p{
+    return NO;
 }
 
 @end
