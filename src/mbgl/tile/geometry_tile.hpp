@@ -1,10 +1,10 @@
 #ifndef MBGL_MAP_GEOMETRY_TILE
 #define MBGL_MAP_GEOMETRY_TILE
 
-#include <mbgl/util/value.hpp>
+#include <mbgl/util/geometry.hpp>
+#include <mbgl/util/feature.hpp>
 #include <mbgl/util/chrono.hpp>
 #include <mbgl/util/ptr.hpp>
-#include <mbgl/util/vec.hpp>
 #include <mbgl/util/noncopyable.hpp>
 #include <mbgl/util/optional.hpp>
 #include <mbgl/util/variant.hpp>
@@ -28,7 +28,7 @@ enum class FeatureType : uint8_t {
 // Normalized vector tile coordinates.
 // Each geometry coordinate represents a point in a bidimensional space,
 // varying from -V...0...+V, where V is the maximum extent applicable.
-using GeometryCoordinate  = vec2<int16_t>;
+using GeometryCoordinate  = Point<int16_t>;
 using GeometryCoordinates = std::vector<GeometryCoordinate>;
 using GeometryCollection  = std::vector<GeometryCoordinates>;
 
@@ -39,8 +39,8 @@ public:
     virtual ~GeometryTileFeature() = default;
     virtual FeatureType getType() const = 0;
     virtual optional<Value> getValue(const std::string& key) const = 0;
-    virtual std::unordered_map<std::string,Value> getProperties() const { return std::unordered_map<std::string,Value>{}; };
-    virtual uint64_t getID() const { return 0; }
+    virtual Feature::property_map getProperties() const { return Feature::property_map(); }
+    virtual optional<uint64_t> getID() const { return {}; }
     virtual GeometryCollection getGeometries() const = 0;
     virtual uint32_t getExtent() const { return defaultExtent; }
 };
@@ -78,17 +78,6 @@ public:
      * To cease monitoring, release the returned Request.
      */
     virtual std::unique_ptr<AsyncRequest> monitorTile(const Callback&) = 0;
-};
-
-class GeometryTileFeatureExtractor {
-public:
-    GeometryTileFeatureExtractor(const GeometryTileFeature& feature_)
-        : feature(feature_) {}
-
-    optional<Value> getValue(const std::string& key) const;
-
-private:
-    const GeometryTileFeature& feature;
 };
 
 } // namespace mbgl
