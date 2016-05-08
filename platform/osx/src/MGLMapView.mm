@@ -24,9 +24,8 @@
 #import <mbgl/sprite/sprite_image.hpp>
 #import <mbgl/storage/default_file_source.hpp>
 #import <mbgl/storage/network_status.hpp>
+#import <mbgl/math/wrap.hpp>
 #import <mbgl/util/constants.hpp>
-#import <mbgl/util/math.hpp>
-#import <mbgl/util/std.hpp>
 #import <mbgl/util/chrono.hpp>
 
 #import <map>
@@ -263,6 +262,7 @@ public:
     
     mbgl::DefaultFileSource *mbglFileSource = [MGLOfflineStorage sharedOfflineStorage].mbglFileSource;
     _mbglMap = new mbgl::Map(*_mbglView, *mbglFileSource, mbgl::MapMode::Continuous, mbgl::GLContextMode::Unique, mbgl::ConstrainMode::None);
+    [self validateTileCacheSize];
     
     // Install the OpenGL layer. Interface Builder’s synchronous drawing means
     // we can’t display a map, so don’t even bother to have a map layer.
@@ -532,7 +532,7 @@ public:
 
 - (nonnull NSURL *)styleURL {
     NSString *styleURLString = @(_mbglMap->getStyleURL().c_str()).mgl_stringOrNilIfEmpty;
-    return styleURLString ? [NSURL URLWithString:styleURLString] : [MGLStyle streetsStyleURL];
+    return styleURLString ? [NSURL URLWithString:styleURLString] : [MGLStyle streetsStyleURLWithVersion:MGLStyleDefaultVersion];
 }
 
 - (void)setStyleURL:(nullable NSURL *)styleURL {
@@ -547,7 +547,7 @@ public:
         if (![MGLAccountManager accessToken]) {
             return;
         }
-        styleURL = [MGLStyle streetsStyleURL];
+        styleURL = [MGLStyle streetsStyleURLWithVersion:MGLStyleDefaultVersion];
     }
     
     if (![styleURL scheme]) {
@@ -608,6 +608,9 @@ public:
 
 - (void)setFrame:(NSRect)frame {
     super.frame = frame;
+    if (!NSEqualRects(frame, self.frame)) {
+        [self validateTileCacheSize];
+    }
     if (!_isTargetingInterfaceBuilder) {
         _mbglMap->update(mbgl::Update::Dimensions);
     }
@@ -706,15 +709,6 @@ public:
 
 - (void)renderSync {
     if (!self.dormant) {
-        CGFloat zoomFactor   = _mbglMap->getMaxZoom() - _mbglMap->getMinZoom() + 1;
-        CGFloat cpuFactor    = (CGFloat)[NSProcessInfo processInfo].processorCount;
-        CGFloat memoryFactor = (CGFloat)[NSProcessInfo processInfo].physicalMemory / 1000 / 1000 / 1000;
-        CGFloat sizeFactor   = ((CGFloat)_mbglMap->getWidth() / mbgl::util::tileSize) * ((CGFloat)_mbglMap->getHeight() / mbgl::util::tileSize);
-        
-        NSUInteger cacheSize = zoomFactor * cpuFactor * memoryFactor * sizeFactor * 0.5;
-        
-        _mbglMap->setSourceTileCacheSize(cacheSize);
-
         // Enable vertex buffer objects.
         mbgl::gl::InitializeExtensions([](const char *name) {
             static CFBundleRef framework = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.opengl"));
@@ -736,11 +730,26 @@ public:
             std::string png = encodePNG(_mbglView->readStillImage());
             NSData *data = [[NSData alloc] initWithBytes:png.data() length:png.size()];
             NSImage *image = [[NSImage alloc] initWithData:data];
-            [self printWithImage:image];
+            [self performSelector:@selector(printWithImage:) withObject:image afterDelay:0];
         }
 
 //        [self updateUserLocationAnnotationView];
     }
+}
+
+- (void)validateTileCacheSize {
+    if (!_mbglMap) {
+        return;
+    }
+    
+    CGFloat zoomFactor   = self.maximumZoomLevel - self.minimumZoomLevel + 1;
+    CGFloat cpuFactor    = [NSProcessInfo processInfo].processorCount;
+    CGFloat memoryFactor = (CGFloat)[NSProcessInfo processInfo].physicalMemory / 1000 / 1000 / 1000;
+    CGFloat sizeFactor   = (NSWidth(self.bounds) / mbgl::util::tileSize) * (NSHeight(self.bounds) / mbgl::util::tileSize);
+    
+    NSUInteger cacheSize = zoomFactor * cpuFactor * memoryFactor * sizeFactor * 0.5;
+    
+    _mbglMap->setSourceTileCacheSize(cacheSize);
 }
 
 - (void)invalidate {
@@ -948,11 +957,13 @@ public:
 - (void)setMinimumZoomLevel:(double)minimumZoomLevel
 {
     _mbglMap->setMinZoom(minimumZoomLevel);
+    [self validateTileCacheSize];
 }
 
 - (void)setMaximumZoomLevel:(double)maximumZoomLevel
 {
     _mbglMap->setMaxZoom(maximumZoomLevel);
+    [self validateTileCacheSize];
 }
 
 - (double)maximumZoomLevel {
