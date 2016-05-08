@@ -9,12 +9,12 @@
 #include <mbgl/util/constants.hpp>
 #include <mbgl/storage/resource.hpp>
 #include <mbgl/storage/response.hpp>
-#include <mbgl/util/math.hpp>
 #include <mbgl/storage/file_source.hpp>
 #include <mbgl/style/style_layer.hpp>
 #include <mbgl/style/style_update_parameters.hpp>
 #include <mbgl/platform/log.hpp>
-#include <mbgl/util/math.hpp>
+#include <mbgl/math/minmax.hpp>
+#include <mbgl/math/clamp.hpp>
 #include <mbgl/util/std.hpp>
 #include <mbgl/util/token.hpp>
 #include <mbgl/util/string.hpp>
@@ -479,7 +479,7 @@ void Source::updateTilePtrs() {
     }
 }
 
-vec2<int16_t> coordinateToTilePoint(const TileID& tileID, const TileCoordinate& coord) {
+static Point<int16_t> coordinateToTilePoint(const TileID& tileID, const TileCoordinate& coord) {
     auto zoomedCoord = coord.zoomTo(tileID.sourceZ);
     return {
         int16_t(util::clamp<int64_t>((zoomedCoord.x - (tileID.x + tileID.w * std::pow(2, tileID.sourceZ))) * util::EXTENT,
@@ -498,13 +498,13 @@ struct TileQuery {
     double scale;
 };
 
-std::unordered_map<std::string, std::vector<std::string>> Source::queryRenderedFeatures(
+std::unordered_map<std::string, std::vector<Feature>> Source::queryRenderedFeatures(
         const std::vector<TileCoordinate>& queryGeometry,
         const double zoom,
         const double bearing,
         const optional<std::vector<std::string>>& layerIDs) {
 
-    std::unordered_map<std::string, std::vector<std::string>> result;
+    std::unordered_map<std::string, std::vector<Feature>> result;
 
     double minX = std::numeric_limits<double>::infinity();
     double minY = std::numeric_limits<double>::infinity();

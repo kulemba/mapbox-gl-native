@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
+PROTOZERO_VERSION=1.3.0
 BOOST_VERSION=1.60.0
+GEOMETRY_VERSION=0.3.0
 GEOJSONVT_VERSION=4.1.2
 GTEST_VERSION=1.7.0
 LIBJPEG_TURBO_VERSION=1.4.2
@@ -33,6 +35,7 @@ function print_qt_flags {
 
     QT_VERSION_MAJOR=$(qmake -query QT_VERSION | cut -d. -f1)
     CONFIG+="    'qt_version_major%': ['${QT_VERSION_MAJOR}'],"$LN
+    CONFIG+="    'qt_image_decoders%': [0],"$LN
 
     CONFIG+="    'qt_core_cflags%': $(quote_flags $(mason cflags Qt system "QtCore")),"$LN
     CONFIG+="    'qt_gui_cflags%': $(quote_flags $(mason cflags Qt system "QtGui")),"$LN
@@ -45,10 +48,12 @@ function print_qt_flags {
     CONFIG+="    'qt_network_ldflags%': $(quote_flags $(mason ldflags Qt system "QtNetwork")),"$LN
 
     if [ ${QT_VERSION_MAJOR} -gt 4 ]; then
+        CONFIG+="    'qt_location_cflags%': $(quote_flags $(mason cflags Qt system "QtLocation")),"$LN
         CONFIG+="    'qt_qml_cflags%': $(quote_flags $(mason cflags Qt system "QtQml")), "$LN
         CONFIG+="    'qt_quick_cflags%': $(quote_flags $(mason cflags Qt system "QtQuick")), "$LN
         CONFIG+="    'qt_positioning_cflags%': $(quote_flags $(mason cflags Qt system "QtPositioning")),"$LN
 
+        CONFIG+="    'qt_location_ldflags%': $(quote_flags $(mason ldflags Qt system "QtLocation")),"$LN
         CONFIG+="    'qt_qml_ldflags%': $(quote_flags $(mason ldflags Qt system "QtQml")), "$LN
         CONFIG+="    'qt_quick_ldflags%': $(quote_flags $(mason ldflags Qt system "QtQuick")), "$LN
         CONFIG+="    'qt_positioning_ldflags%': $(quote_flags $(mason ldflags Qt system "QtPositioning")),"$LN
