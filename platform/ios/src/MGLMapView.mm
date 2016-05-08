@@ -17,12 +17,11 @@
 #include <mbgl/storage/default_file_source.hpp>
 #include <mbgl/storage/network_status.hpp>
 #include <mbgl/style/property_transition.hpp>
+#include <mbgl/math/wrap.hpp>
 #include <mbgl/util/geo.hpp>
-#include <mbgl/util/math.hpp>
 #include <mbgl/util/constants.hpp>
 #include <mbgl/util/image.hpp>
 #include <mbgl/util/projection.hpp>
-#include <mbgl/util/std.hpp>
 #include <mbgl/util/default_styles.hpp>
 #include <mbgl/util/chrono.hpp>
 
@@ -345,7 +344,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
     if ( ! styleURL)
     {
-        styleURL = [MGLStyle streetsStyleURL];
+        styleURL = [MGLStyle streetsStyleURLWithVersion:MGLStyleDefaultVersion];
     }
 
     if ( ! [styleURL scheme])
@@ -397,6 +396,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     // setup mbgl map
     mbgl::DefaultFileSource *mbglFileSource = [MGLOfflineStorage sharedOfflineStorage].mbglFileSource;
     _mbglMap = new mbgl::Map(*_mbglView, *mbglFileSource, mbgl::MapMode::Continuous, mbgl::GLContextMode::Unique, mbgl::ConstrainMode::None);
+    [self validateTileCacheSize];
 
     // start paused if in IB
     if (_isTargetingInterfaceBuilder || background) {
@@ -662,15 +662,37 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 - (void)setFrame:(CGRect)frame
 {
     [super setFrame:frame];
-
-    [self setNeedsLayout];
+    if ( ! CGRectEqualToRect(frame, self.frame))
+    {
+        [self validateTileCacheSize];
+    }
 }
 
 - (void)setBounds:(CGRect)bounds
 {
     [super setBounds:bounds];
+    if ( ! CGRectEqualToRect(bounds, self.bounds))
+    {
+        [self validateTileCacheSize];
+    }
+}
 
-    [self setNeedsLayout];
+- (void)validateTileCacheSize
+{
+    if ( ! _mbglMap)
+    {
+        return;
+    }
+    
+    CGFloat zoomFactor   = self.maximumZoomLevel - self.minimumZoomLevel + 1;
+    CGFloat cpuFactor    = [NSProcessInfo processInfo].processorCount;
+    CGFloat memoryFactor = (CGFloat)[NSProcessInfo processInfo].physicalMemory / 1000 / 1000 / 1000;
+    CGFloat sizeFactor   = (CGRectGetWidth(self.bounds)  / mbgl::util::tileSize) *
+                           (CGRectGetHeight(self.bounds) / mbgl::util::tileSize);
+
+    NSUInteger cacheSize = zoomFactor * cpuFactor * memoryFactor * sizeFactor * 0.5;
+
+    _mbglMap->setSourceTileCacheSize(cacheSize);
 }
 
 + (BOOL)requiresConstraintBasedLayout
@@ -846,15 +868,6 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 {
     if ( ! self.dormant)
     {
-        CGFloat zoomFactor   = _mbglMap->getMaxZoom() - _mbglMap->getMinZoom() + 1;
-        CGFloat cpuFactor    = (CGFloat)[[NSProcessInfo processInfo] processorCount];
-        CGFloat memoryFactor = (CGFloat)[[NSProcessInfo processInfo] physicalMemory] / 1000 / 1000 / 1000;
-        CGFloat sizeFactor   = ((CGFloat)_mbglMap->getWidth()  / mbgl::util::tileSize) *
-                               ((CGFloat)_mbglMap->getHeight() / mbgl::util::tileSize);
-
-        NSUInteger cacheSize = zoomFactor * cpuFactor * memoryFactor * sizeFactor * 0.5;
-
-        _mbglMap->setSourceTileCacheSize(cacheSize);
         _mbglMap->render();
 
         [self updateUserLocationAnnotationView];
@@ -1875,7 +1888,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
 - (NSString *)accessibilityValue
 {
-    double zoomLevel = round(self.zoomLevel - 1);
+    double zoomLevel = round(self.zoomLevel + 1);
     return [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"MAP_A11Y_VALUE", nil, nil, @"Zoom %dx\n%ld annotation(s) visible", @"Map accessibility value"), (int)zoomLevel, (long)self.accessibilityAnnotationCount];
 }
 
@@ -2191,6 +2204,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 - (void)setMinimumZoomLevel:(double)minimumZoomLevel
 {
     _mbglMap->setMinZoom(minimumZoomLevel);
+    [self validateTileCacheSize];
 }
 
 - (double)minimumZoomLevel
@@ -2201,6 +2215,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 - (void)setMaximumZoomLevel:(double)maximumZoomLevel
 {
     _mbglMap->setMaxZoom(maximumZoomLevel);
+    [self validateTileCacheSize];
 }
 
 - (double)maximumZoomLevel

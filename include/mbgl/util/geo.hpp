@@ -1,9 +1,11 @@
 #ifndef MBGL_UTIL_GEO
 #define MBGL_UTIL_GEO
 
-#include <mbgl/util/math.hpp>
-#include <mbgl/util/vec.hpp>
+#include <mbgl/math/wrap.hpp>
 #include <mbgl/util/constants.hpp>
+
+#include <mapbox/geometry/point.hpp>
+#include <mapbox/geometry/point_arithmetic.hpp>
 
 #include <cmath>
 
@@ -11,7 +13,7 @@ namespace mbgl {
 
 class TileID;
 
-using ScreenCoordinate = vec2<double>;
+using ScreenCoordinate = mapbox::geometry::point<double>;
 
 class LatLng {
 public:
@@ -48,8 +50,6 @@ public:
 
     // Constructs a LatLng object with the top left position of the specified tile.
     LatLng(const TileID& id);
-
-    ScreenCoordinate project() const;
 };
 
 inline bool operator==(const LatLng& a, const LatLng& b) {
