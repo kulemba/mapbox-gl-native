@@ -19,6 +19,7 @@
 #include <mbgl/util/string.hpp>
 #include <mbgl/platform/log.hpp>
 #include <mbgl/layer/background_layer.hpp>
+#include <mbgl/math/minmax.hpp>
 
 #include <csscolorparser/csscolorparser.hpp>
 
@@ -175,7 +176,7 @@ void Style::cascade(const TimePoint& timePoint, MapMode mode) {
 
     const StyleCascadeParameters parameters {
         classIDs,
-        timePoint,
+        mode == MapMode::Continuous ? timePoint : Clock::time_point::max(),
         mode == MapMode::Continuous ? transitionProperties.value_or(immediateTransition) : immediateTransition
     };
 
@@ -195,7 +196,7 @@ void Style::recalculate(float z, const TimePoint& timePoint, MapMode mode) {
 
     const StyleCalculationParameters parameters {
         z,
-        timePoint,
+        mode == MapMode::Continuous ? timePoint : Clock::time_point::max(),
         zoomHistory,
         mode == MapMode::Continuous ? util::DEFAULT_FADE_DURATION : Duration::zero()
     };
@@ -313,6 +314,43 @@ RenderData Style::getRenderData() const {
 
     return result;
 }
+
+std::vector<Feature> Style::queryRenderedFeatures(
+        const std::vector<TileCoordinate>& queryGeometry,
+        const double zoom,
+        const double bearing,
+        const optional<std::vector<std::string>>& layerIDs) {
+    std::vector<std::unordered_map<std::string, std::vector<Feature>>> sourceResults;
+    for (const auto& source : sources) {
+        sourceResults.emplace_back(source->queryRenderedFeatures(queryGeometry, zoom, bearing, layerIDs));
+    }
+
+    std::vector<Feature> features;
+    auto featuresInserter = std::back_inserter(features);
+
+    // Combine all results based on the style layer order.
+    for (auto& layerPtr : layers) {
+        auto& layerID = layerPtr->id;
+        for (auto& sourceResult : sourceResults) {
+            auto it = sourceResult.find(layerID);
+            if (it != sourceResult.end()) {
+                auto& layerFeatures = it->second;
+                std::move(layerFeatures.begin(), layerFeatures.end(), featuresInserter);
+            }
+        }
+    }
+
+    return features;
+}
+
+float Style::getQueryRadius() const {
+    float additionalRadius = 0;
+    for (auto& layer : layers) {
+        additionalRadius = util::max(additionalRadius, layer->getQueryRadius());
+    }
+    return additionalRadius;
+}
+
 
 void Style::setSourceTileCacheSize(size_t size) {
     for (const auto& source : sources) {

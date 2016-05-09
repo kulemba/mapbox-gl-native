@@ -10,14 +10,24 @@
 #import <OpenGLES/ES2/gl.h>
 #import <objc/runtime.h>
 
-static NSString * const kCustomCalloutTitle = @"Custom Callout";
-
 static const CLLocationCoordinate2D WorldTourDestinations[] = {
     { .latitude = 38.9131982, .longitude = -77.0325453144239 },
     { .latitude = 37.7757368, .longitude = -122.4135302 },
     { .latitude = 12.9810816, .longitude = 77.6368034 },
     { .latitude = -13.15589555, .longitude = -74.2178961777998 },
 };
+
+@interface MBXDroppedPinAnnotation : MGLPointAnnotation
+@end
+
+@implementation MBXDroppedPinAnnotation
+@end
+
+@interface MBXCustomCalloutAnnotation : MGLPointAnnotation
+@end
+
+@implementation MBXCustomCalloutAnnotation
+@end
 
 @interface MBXViewController () <UIActionSheetDelegate, MGLMapViewDelegate>
 
@@ -155,32 +165,32 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
                                               cancelButtonTitle:@"Cancel"
                                          destructiveButtonTitle:nil
                                               otherButtonTitles:
-                            @"Reset Position",
-                            ((debugMask & MGLMapDebugTileBoundariesMask)
-                             ? @"Hide Tile Boundaries"
-                             : @"Show Tile Boundaries"),
-                            ((debugMask & MGLMapDebugTileInfoMask)
-                             ? @"Hide Tile Info"
-                             : @"Show Tile Info"),
-                            ((debugMask & MGLMapDebugTimestampsMask)
-                             ? @"Hide Tile Timestamps"
-                             : @"Show Tile Timestamps"),
-                            ((debugMask & MGLMapDebugCollisionBoxesMask)
-                             ? @"Hide Collision Boxes"
-                             : @"Show Collision Boxes"),
-                            @"Add 100 Points",
-                            @"Add 1,000 Points",
-                            @"Add 10,000 Points",
-                            @"Add Test Shapes",
-                            @"Start World Tour",
-                            @"Add Custom Callout Point",
-                            @"Remove Annotations",
-                            (_isShowingCustomStyleLayer
-                             ? @"Hide Custom Style Layer"
-                             : @"Show Custom Style Layer"),
-                            @"Print Telemetry Logfile",
-                            @"Delete Telemetry Logfile",
-                            nil];
+        @"Reset Position",
+        ((debugMask & MGLMapDebugTileBoundariesMask)
+         ? @"Hide Tile Boundaries"
+         : @"Show Tile Boundaries"),
+        ((debugMask & MGLMapDebugTileInfoMask)
+         ? @"Hide Tile Info"
+         : @"Show Tile Info"),
+        ((debugMask & MGLMapDebugTimestampsMask)
+         ? @"Hide Tile Timestamps"
+         : @"Show Tile Timestamps"),
+        ((debugMask & MGLMapDebugCollisionBoxesMask)
+         ? @"Hide Collision Boxes"
+         : @"Show Collision Boxes"),
+        @"Add 100 Points",
+        @"Add 1,000 Points",
+        @"Add 10,000 Points",
+        @"Add Test Shapes",
+        @"Start World Tour",
+        @"Add Custom Callout Point",
+        @"Remove Annotations",
+        (_isShowingCustomStyleLayer
+         ? @"Hide Custom Style Layer"
+         : @"Show Custom Style Layer"),
+        @"Print Telemetry Logfile",
+        @"Delete Telemetry Logfile",
+        nil];
 
     [sheet showFromBarButtonItem:self.navigationItem.leftBarButtonItem animated:YES];
 }
@@ -434,9 +444,9 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
 {
     [self.mapView removeAnnotations:self.mapView.annotations];
     
-    MGLPointAnnotation *annotation = [MGLPointAnnotation new];
+    MBXCustomCalloutAnnotation *annotation = [[MBXCustomCalloutAnnotation alloc] init];
     annotation.coordinate = CLLocationCoordinate2DMake(48.8533940, 2.3775439);
-    annotation.title = kCustomCalloutTitle;
+    annotation.title = @"Custom Callout";
     
     [self.mapView addAnnotation:annotation];
     [self.mapView showAnnotations:@[annotation] animated:YES];
@@ -446,10 +456,10 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
 {
     if (longPress.state == UIGestureRecognizerStateBegan)
     {
-        MGLPointAnnotation *point = [MGLPointAnnotation new];
+        MBXDroppedPinAnnotation *point = [[MBXDroppedPinAnnotation alloc] init];
         point.coordinate = [self.mapView convertPoint:[longPress locationInView:longPress.view]
                                  toCoordinateFromView:self.mapView];
-        point.title = @"Dropped Marker";
+        point.title = @"Dropped Pin";
         point.subtitle = [[[MGLCoordinateFormatter alloc] init] stringFromCoordinate:point.coordinate];
         [self.mapView addAnnotation:point];
         [self.mapView selectAnnotation:point animated:YES];
@@ -465,19 +475,19 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
     dispatch_once(&onceToken, ^{
         styleNames = @[
             @"Streets",
-            @"Emerald",
+            @"Outdoors",
             @"Light",
             @"Dark",
             @"Satellite",
-            @"Hybrid",
+            @"Satellite Streets",
         ];
         styleURLs = @[
-            [MGLStyle streetsStyleURL],
-            [MGLStyle emeraldStyleURL],
-            [MGLStyle lightStyleURL],
-            [MGLStyle darkStyleURL],
-            [MGLStyle satelliteStyleURL],
-            [MGLStyle hybridStyleURL],
+            [MGLStyle streetsStyleURLWithVersion:MGLStyleDefaultVersion],
+            [MGLStyle outdoorsStyleURLWithVersion:MGLStyleDefaultVersion],
+            [MGLStyle lightStyleURLWithVersion:MGLStyleDefaultVersion],
+            [MGLStyle darkStyleURLWithVersion:MGLStyleDefaultVersion],
+            [MGLStyle satelliteStyleURLWithVersion:MGLStyleDefaultVersion],
+            [MGLStyle satelliteStreetsStyleURLWithVersion:MGLStyleDefaultVersion],
         ];
         NSAssert(styleNames.count == styleURLs.count, @"Style names and URLs don’t match.");
         
@@ -487,10 +497,10 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
         unsigned numStyleURLMethods = 0;
         for (NSUInteger i = 0; i < numMethods; i++) {
             Method method = methods[i];
-            if (method_getNumberOfArguments(method) == 2 /* _cmd, self */) {
+            if (method_getNumberOfArguments(method) == 3 /* _cmd, self, version */) {
                 SEL selector = method_getName(method);
                 NSString *name = @(sel_getName(selector));
-                if ([name rangeOfString:@"StyleURL"].location != NSNotFound) {
+                if ([name hasSuffix:@"StyleURLWithVersion:"]) {
                     numStyleURLMethods += 1;
                 }
             }
@@ -508,24 +518,30 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
     [titleButton setTitle:styleNames[self.styleIndex] forState:UIControlStateNormal];
 }
 
-- (IBAction)locateUser:(__unused id)sender
+- (IBAction)locateUser:(id)sender
 {
     MGLUserTrackingMode nextMode;
+    NSString *nextAccessibilityValue;
     switch (self.mapView.userTrackingMode) {
         case MGLUserTrackingModeNone:
             nextMode = MGLUserTrackingModeFollow;
+            nextAccessibilityValue = @"Follow location";
             break;
         case MGLUserTrackingModeFollow:
             nextMode = MGLUserTrackingModeFollowWithHeading;
+            nextAccessibilityValue = @"Follow location and heading";
             break;
         case MGLUserTrackingModeFollowWithHeading:
             nextMode = MGLUserTrackingModeFollowWithCourse;
+            nextAccessibilityValue = @"Follow course";
             break;
         case MGLUserTrackingModeFollowWithCourse:
             nextMode = MGLUserTrackingModeNone;
+            nextAccessibilityValue = @"Off";
             break;
     }
     self.mapView.userTrackingMode = nextMode;
+    [sender setAccessibilityValue:nextAccessibilityValue];
 }
 
 - (IBAction)startWorldTour:(__unused id)sender
@@ -537,7 +553,7 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
     NSMutableArray *annotations = [NSMutableArray arrayWithCapacity:numberOfAnnotations];
     for (NSUInteger i = 0; i < numberOfAnnotations; i++)
     {
-        MGLPointAnnotation *annotation = [[MGLPointAnnotation alloc] init];
+        MBXDroppedPinAnnotation *annotation = [[MBXDroppedPinAnnotation alloc] init];
         annotation.coordinate = WorldTourDestinations[i];
         [annotations addObject:annotation];
     }
@@ -594,8 +610,8 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
 
 - (MGLAnnotationImage *)mapView:(MGLMapView * __nonnull)mapView imageForAnnotation:(id <MGLAnnotation> __nonnull)annotation
 {
-    if ([annotation.title isEqualToString:@"Dropped Marker"]
-        || [annotation.title isEqualToString:kCustomCalloutTitle])
+    if ([annotation isKindOfClass:[MBXDroppedPinAnnotation class]]
+        || [annotation isKindOfClass:[MBXCustomCalloutAnnotation class]])
     {
         return nil; // use default marker
     }
@@ -720,13 +736,31 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
 - (UIView<MGLCalloutView> *)mapView:(__unused MGLMapView *)mapView calloutViewForAnnotation:(id<MGLAnnotation>)annotation
 {
     if ([annotation respondsToSelector:@selector(title)]
-        && [annotation.title isEqualToString:kCustomCalloutTitle])
+        && [annotation isKindOfClass:[MBXCustomCalloutAnnotation class]])
     {
         MBXCustomCalloutView *calloutView = [[MBXCustomCalloutView alloc] init];
         calloutView.representedObject = annotation;
         return calloutView;
     }
     return nil;
+}
+
+- (UIView *)mapView:(__unused MGLMapView *)mapView leftCalloutAccessoryViewForAnnotation:(__unused id<MGLAnnotation>)annotation
+{
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    button.frame = CGRectZero;
+    [button setTitle:@"Left" forState:UIControlStateNormal];
+    [button sizeToFit];
+    return button;
+}
+
+- (UIView *)mapView:(__unused MGLMapView *)mapView rightCalloutAccessoryViewForAnnotation:(__unused id<MGLAnnotation>)annotation
+{
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    button.frame = CGRectZero;
+    [button setTitle:@"Right" forState:UIControlStateNormal];
+    [button sizeToFit];
+    return button;
 }
 
 - (void)mapView:(MGLMapView *)mapView tapOnCalloutForAnnotation:(id <MGLAnnotation>)annotation

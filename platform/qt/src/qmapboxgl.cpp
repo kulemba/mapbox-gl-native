@@ -9,7 +9,7 @@
 #include <mbgl/storage/network_status.hpp>
 #include <mbgl/util/constants.hpp>
 #include <mbgl/util/geo.hpp>
-#include <mbgl/util/vec.hpp>
+#include <mbgl/util/traits.hpp>
 
 #include <QCoreApplication>
 #include <QImage>
@@ -22,9 +22,44 @@
 
 using namespace QMapbox;
 
+// mbgl::MapMode
+static_assert(mbgl::underlying_type(QMapboxGLSettings::ContinuousMap) == mbgl::underlying_type(mbgl::MapMode::Continuous), "error");
+static_assert(mbgl::underlying_type(QMapboxGLSettings::StillMap) == mbgl::underlying_type(mbgl::MapMode::Still), "error");
+
+// mbgl::GLContextMode
+static_assert(mbgl::underlying_type(QMapboxGLSettings::UniqueGLContext) == mbgl::underlying_type(mbgl::GLContextMode::Unique), "error");
+static_assert(mbgl::underlying_type(QMapboxGLSettings::SharedGLContext) == mbgl::underlying_type(mbgl::GLContextMode::Shared), "error");
+
+// mbgl::ConstrainMode
+static_assert(mbgl::underlying_type(QMapboxGLSettings::NoConstrain) == mbgl::underlying_type(mbgl::ConstrainMode::None), "error");
+static_assert(mbgl::underlying_type(QMapboxGLSettings::ConstrainHeightOnly) == mbgl::underlying_type(mbgl::ConstrainMode::HeightOnly), "error");
+static_assert(mbgl::underlying_type(QMapboxGLSettings::ConstrainWidthAndHeight) == mbgl::underlying_type(mbgl::ConstrainMode::WidthAndHeight), "error");
+
+// mbgl::NorthOrientation
+static_assert(mbgl::underlying_type(QMapboxGL::NorthUpwards) == mbgl::underlying_type(mbgl::NorthOrientation::Upwards), "error");
+static_assert(mbgl::underlying_type(QMapboxGL::NorthRightwards) == mbgl::underlying_type(mbgl::NorthOrientation::Rightwards), "error");
+static_assert(mbgl::underlying_type(QMapboxGL::NorthDownwards) == mbgl::underlying_type(mbgl::NorthOrientation::Downwards), "error");
+static_assert(mbgl::underlying_type(QMapboxGL::NorthLeftwards) == mbgl::underlying_type(mbgl::NorthOrientation::Leftwards), "error");
+
+// mbgl::MapChange
+static_assert(mbgl::underlying_type(QMapboxGL::MapChangeRegionWillChange) == mbgl::underlying_type(mbgl::MapChangeRegionWillChange), "error");
+static_assert(mbgl::underlying_type(QMapboxGL::MapChangeRegionWillChangeAnimated) == mbgl::underlying_type(mbgl::MapChangeRegionWillChangeAnimated), "error");
+static_assert(mbgl::underlying_type(QMapboxGL::MapChangeRegionIsChanging) == mbgl::underlying_type(mbgl::MapChangeRegionIsChanging), "error");
+static_assert(mbgl::underlying_type(QMapboxGL::MapChangeRegionDidChange) == mbgl::underlying_type(mbgl::MapChangeRegionDidChange), "error");
+static_assert(mbgl::underlying_type(QMapboxGL::MapChangeRegionDidChangeAnimated) == mbgl::underlying_type(mbgl::MapChangeRegionDidChangeAnimated), "error");
+static_assert(mbgl::underlying_type(QMapboxGL::MapChangeWillStartLoadingMap) == mbgl::underlying_type(mbgl::MapChangeWillStartLoadingMap), "error");
+static_assert(mbgl::underlying_type(QMapboxGL::MapChangeDidFinishLoadingMap) == mbgl::underlying_type(mbgl::MapChangeDidFinishLoadingMap), "error");
+static_assert(mbgl::underlying_type(QMapboxGL::MapChangeDidFailLoadingMap) == mbgl::underlying_type(mbgl::MapChangeDidFailLoadingMap), "error");
+static_assert(mbgl::underlying_type(QMapboxGL::MapChangeWillStartRenderingFrame) == mbgl::underlying_type(mbgl::MapChangeWillStartRenderingFrame), "error");
+static_assert(mbgl::underlying_type(QMapboxGL::MapChangeDidFinishRenderingFrame) == mbgl::underlying_type(mbgl::MapChangeDidFinishRenderingFrame), "error");
+static_assert(mbgl::underlying_type(QMapboxGL::MapChangeDidFinishRenderingFrameFullyRendered) == mbgl::underlying_type(mbgl::MapChangeDidFinishRenderingFrameFullyRendered), "error");
+static_assert(mbgl::underlying_type(QMapboxGL::MapChangeWillStartRenderingMap) == mbgl::underlying_type(mbgl::MapChangeWillStartRenderingMap), "error");
+static_assert(mbgl::underlying_type(QMapboxGL::MapChangeDidFinishRenderingMap) == mbgl::underlying_type(mbgl::MapChangeDidFinishRenderingMap), "error");
+static_assert(mbgl::underlying_type(QMapboxGL::MapChangeDidFinishRenderingMapFullyRendered) == mbgl::underlying_type(mbgl::MapChangeDidFinishRenderingMapFullyRendered), "error");
+
 QMapboxGLSettings::QMapboxGLSettings()
     : m_mapMode(QMapboxGLSettings::ContinuousMap)
-    , m_contextMode(QMapboxGLSettings::UniqueGLContext)
+    , m_contextMode(QMapboxGLSettings::SharedGLContext)
     , m_constrainMode(QMapboxGLSettings::ConstrainHeightOnly)
     , m_cacheMaximumSize(mbgl::util::DEFAULT_MAX_CACHE_SIZE)
     , m_cacheDatabasePath(":memory:")
@@ -257,24 +292,12 @@ void QMapboxGL::setPitch(double pitch_)
 
 QMapboxGL::NorthOrientation QMapboxGL::northOrientation() const
 {
-    using NO = mbgl::NorthOrientation;
-    switch (d_ptr->mapObj->getNorthOrientation()) {
-        case NO::Rightwards: return NorthRightwards;
-        case NO::Downwards: return NorthDownwards;
-        case NO::Leftwards: return NorthLeftwards;
-        default: return NorthUpwards;
-    }
+    return static_cast<QMapboxGL::NorthOrientation>(d_ptr->mapObj->getNorthOrientation());
 }
 
 void QMapboxGL::setNorthOrientation(NorthOrientation orientation)
 {
-    using NO = mbgl::NorthOrientation;
-    switch (orientation) {
-        case NorthRightwards: d_ptr->mapObj->setNorthOrientation(NO::Rightwards); break;
-        case NorthDownwards: d_ptr->mapObj->setNorthOrientation(NO::Downwards); break;
-        case NorthLeftwards: d_ptr->mapObj->setNorthOrientation(NO::Leftwards); break;
-        default: d_ptr->mapObj->setNorthOrientation(NO::Upwards); break;
-    }
+    d_ptr->mapObj->setNorthOrientation(static_cast<mbgl::NorthOrientation>(orientation));
 }
 
 void QMapboxGL::setGestureInProgress(bool inProgress)
@@ -473,7 +496,7 @@ void QMapboxGL::addAnnotationIcon(const QString &name, const QImage &sprite)
 
 QPointF QMapboxGL::pixelForCoordinate(const Coordinate &coordinate_) const
 {
-    const mbgl::vec2<double> pixel =
+    const mbgl::ScreenCoordinate pixel =
         d_ptr->mapObj->pixelForLatLng(mbgl::LatLng { coordinate_.first, coordinate_.second });
 
     return QPointF(pixel.x, pixel.y);
@@ -561,6 +584,7 @@ void QMapboxGL::removeCustomLayer(const QString& id)
 
 void QMapboxGL::render()
 {
+    d_ptr->dirty = false;
     d_ptr->mapObj->render();
 }
 
@@ -583,9 +607,11 @@ QMapboxGLPrivate::QMapboxGLPrivate(QMapboxGL *q, const QMapboxGLSettings &settin
         static_cast<mbgl::GLContextMode>(settings.contextMode()),
         static_cast<mbgl::ConstrainMode>(settings.constrainMode())))
 {
+    qRegisterMetaType<QMapboxGL::MapChange>("QMapboxGL::MapChange");
+
     fileSourceObj->setAccessToken(settings.accessToken().toStdString());
-    connect(this, SIGNAL(needsRendering()), q_ptr, SIGNAL(needsRendering()));
-    connect(this, SIGNAL(mapRegionDidChange()), q_ptr, SIGNAL(mapRegionDidChange()));
+    connect(this, SIGNAL(needsRendering()), q_ptr, SIGNAL(needsRendering()), Qt::QueuedConnection);
+    connect(this, SIGNAL(mapChanged(QMapboxGL::MapChange)), q_ptr, SIGNAL(mapChanged(QMapboxGL::MapChange)), Qt::QueuedConnection);
 }
 
 QMapboxGLPrivate::~QMapboxGLPrivate()
@@ -610,21 +636,15 @@ std::array<uint16_t, 2> QMapboxGLPrivate::getFramebufferSize() const
 
 void QMapboxGLPrivate::invalidate()
 {
-    emit needsRendering();
+    if (!dirty) {
+        emit needsRendering();
+        dirty = true;
+    }
 }
 
 void QMapboxGLPrivate::notifyMapChange(mbgl::MapChange change)
 {
-    // Map thread.
-    switch (change) {
-    case mbgl::MapChangeRegionDidChange:
-    case mbgl::MapChangeRegionDidChangeAnimated:
-    case mbgl::MapChangeRegionIsChanging:
-        emit mapRegionDidChange();
-        break;
-    default:
-        break;
-    }
+    emit mapChanged(static_cast<QMapboxGL::MapChange>(change));
 }
 
 void QMapboxGLPrivate::connectionEstablished()

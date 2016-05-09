@@ -1,7 +1,6 @@
 package com.mapbox.mapboxsdk.maps;
 
 import android.graphics.Bitmap;
-import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.os.SystemClock;
 import android.support.annotation.FloatRange;
@@ -12,7 +11,6 @@ import android.support.v4.util.LongSparseArray;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
-
 import com.mapbox.mapboxsdk.annotations.Annotation;
 import com.mapbox.mapboxsdk.annotations.BaseMarkerOptions;
 import com.mapbox.mapboxsdk.annotations.Icon;
@@ -33,7 +31,6 @@ import com.mapbox.mapboxsdk.constants.Style;
 import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.layers.CustomLayer;
 import com.mapbox.mapboxsdk.maps.widgets.MyLocationViewSettings;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -526,7 +523,7 @@ public class MapboxMap {
      * <li>{@code asset://...}:
      * reads the style from the APK {@code assets/} directory.
      * This is used to load a style bundled with your app.</li>
-     * <li>{@code null}: loads the default {@link Style#MAPBOX_STREETS} style.</li>
+     * <li>{@code null}: loads the default {@link Style#getMapboxStreetsUrl(int)} style.</li>
      * </ul>
      * <p>
      * This method is asynchronous and will return immediately before the style finishes loading.
@@ -556,8 +553,10 @@ public class MapboxMap {
      *
      * @param style The bundled style. Accepts one of the values from {@link Style}.
      * @see Style
+     * @deprecated use {@link #setStyleUrl(String)} instead with versioned url methods from {@link Style}
      */
     @UiThread
+    @Deprecated
     public void setStyle(@Style.StyleUrl String style) {
         setStyleUrl(style);
     }

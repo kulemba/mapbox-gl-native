@@ -1,9 +1,8 @@
 #include "mapwindow.hpp"
 
-#include <mbgl/util/default_styles.hpp>
-
 #include <QApplication>
 #include <QDebug>
+#include <QIcon>
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QString>
@@ -24,6 +23,8 @@ MapWindow::MapWindow(const QMapboxGLSettings &settings)
 
     connect(&m_zoomAnimation, SIGNAL(finished()), this, SLOT(animationFinished()));
     connect(&m_zoomAnimation, SIGNAL(valueChanged(const QVariant&)), this, SLOT(animationValueChanged()));
+
+    setWindowIcon(QIcon(":icon.png"));
 }
 
 void MapWindow::selfTest()
@@ -54,16 +55,12 @@ void MapWindow::changeStyle()
 {
     static uint8_t currentStyleIndex;
 
-    mbgl::util::default_styles::DefaultStyle newStyle =
-        mbgl::util::default_styles::orderedStyles[currentStyleIndex];
+    auto& styles = QMapbox::defaultStyles();
 
-    QString url(newStyle.url);
-    m_map.setStyleURL(url);
+    m_map.setStyleURL(styles[currentStyleIndex].first);
+    setWindowTitle(QString("Mapbox GL: ") + styles[currentStyleIndex].second);
 
-    QString name(newStyle.name);
-    setWindowTitle(QString("Mapbox GL: ") + name);
-
-    if (++currentStyleIndex == mbgl::util::default_styles::numOrderedStyles) {
+    if (++currentStyleIndex == styles.size()) {
         currentStyleIndex = 0;
     }
 }

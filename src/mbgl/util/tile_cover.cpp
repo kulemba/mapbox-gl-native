@@ -1,5 +1,4 @@
 #include <mbgl/util/tile_cover.hpp>
-#include <mbgl/util/vec.hpp>
 #include <mbgl/util/constants.hpp>
 #include <mbgl/util/interpolate.hpp>
 #include <mbgl/map/transform_state.hpp>
@@ -7,25 +6,6 @@
 namespace mbgl {
 
 namespace {
-
-// Has floating point x/y coordinates.
-// Used for computing the tiles that need to be visible in the viewport.
-class TileCoordinate {
-public:
-    double x, y;
-
-    static TileCoordinate fromLatLng(const TransformState& state, double zoom, const LatLng& latLng) {
-        const double scale = std::pow(2, zoom - state.getZoom());
-        return {
-            state.lngX(latLng.longitude) * scale / util::tileSize,
-            state.latY(latLng.latitude) * scale / util::tileSize,
-        };
-    }
-
-    static TileCoordinate fromScreenCoordinate(const TransformState& state, double zoom, const ScreenCoordinate& point) {
-        return fromLatLng(state, zoom, state.screenCoordinateToLatLng(point));
-    }
-};
 
 // Taken from polymaps src/Layer.js
 // https://github.com/simplegeo/polymaps/blob/master/src/Layer.js#L333-L383

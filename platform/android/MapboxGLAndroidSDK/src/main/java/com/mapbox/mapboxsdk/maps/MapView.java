@@ -16,10 +16,11 @@ import android.content.pm.ServiceInfo;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Matrix;
 import android.graphics.PointF;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
-import android.graphics.drawable.Drawable;
+import android.graphics.drawable.ColorDrawable;
 import android.location.Location;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -82,10 +83,11 @@ import com.mapbox.mapboxsdk.layers.CustomLayer;
 import com.mapbox.mapboxsdk.location.LocationListener;
 import com.mapbox.mapboxsdk.location.LocationServices;
 import com.mapbox.mapboxsdk.maps.widgets.CompassView;
+import com.mapbox.mapboxsdk.maps.widgets.MyLocationView;
 import com.mapbox.mapboxsdk.maps.widgets.MyLocationViewSettings;
-import com.mapbox.mapboxsdk.maps.widgets.UserLocationView;
 import com.mapbox.mapboxsdk.telemetry.MapboxEvent;
 import com.mapbox.mapboxsdk.telemetry.MapboxEventManager;
+import com.mapbox.mapboxsdk.utils.ColorUtils;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -127,7 +129,8 @@ public class MapView extends FrameLayout {
     private CompassView mCompassView;
     private ImageView mLogoView;
     private ImageView mAttributionsView;
-    private UserLocationView mUserLocationView;
+    private MyLocationView mMyLocationView;
+    private LocationListener mMyLocationListener;
 
     private CopyOnWriteArrayList<OnMapChangedListener> mOnMapChangedListener;
     private ZoomButtonsController mZoomButtonsController;
@@ -149,11 +152,11 @@ public class MapView extends FrameLayout {
     private int mContentPaddingRight;
     private int mContentPaddingBottom;
 
-    private String mStyleUrl;
-
     private List<OnMapReadyCallback> mOnMapReadyCallbackList;
     private boolean mInitialLoad;
     private boolean mDestroyed;
+
+    private StyleInitializer mStyleInitializer;
 
     @UiThread
     public MapView(@NonNull Context context) {
@@ -185,6 +188,7 @@ public class MapView extends FrameLayout {
         mOnMapChangedListener = new CopyOnWriteArrayList<>();
         mMapboxMap = new MapboxMap(this);
         mIcons = new ArrayList<>();
+        mStyleInitializer = new StyleInitializer();
         View view = LayoutInflater.from(context).inflate(R.layout.mapview_internal, this);
 
         if (!isInEditMode()) {
@@ -224,8 +228,8 @@ public class MapView extends FrameLayout {
         // Connectivity
         onConnectivityChanged(isConnected());
 
-        mUserLocationView = (UserLocationView) view.findViewById(R.id.userLocationView);
-        mUserLocationView.setMapboxMap(mMapboxMap);
+        mMyLocationView = (MyLocationView) view.findViewById(R.id.userLocationView);
+        mMyLocationView.setMapboxMap(mMapboxMap);
 
         mCompassView = (CompassView) view.findViewById(R.id.compassView);
         mCompassView.setMapboxMap(mMapboxMap);
@@ -255,33 +259,38 @@ public class MapView extends FrameLayout {
         }
 
         String accessToken = options.getAccessToken();
+        String style = options.getStyle();
         if (!TextUtils.isEmpty(accessToken)) {
             mMapboxMap.setAccessToken(accessToken);
+            if (style != null) {
+                setStyleUrl(style);
+            }
+        } else {
+            mStyleInitializer.setStyle(style, true);
         }
 
-        String style = options.getStyle();
-        if (!TextUtils.isEmpty(style)) {
-            mMapboxMap.setStyleUrl(style);
-        }
-
-
+        // MyLocationView
+        MyLocationViewSettings myLocationViewSettings = mMapboxMap.getMyLocationViewSettings();
+        myLocationViewSettings.setForegroundDrawable(options.getMyLocationForegroundDrawable(), options.getMyLocationForegroundBearingDrawable());
+        myLocationViewSettings.setForegroundTintColor(options.getMyLocationForegroundTintColor());
+        myLocationViewSettings.setBackgroundDrawable(options.getMyLocationBackgroundDrawable(), options.getMyLocationBackgroundPadding());
+        myLocationViewSettings.setBackgroundTintColor(options.getMyLocationBackgroundTintColor());
+        myLocationViewSettings.setAccuracyAlpha(options.getMyLocationAccuracyAlpha());
+        myLocationViewSettings.setAccuracyTintColor(options.getMyLocationAccuracyTintColor());
         mMapboxMap.setMyLocationEnabled(options.getLocationEnabled());
 
         // Enable gestures
         UiSettings uiSettings = mMapboxMap.getUiSettings();
-
         uiSettings.setZoomGesturesEnabled(options.getZoomGesturesEnabled());
         uiSettings.setZoomGestureChangeAllowed(options.getZoomGesturesEnabled());
-
         uiSettings.setScrollGesturesEnabled(options.getScrollGesturesEnabled());
         uiSettings.setScrollGestureChangeAllowed(options.getScrollGesturesEnabled());
-
         uiSettings.setRotateGesturesEnabled(options.getRotateGesturesEnabled());
         uiSettings.setRotateGestureChangeAllowed(options.getRotateGesturesEnabled());
-
         uiSettings.setTiltGesturesEnabled(options.getTiltGesturesEnabled());
         uiSettings.setTiltGestureChangeAllowed(options.getTiltGesturesEnabled());
 
+        // Ui Controls
         uiSettings.setZoomControlsEnabled(options.getZoomControlsEnabled());
 
         // Zoom
@@ -322,6 +331,10 @@ public class MapView extends FrameLayout {
             int seventySixDp = (int) resources.getDimension(R.dimen.seventy_six_dp);
             uiSettings.setAttributionMargins(seventySixDp, sevenDp, sevenDp, sevenDp);
         }
+
+        int attributionTintColor = options.getAttributionTintColor();
+        uiSettings.setAttributionTintColor(attributionTintColor != -1 ?
+                attributionTintColor : ColorUtils.getPrimaryColor(getContext()));
     }
 
     //
@@ -459,7 +472,7 @@ public class MapView extends FrameLayout {
         outState.putBoolean(MapboxConstants.STATE_HAS_SAVED_STATE, true);
         outState.putParcelable(MapboxConstants.STATE_CAMERA_POSITION, mMapboxMap.getCameraPosition());
         outState.putBoolean(MapboxConstants.STATE_DEBUG_ACTIVE, mMapboxMap.isDebugActive());
-        outState.putString(MapboxConstants.STATE_STYLE_URL, mStyleUrl);
+        outState.putString(MapboxConstants.STATE_STYLE_URL, mStyleInitializer.getStyle());
         outState.putString(MapboxConstants.STATE_ACCESS_TOKEN, mMapboxMap.getAccessToken());
         outState.putBoolean(MapboxConstants.STATE_MY_LOCATION_ENABLED, mMapboxMap.isMyLocationEnabled());
 
@@ -527,7 +540,7 @@ public class MapView extends FrameLayout {
         getContext().unregisterReceiver(mConnectivityReceiver);
         mConnectivityReceiver = null;
 
-        mUserLocationView.onPause();
+        mMyLocationView.onPause();
     }
 
     /**
@@ -540,11 +553,11 @@ public class MapView extends FrameLayout {
         getContext().registerReceiver(mConnectivityReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
 
         mNativeMapView.update();
-        mUserLocationView.onResume();
+        mMyLocationView.onResume();
 
-        if (mStyleUrl == null) {
+        if (mStyleInitializer.isDefaultStyle()) {
             // user has failed to supply a style url
-            setStyleUrl(Style.MAPBOX_STREETS);
+            setStyleUrl(mStyleInitializer.getStyle());
         }
     }
 
@@ -592,7 +605,7 @@ public class MapView extends FrameLayout {
         if (duration != null) {
             actualDuration = duration;
         }
-        mUserLocationView.setTilt(pitch);
+        mMyLocationView.setTilt(pitch);
         mNativeMapView.setPitch(pitch, actualDuration);
     }
 
@@ -766,7 +779,7 @@ public class MapView extends FrameLayout {
      * <li>{@code asset://...}:
      * reads the style from the APK {@code assets/} directory.
      * This is used to load a style bundled with your app.</li>
-     * <li>{@code null}: loads the default {@link Style#MAPBOX_STREETS} style.</li>
+     * <li>{@code null}: loads the default {@link Style#getMapboxStreetsUrl(int)} style.</li>
      * </ul>
      * <p>
      * This method is asynchronous and will return immediately before the style finishes loading.
@@ -782,7 +795,7 @@ public class MapView extends FrameLayout {
         if (mDestroyed) {
             return;
         }
-        mStyleUrl = url;
+        mStyleInitializer.setStyle(url);
         mNativeMapView.setStyleUrl(url);
     }
 
@@ -816,7 +829,7 @@ public class MapView extends FrameLayout {
     @UiThread
     @NonNull
     public String getStyleUrl() {
-        return mStyleUrl;
+        return mStyleInitializer.getStyle();
     }
 
     //
@@ -903,7 +916,7 @@ public class MapView extends FrameLayout {
         if (mDestroyed || location == null) {
             return new PointF();
         }
-        PointF  pointF = mNativeMapView.pixelForLatLng(location);
+        PointF pointF = mNativeMapView.pixelForLatLng(location);
         pointF.set(pointF.x * mScreenDensity, pointF.y * mScreenDensity);
         return pointF;
     }
@@ -1331,7 +1344,7 @@ public class MapView extends FrameLayout {
             }
 
             mCompassView.update(getDirection());
-            mUserLocationView.update();
+            mMyLocationView.update();
             for (InfoWindow infoWindow : mMapboxMap.getInfoWindows()) {
                 infoWindow.update();
             }
@@ -1559,7 +1572,7 @@ public class MapView extends FrameLayout {
                         zoom(true, e.getX(), e.getY());
                     } else {
                         // Zoom in on user location view
-                        zoom(true, mUserLocationView.getCenterX(), mUserLocationView.getCenterY());
+                        zoom(true, mMyLocationView.getCenterX(), mMyLocationView.getCenterY());
                     }
                     break;
             }
@@ -1792,8 +1805,8 @@ public class MapView extends FrameLayout {
                     mNativeMapView.scaleBy(detector.getScaleFactor(), (getWidth() / 2) / mScreenDensity, (getHeight() / 2) / mScreenDensity);
                 } else {
                     // around user location view
-                    float x = mUserLocationView.getX() + mUserLocationView.getWidth() / 2;
-                    float y = mUserLocationView.getY() + mUserLocationView.getHeight() / 2;
+                    float x = mMyLocationView.getX() + mMyLocationView.getWidth() / 2;
+                    float y = mMyLocationView.getY() + mMyLocationView.getHeight() / 2;
                     mNativeMapView.scaleBy(detector.getScaleFactor(), x / mScreenDensity, y / mScreenDensity);
                 }
             }
@@ -1873,8 +1886,8 @@ public class MapView extends FrameLayout {
                         detector.getFocusY() / mScreenDensity);
             } else {
                 // around center userlocation
-                float x = mUserLocationView.getX() + mUserLocationView.getWidth() / 2;
-                float y = mUserLocationView.getY() + mUserLocationView.getHeight() / 2;
+                float x = mMyLocationView.getX() + mMyLocationView.getWidth() / 2;
+                float y = mMyLocationView.getY() + mMyLocationView.getHeight() / 2;
                 mNativeMapView.setBearing(bearing, x / mScreenDensity, y / mScreenDensity);
             }
             return true;
@@ -2338,27 +2351,35 @@ public class MapView extends FrameLayout {
     //
 
     void setMyLocationEnabled(boolean enabled) {
-        mUserLocationView.setEnabled(enabled);
+        mMyLocationView.setEnabled(enabled);
     }
 
     Location getMyLocation() {
-        return mUserLocationView.getLocation();
+        return mMyLocationView.getLocation();
     }
 
     void setOnMyLocationChangeListener(@Nullable final MapboxMap.OnMyLocationChangeListener listener) {
-        LocationServices.getLocationServices(getContext()).addLocationListener(new LocationListener() {
-            @Override
-            public void onLocationChanged(Location location) {
-                listener.onMyLocationChange(location);
-            }
-        });
+        if (listener != null) {
+            mMyLocationListener = new LocationListener() {
+                @Override
+                public void onLocationChanged(Location location) {
+                    if (listener != null) {
+                        listener.onMyLocationChange(location);
+                    }
+                }
+            };
+            LocationServices.getLocationServices(getContext()).addLocationListener(mMyLocationListener);
+        } else {
+            LocationServices.getLocationServices(getContext()).removeLocationListener(mMyLocationListener);
+            mMyLocationListener = null;
+        }
     }
 
     void setMyLocationTrackingMode(@MyLocationTracking.Mode int myLocationTrackingMode) {
         if (myLocationTrackingMode != MyLocationTracking.TRACKING_NONE && !mMapboxMap.isMyLocationEnabled()) {
             mMapboxMap.setMyLocationEnabled(true);
         }
-        mUserLocationView.setMyLocationTrackingMode(myLocationTrackingMode);
+        mMyLocationView.setMyLocationTrackingMode(myLocationTrackingMode);
         MapboxMap.OnMyLocationTrackingModeChangeListener listener = mMapboxMap.getOnMyLocationTrackingModeChangeListener();
         if (listener != null) {
             listener.onMyLocationTrackingModeChange(myLocationTrackingMode);
@@ -2369,7 +2390,7 @@ public class MapView extends FrameLayout {
         if (myBearingTrackingMode != MyBearingTracking.NONE && !mMapboxMap.isMyLocationEnabled()) {
             mMapboxMap.setMyLocationEnabled(true);
         }
-        mUserLocationView.setMyBearingTrackingMode(myBearingTrackingMode);
+        mMyLocationView.setMyBearingTrackingMode(myBearingTrackingMode);
         MapboxMap.OnMyBearingTrackingModeChangeListener listener = mMapboxMap.getOnMyBearingTrackingModeChangeListener();
         if (listener != null) {
             listener.onMyBearingTrackingModeChange(myBearingTrackingMode);
@@ -2456,6 +2477,13 @@ public class MapView extends FrameLayout {
         mAttributionsView.setVisibility(visibility);
     }
 
+    void setAtttibutionTintColor(int tintColor) {
+        ColorUtils.setTintList(mAttributionsView, tintColor);
+    }
+
+    int getAttributionTintColor() {
+        return mMapboxMap.getUiSettings().getAttributionTintColor();
+    }
 
     //
     // Custom layer
@@ -2507,19 +2535,24 @@ public class MapView extends FrameLayout {
         mMapboxMap = mapboxMap;
     }
 
-    UserLocationView getUserLocationView() {
-        return mUserLocationView;
+    MyLocationView getUserLocationView() {
+        return mMyLocationView;
     }
 
     @UiThread
     void snapshot(@NonNull final MapboxMap.SnapshotReadyCallback callback, @Nullable final Bitmap bitmap) {
-        final TextureView textureView = (TextureView) findViewById(R.id.textureView);
+        TextureView textureView = (TextureView) findViewById(R.id.textureView);
         final boolean canUseBitmap = bitmap != null && textureView.getWidth() == bitmap.getWidth() && textureView.getHeight() == bitmap.getHeight();
-        if (canUseBitmap) {
-            callback.onSnapshotReady(textureView.getBitmap(bitmap));
-        } else {
-            callback.onSnapshotReady(textureView.getBitmap());
-        }
+
+        setDrawingCacheEnabled(true);
+        Bitmap content = Bitmap.createBitmap(getDrawingCache());
+        setDrawingCacheEnabled(false);
+
+        Bitmap output = Bitmap.createBitmap(content.getWidth(), content.getHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(output);
+        canvas.drawBitmap(canUseBitmap ? textureView.getBitmap(bitmap) : textureView.getBitmap(), 0, 0, null);
+        canvas.drawBitmap(content, new Matrix(), null);
+        callback.onSnapshotReady(output);
     }
 
     //
@@ -2561,7 +2594,8 @@ public class MapView extends FrameLayout {
             AlertDialog.Builder builder = new AlertDialog.Builder(context, R.style.AttributionAlertDialogStyle);
             builder.setTitle(R.string.attributionsDialogTitle);
             builder.setAdapter(new ArrayAdapter<>(context, R.layout.attribution_list_item, items), this);
-            builder.show();
+            AlertDialog dialog = builder.show();
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(mMapView.getAttributionTintColor()));
         }
 
         // Called when someone selects an attribution, 'Improve this map' adds location data to the url
@@ -2633,6 +2667,37 @@ public class MapView extends FrameLayout {
         public void run() {
             // invalidate camera position
             mapboxMap.getCameraPosition();
+        }
+    }
+
+    /**
+     * Class responsible for managing state of Style loading.
+     */
+    private class StyleInitializer {
+
+        private String mStyle;
+        private boolean mDefaultStyle;
+
+        public StyleInitializer() {
+            mStyle = Style.getMapboxStreetsUrl(getResources().getInteger(R.integer.style_version));
+            mDefaultStyle = true;
+        }
+
+        void setStyle(@NonNull String style) {
+            setStyle(style, false);
+        }
+
+        void setStyle(@NonNull String style, boolean defaultStyle) {
+            mStyle = style;
+            mDefaultStyle = defaultStyle;
+        }
+
+        public String getStyle() {
+            return mStyle;
+        }
+
+        boolean isDefaultStyle() {
+            return mDefaultStyle;
         }
     }
 

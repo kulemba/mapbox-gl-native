@@ -1,5 +1,6 @@
 #include "node_map.hpp"
 #include "node_request.hpp"
+#include "node_feature.hpp"
 
 #include <mbgl/platform/default/headless_display.hpp>
 #include <mbgl/util/exception.hpp>
@@ -50,6 +51,7 @@ NAN_MODULE_INIT(NodeMap::Init) {
     Nan::SetPrototypeMethod(tpl, "render", Render);
     Nan::SetPrototypeMethod(tpl, "release", Release);
     Nan::SetPrototypeMethod(tpl, "dumpDebugLogs", DumpDebugLogs);
+    Nan::SetPrototypeMethod(tpl, "queryRenderedFeatures", QueryRenderedFeatures);
 
     constructor.Reset(tpl->GetFunction());
     Nan::Set(target, Nan::New("Map").ToLocalChecked(), tpl->GetFunction());
@@ -446,6 +448,55 @@ NAN_METHOD(NodeMap::DumpDebugLogs) {
 
     nodeMap->map->dumpDebugLogs();
     info.GetReturnValue().SetUndefined();
+}
+
+NAN_METHOD(NodeMap::QueryRenderedFeatures) {
+    auto nodeMap = Nan::ObjectWrap::Unwrap<NodeMap>(info.Holder());
+    Nan::HandleScope scope;
+
+    if (!nodeMap->isValid()) return Nan::ThrowError(releasedMessage());
+
+    if (info.Length() <= 0 || !info[0]->IsArray()) {
+        return Nan::ThrowTypeError("First argument must be an array");
+    }
+
+    auto posOrBox = info[0].As<v8::Array>();
+    if (posOrBox->Length() != 2) {
+        return Nan::ThrowTypeError("First argument must have two components");
+    }
+
+    try {
+        std::vector<mbgl::Feature> result;
+
+        if (Nan::Get(posOrBox, 0).ToLocalChecked()->IsArray()) {
+
+            auto pos0 = Nan::Get(posOrBox, 0).ToLocalChecked().As<v8::Array>();
+            auto pos1 = Nan::Get(posOrBox, 1).ToLocalChecked().As<v8::Array>();
+
+            std::array<mbgl::ScreenCoordinate, 2> queryBox = {{{
+                    Nan::Get(pos0, 0).ToLocalChecked()->NumberValue(),
+                    Nan::Get(pos0, 1).ToLocalChecked()->NumberValue()
+                }, {
+                    Nan::Get(pos1, 0).ToLocalChecked()->NumberValue(),
+                    Nan::Get(pos1, 1).ToLocalChecked()->NumberValue()
+                }}};
+            result = nodeMap->map->queryRenderedFeatures(queryBox);
+
+        } else {
+            mbgl::ScreenCoordinate queryPoint(
+                Nan::Get(posOrBox, 0).ToLocalChecked()->NumberValue(),
+                Nan::Get(posOrBox, 1).ToLocalChecked()->NumberValue());
+            result = nodeMap->map->queryRenderedFeatures(queryPoint);
+        }
+
+        auto array = Nan::New<v8::Array>();
+        for (unsigned int i = 0; i < result.size(); i++) {
+            array->Set(i, toJS(result[i]));
+        }
+        info.GetReturnValue().Set(array);
+    } catch (const std::exception &ex) {
+        return Nan::ThrowError(ex.what());
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////

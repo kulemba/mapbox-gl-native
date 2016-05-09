@@ -5,6 +5,9 @@
       'type': 'static_library',
       'standalone_static_library': 1,
       'hard_dependency': 1,
+      'dependencies': [
+        'core',
+      ],
 
       'include_dirs': [
         '../include',
@@ -21,7 +24,6 @@
         'util/geo.cpp',
         'util/image.cpp',
         'util/mapbox.cpp',
-        'util/math.cpp',
         'util/merge_lines.cpp',
         'util/run_loop.cpp',
         'util/text_conversions.cpp',
@@ -45,6 +47,9 @@
         'map/tile.cpp',
         'map/transform.cpp',
 
+        'math/minmax.cpp',
+        'math/clamp.cpp',
+
         'storage/offline.cpp',
         'storage/offline_database.cpp',
         'storage/offline_download.cpp',
@@ -59,10 +64,9 @@
         'style/source.cpp',
         'style/style.cpp',
         'style/style_layer.cpp',
-        'style/comparisons.cpp',
+        'style/filter.cpp',
         'style/functions.cpp',
         'style/style_parser.cpp',
-        'style/variant.cpp',
 
         'sprite/sprite_atlas.cpp',
         'sprite/sprite_image.cpp',
@@ -83,12 +87,12 @@
         'cflags_cc': [
           '<@(gtest_cflags)',
           '<@(opengl_cflags)',
+          '<@(protozero_cflags)',
           '<@(boost_cflags)',
           '<@(sqlite_cflags)',
           '<@(geojsonvt_cflags)',
           '<@(rapidjson_cflags)',
           '<@(pixelmatch_cflags)',
-          '<@(variant_cflags)',
         ],
         'ldflags': [
           '<@(gtest_ldflags)',

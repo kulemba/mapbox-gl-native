@@ -24,9 +24,8 @@
 #import <mbgl/sprite/sprite_image.hpp>
 #import <mbgl/storage/default_file_source.hpp>
 #import <mbgl/storage/network_status.hpp>
+#import <mbgl/math/wrap.hpp>
 #import <mbgl/util/constants.hpp>
-#import <mbgl/util/math.hpp>
-#import <mbgl/util/std.hpp>
 #import <mbgl/util/chrono.hpp>
 
 #import <map>
@@ -80,8 +79,14 @@ struct MGLAttribution {
     /// URL to open when the attribution button is clicked.
     NSString *urlString;
 } MGLAttributions[] = {
-    { .title = @"Mapbox", .urlString = @"https://www.mapbox.com/about/maps/" },
-    { .title = @"OpenStreetMap", .urlString = @"http://www.openstreetmap.org/about/" },
+    {
+        .title = NSLocalizedStringWithDefaultValue(@"COPYRIGHT_MAPBOX", nil, nil, @"Mapbox", @"Linked part of copyright notice"),
+        .urlString = NSLocalizedStringWithDefaultValue(@"COPYRIGHT_MAPBOX_LINK", nil, nil, @"https://www.mapbox.com/about/maps/", @"Copyright notice link"),
+    },
+    {
+        .title = NSLocalizedStringWithDefaultValue(@"COPYRIGHT_OSM", nil, nil, @"OpenStreetMap", @"Linked part of copyright notice"),
+        .urlString = NSLocalizedStringWithDefaultValue(@"COPYRIGHT_OSM_LINK", nil, nil, @"http://www.openstreetmap.org/about/", @"Copyright notice link"),
+    },
 };
 
 /// Unique identifier representing a single annotation in mbgl.
@@ -257,6 +262,7 @@ public:
     
     mbgl::DefaultFileSource *mbglFileSource = [MGLOfflineStorage sharedOfflineStorage].mbglFileSource;
     _mbglMap = new mbgl::Map(*_mbglView, *mbglFileSource, mbgl::MapMode::Continuous, mbgl::GLContextMode::Unique, mbgl::ConstrainMode::None);
+    [self validateTileCacheSize];
     
     // Install the OpenGL layer. Interface Builder’s synchronous drawing means
     // we can’t display a map, so don’t even bother to have a map layer.
@@ -302,12 +308,12 @@ public:
     [(NSSegmentedCell *)_zoomControls.cell setTrackingMode:NSSegmentSwitchTrackingMomentary];
     _zoomControls.continuous = YES;
     _zoomControls.segmentCount = 2;
-    [_zoomControls setLabel:@"−" forSegment:0]; // U+2212 MINUS SIGN
+    [_zoomControls setLabel:NSLocalizedStringWithDefaultValue(@"ZOOM_OUT_LABEL", nil, nil, @"−", @"Label of Zoom Out button; U+2212 MINUS SIGN") forSegment:0];
     [(NSSegmentedCell *)_zoomControls.cell setTag:0 forSegment:0];
-    [(NSSegmentedCell *)_zoomControls.cell setToolTip:@"Zoom Out" forSegment:0];
-    [_zoomControls setLabel:@"+" forSegment:1];
+    [(NSSegmentedCell *)_zoomControls.cell setToolTip:NSLocalizedStringWithDefaultValue(@"ZOOM_OUT_TOOLTIP", nil, nil, @"Zoom Out", @"Tooltip of Zoom Out button") forSegment:0];
+    [_zoomControls setLabel:NSLocalizedStringWithDefaultValue(@"ZOOM_IN_LABEL", nil, nil, @"+", @"Label of Zoom In button") forSegment:1];
     [(NSSegmentedCell *)_zoomControls.cell setTag:1 forSegment:1];
-    [(NSSegmentedCell *)_zoomControls.cell setToolTip:@"Zoom In" forSegment:1];
+    [(NSSegmentedCell *)_zoomControls.cell setToolTip:NSLocalizedStringWithDefaultValue(@"ZOOM_IN_TOOLTIP", nil, nil, @"Zoom In", @"Tooltip of Zoom In button") forSegment:1];
     _zoomControls.target = self;
     _zoomControls.action = @selector(zoomInOrOut:);
     _zoomControls.controlSize = NSRegularControlSize;
@@ -340,7 +346,7 @@ public:
     logoImage.alignmentRect = NSInsetRect(logoImage.alignmentRect, 3, 3);
     _logoView.image = logoImage;
     _logoView.translatesAutoresizingMaskIntoConstraints = NO;
-    _logoView.accessibilityTitle = @"Mapbox";
+    _logoView.accessibilityTitle = NSLocalizedStringWithDefaultValue(@"MAP_A11Y_TITLE", nil, nil, @"Mapbox", @"Accessibility title");
     [self addSubview:_logoView];
 }
 
@@ -375,7 +381,6 @@ public:
 
 /// Adds gesture recognizers for manipulating the viewport and selecting annotations.
 - (void)installGestureRecognizers {
-    self.acceptsTouchEvents = YES;
     _scrollEnabled = YES;
     _zoomEnabled = YES;
     _rotateEnabled = YES;
@@ -527,7 +532,7 @@ public:
 
 - (nonnull NSURL *)styleURL {
     NSString *styleURLString = @(_mbglMap->getStyleURL().c_str()).mgl_stringOrNilIfEmpty;
-    return styleURLString ? [NSURL URLWithString:styleURLString] : [MGLStyle streetsStyleURL];
+    return styleURLString ? [NSURL URLWithString:styleURLString] : [MGLStyle streetsStyleURLWithVersion:MGLStyleDefaultVersion];
 }
 
 - (void)setStyleURL:(nullable NSURL *)styleURL {
@@ -542,7 +547,7 @@ public:
         if (![MGLAccountManager accessToken]) {
             return;
         }
-        styleURL = [MGLStyle streetsStyleURL];
+        styleURL = [MGLStyle streetsStyleURLWithVersion:MGLStyleDefaultVersion];
     }
     
     if (![styleURL scheme]) {
@@ -603,6 +608,9 @@ public:
 
 - (void)setFrame:(NSRect)frame {
     super.frame = frame;
+    if (!NSEqualRects(frame, self.frame)) {
+        [self validateTileCacheSize];
+    }
     if (!_isTargetingInterfaceBuilder) {
         _mbglMap->update(mbgl::Update::Dimensions);
     }
@@ -701,15 +709,6 @@ public:
 
 - (void)renderSync {
     if (!self.dormant) {
-        CGFloat zoomFactor   = _mbglMap->getMaxZoom() - _mbglMap->getMinZoom() + 1;
-        CGFloat cpuFactor    = (CGFloat)[NSProcessInfo processInfo].processorCount;
-        CGFloat memoryFactor = (CGFloat)[NSProcessInfo processInfo].physicalMemory / 1000 / 1000 / 1000;
-        CGFloat sizeFactor   = ((CGFloat)_mbglMap->getWidth() / mbgl::util::tileSize) * ((CGFloat)_mbglMap->getHeight() / mbgl::util::tileSize);
-        
-        NSUInteger cacheSize = zoomFactor * cpuFactor * memoryFactor * sizeFactor * 0.5;
-        
-        _mbglMap->setSourceTileCacheSize(cacheSize);
-
         // Enable vertex buffer objects.
         mbgl::gl::InitializeExtensions([](const char *name) {
             static CFBundleRef framework = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.opengl"));
@@ -731,11 +730,26 @@ public:
             std::string png = encodePNG(_mbglView->readStillImage());
             NSData *data = [[NSData alloc] initWithBytes:png.data() length:png.size()];
             NSImage *image = [[NSImage alloc] initWithData:data];
-            [self printWithImage:image];
+            [self performSelector:@selector(printWithImage:) withObject:image afterDelay:0];
         }
 
 //        [self updateUserLocationAnnotationView];
     }
+}
+
+- (void)validateTileCacheSize {
+    if (!_mbglMap) {
+        return;
+    }
+    
+    CGFloat zoomFactor   = self.maximumZoomLevel - self.minimumZoomLevel + 1;
+    CGFloat cpuFactor    = [NSProcessInfo processInfo].processorCount;
+    CGFloat memoryFactor = (CGFloat)[NSProcessInfo processInfo].physicalMemory / 1000 / 1000 / 1000;
+    CGFloat sizeFactor   = (NSWidth(self.bounds) / mbgl::util::tileSize) * (NSHeight(self.bounds) / mbgl::util::tileSize);
+    
+    NSUInteger cacheSize = zoomFactor * cpuFactor * memoryFactor * sizeFactor * 0.5;
+    
+    _mbglMap->setSourceTileCacheSize(cacheSize);
 }
 
 - (void)invalidate {
@@ -943,11 +957,13 @@ public:
 - (void)setMinimumZoomLevel:(double)minimumZoomLevel
 {
     _mbglMap->setMinZoom(minimumZoomLevel);
+    [self validateTileCacheSize];
 }
 
 - (void)setMaximumZoomLevel:(double)maximumZoomLevel
 {
     _mbglMap->setMaxZoom(maximumZoomLevel);
+    [self validateTileCacheSize];
 }
 
 - (double)maximumZoomLevel {
@@ -1411,12 +1427,20 @@ public:
     BOOL isScrollWheel = event.phase == NSEventPhaseNone && event.momentumPhase == NSEventPhaseNone && !event.hasPreciseScrollingDeltas;
     if (isScrollWheel || [[NSUserDefaults standardUserDefaults] boolForKey:MGLScrollWheelZoomsMapViewDefaultKey]) {
         // A traditional, vertical scroll wheel zooms instead of panning.
-        if (self.zoomEnabled && std::abs(event.scrollingDeltaX) < std::abs(event.scrollingDeltaY)) {
-            _mbglMap->cancelTransitions();
-            
-            NSPoint gesturePoint = [self convertPoint:event.locationInWindow fromView:nil];
-            double zoomDelta = event.scrollingDeltaY / 4;
-            [self scaleBy:exp2(zoomDelta) atPoint:gesturePoint animated:YES];
+        if (self.zoomEnabled) {
+            const double delta =
+                event.scrollingDeltaY / ([event hasPreciseScrollingDeltas] ? 100 : 10);
+            if (delta != 0) {
+                double scale = 2.0 / (1.0 + std::exp(-std::abs(delta)));
+
+                // Zooming out.
+                if (delta < 0) {
+                    scale = 1.0 / scale;
+                }
+
+                NSPoint gesturePoint = [self convertPoint:event.locationInWindow fromView:nil];
+                [self scaleBy:scale atPoint:gesturePoint animated:NO];
+            }
         }
     } else if (self.scrollEnabled
                && _magnificationGestureRecognizer.state == NSGestureRecognizerStatePossible

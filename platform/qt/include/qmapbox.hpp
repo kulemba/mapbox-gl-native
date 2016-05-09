@@ -39,6 +39,8 @@ struct Q_DECL_EXPORT CameraOptions {
     QVariant pitch;   // double
 };
 
+Q_DECL_EXPORT QList<QPair<QString, QString> >& defaultStyles();
+
 Q_DECL_EXPORT NetworkMode networkMode();
 Q_DECL_EXPORT void setNetworkMode(NetworkMode);
 
@@ -57,6 +59,10 @@ struct Q_DECL_EXPORT CustomLayerRenderParameters {
 typedef void (*CustomLayerInitializeFunction)(void* context) ;
 typedef void (*CustomLayerRenderFunction)(void* context, const CustomLayerRenderParameters&);
 typedef void (*CustomLayerDeinitializeFunction)(void* context);
+
+#if QT_VERSION >= 0x050000
+Q_DECL_EXPORT void initializeGLExtensions();
+#endif
 
 }
 

@@ -43,13 +43,6 @@
         'cflags_cc': [
           '-Wno-unknown-pragmas', # We are using '#pragma mark', but it is only available on Darwin.
         ],
-        'conditions': [
-          ['cxx_host != "clang"', {
-            'cflags_cc': [
-              '-fabi-version=0',
-            ],
-          }],
-        ]
       }],
     ],
     'target_conditions': [
@@ -179,7 +172,9 @@
       'variables': {
         'cflags_cc': [
           '<@(opengl_cflags)',
+          '<@(protozero_cflags)',
           '<@(boost_cflags)',
+          '<@(geometry_cflags)',
           '<@(geojsonvt_cflags)',
           '<@(rapidjson_cflags)',
           '<@(variant_cflags)',
@@ -289,6 +284,19 @@
             'libraries': [ '<@(libraries)', '<@(ldflags)' ],
           }]
         ],
+      },
+
+      'direct_dependent_settings': {
+        'cflags_cc': [
+          '<@(variant_cflags)',
+          '<@(geometry_cflags)',
+        ],
+        'xcode_settings': {
+          'OTHER_CPLUSPLUSFLAGS': [
+            '<@(variant_cflags)',
+            '<@(geometry_cflags)',
+          ],
+        },
       },
     },
     {

@@ -7,6 +7,7 @@
 #include <mbgl/map/update.hpp>
 #include <mbgl/map/mode.hpp>
 #include <mbgl/util/geo.hpp>
+#include <mbgl/util/feature.hpp>
 #include <mbgl/util/noncopyable.hpp>
 #include <mbgl/annotation/annotation.hpp>
 #include <mbgl/style/types.hpp>
@@ -157,6 +158,10 @@ public:
                         void* context,
                         const char* before = nullptr);
     void removeCustomLayer(const std::string& id);
+
+    // Feature queries
+    std::vector<Feature> queryRenderedFeatures(const ScreenCoordinate&, const optional<std::vector<std::string>>& layerIDs = {});
+    std::vector<Feature> queryRenderedFeatures(const std::array<ScreenCoordinate, 2>&, const optional<std::vector<std::string>>& layerIDs = {});
 
     // Memory
     void setSourceTileCacheSize(size_t);
