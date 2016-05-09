@@ -39,7 +39,7 @@ $(OSX_OUTPUT_PATH)/mbgl.xcconfig: $(OSX_OUTPUT_PATH)/config.gypi
 	./scripts/export-xcconfig.py $< $@
 
 $(OSX_PROJ_PATH): platform/osx/platform.gyp $(OSX_OUTPUT_PATH)/config.gypi $(OSX_OUTPUT_PATH)/mbgl.xcconfig $(GYP_DEPENDENCIES)
-	./deps/run_gyp -f xcode --depth=. --generator-output=$(OSX_OUTPUT_PATH) $<
+	./deps/run_gyp -f xcode --depth=. --generator-output=$(OSX_OUTPUT_PATH) $(GYP_FLAGS) $<
 
 osx: $(OSX_PROJ_PATH)
 	set -o pipefail && xcodebuild \
@@ -74,7 +74,7 @@ $(IOS_OUTPUT_PATH)/mbgl.xcconfig: $(IOS_OUTPUT_PATH)/config.gypi
 	./scripts/export-xcconfig.py $< $@
 
 $(IOS_PROJ_PATH): platform/ios/platform.gyp $(IOS_OUTPUT_PATH)/config.gypi $(IOS_OUTPUT_PATH)/mbgl.xcconfig $(GYP_DEPENDENCIES)
-	./deps/run_gyp -f xcode --depth=. --generator-output=$(IOS_OUTPUT_PATH) $<
+	./deps/run_gyp -f xcode --depth=. --generator-output=$(IOS_OUTPUT_PATH) $(GYP_FLAGS) $<
 
 ios: $(IOS_PROJ_PATH)
 	set -o pipefail && xcodebuild \
