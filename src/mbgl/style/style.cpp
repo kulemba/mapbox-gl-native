@@ -282,9 +282,11 @@ RenderData Style::getRenderData() const {
             continue;
         }
 
-        for (auto tile : source->getTiles()) {
-            if (!tile->data || !tile->data->isReady())
+        for (auto& pair : source->getTiles()) {
+            auto& tile = pair.second;
+            if (!tile.data.isReady()) {
                 continue;
+            }
 
             // We're not clipping symbol layers, so when we have both parents and children of symbol
             // layers, we drop all children in favor of their parent to avoid duplicate labels.
@@ -295,7 +297,7 @@ RenderData Style::getRenderData() const {
                 // already a bucket from this layer that is a parent of this tile. Tiles are ordered
                 // by zoom level when we obtain them from getTiles().
                 for (auto it = result.order.rbegin(); it != result.order.rend() && (&it->layer == layer.get()); ++it) {
-                    if (tile->id.isChildOf(it->tile->id)) {
+                    if (tile.data.id.isChildOf(it->tile->data.id)) {
                         skip = true;
                         break;
                     }
@@ -305,9 +307,9 @@ RenderData Style::getRenderData() const {
                 }
             }
 
-            auto bucket = tile->data->getBucket(*layer);
+            auto bucket = tile.data.getBucket(*layer);
             if (bucket) {
-                result.order.emplace_back(*layer, tile, bucket);
+                result.order.emplace_back(*layer, &tile, bucket);
             }
         }
     }
@@ -319,23 +321,20 @@ std::vector<Feature> Style::queryRenderedFeatures(
         const std::vector<TileCoordinate>& queryGeometry,
         const double zoom,
         const double bearing,
-        const optional<std::vector<std::string>>& layerIDs) {
+        const optional<std::vector<std::string>>& layerIDs) const {
     std::vector<std::unordered_map<std::string, std::vector<Feature>>> sourceResults;
     for (const auto& source : sources) {
         sourceResults.emplace_back(source->queryRenderedFeatures(queryGeometry, zoom, bearing, layerIDs));
     }
 
     std::vector<Feature> features;
-    auto featuresInserter = std::back_inserter(features);
 
     // Combine all results based on the style layer order.
-    for (auto& layerPtr : layers) {
-        auto& layerID = layerPtr->id;
-        for (auto& sourceResult : sourceResults) {
-            auto it = sourceResult.find(layerID);
+    for (const auto& layer : layers) {
+        for (const auto& sourceResult : sourceResults) {
+            auto it = sourceResult.find(layer->id);
             if (it != sourceResult.end()) {
-                auto& layerFeatures = it->second;
-                std::move(layerFeatures.begin(), layerFeatures.end(), featuresInserter);
+                std::move(it->second.begin(), it->second.end(), std::back_inserter(features));
             }
         }
     }
@@ -395,7 +394,7 @@ void Style::onSourceError(Source& source, std::exception_ptr error) {
     observer->onResourceError(error);
 }
 
-void Style::onTileLoaded(Source& source, const TileID& tileID, bool isNewTile) {
+void Style::onTileLoaded(Source& source, const OverscaledTileID& tileID, bool isNewTile) {
     if (isNewTile) {
         shouldReparsePartialTiles = true;
     }
@@ -404,10 +403,10 @@ void Style::onTileLoaded(Source& source, const TileID& tileID, bool isNewTile) {
     observer->onResourceLoaded();
 }
 
-void Style::onTileError(Source& source, const TileID& tileID, std::exception_ptr error) {
+void Style::onTileError(Source& source, const OverscaledTileID& tileID, std::exception_ptr error) {
     lastError = error;
     Log::Error(Event::Style, "Failed to load tile %s for source %s: %s",
-               std::string(tileID).c_str(), source.id.c_str(), util::toString(error).c_str());
+               util::toString(tileID).c_str(), source.id.c_str(), util::toString(error).c_str());
     observer->onTileError(source, tileID, error);
     observer->onResourceError(error);
 }

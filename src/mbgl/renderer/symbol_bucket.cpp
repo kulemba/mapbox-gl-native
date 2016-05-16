@@ -25,7 +25,6 @@
 #include <mbgl/util/merge_lines.hpp>
 #include <mbgl/util/clip_lines.hpp>
 #include <mbgl/util/std.hpp>
-#include <mbgl/util/get_geometries.hpp>
 #include <mbgl/util/constants.hpp>
 #include <mbgl/util/string.hpp>
 #include <mbgl/math/minmax.hpp>
@@ -87,9 +86,9 @@ void SymbolBucket::upload(gl::GLObjectStore& glObjectStore) {
 
 void SymbolBucket::render(Painter& painter,
                           const StyleLayer& layer,
-                          const TileID& id,
+                          const UnwrappedTileID& tileID,
                           const mat4& matrix) {
-    painter.renderSymbol(*this, *layer.as<SymbolLayer>(), id, matrix);
+    painter.renderSymbol(*this, *layer.as<SymbolLayer>(), tileID, matrix);
 }
 
 bool SymbolBucket::hasData() const { return hasTextData() || hasIconData() || !symbolInstances.empty(); }
@@ -170,7 +169,7 @@ void SymbolBucket::parseFeatures(const GeometryTileLayer& layer, const Filter& f
 
             auto &multiline = ft.geometry;
 
-            GeometryCollection geometryCollection = getGeometries(*feature);
+            GeometryCollection geometryCollection = feature->getGeometries();
             for (auto& line : geometryCollection) {
                 multiline.emplace_back();
                 for (auto& point : line) {

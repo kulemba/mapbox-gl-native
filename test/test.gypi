@@ -20,7 +20,6 @@
       'sources': [
         'util/assert.cpp',
         'util/async_task.cpp',
-        'util/clip_ids.cpp',
         'util/geo.cpp',
         'util/image.cpp',
         'util/mapbox.cpp',
@@ -34,6 +33,11 @@
         'util/token.cpp',
         'util/work_queue.cpp',
 
+        'algorithm/covered_by_children.cpp',
+        'algorithm/generate_clip_ids.cpp',
+        'algorithm/mock.hpp',
+        'algorithm/update_renderables.cpp',
+
         'api/annotations.cpp',
         'api/api_misuse.cpp',
         'api/repeated_render.cpp',
@@ -44,11 +48,12 @@
         'geometry/binpack.cpp',
 
         'map/map.cpp',
-        'map/tile.cpp',
         'map/transform.cpp',
 
         'math/minmax.cpp',
         'math/clamp.cpp',
+
+        'tile/tile_id.cpp',
 
         'storage/offline.cpp',
         'storage/offline_database.cpp',
