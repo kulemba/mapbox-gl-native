@@ -30,6 +30,7 @@ import com.mapbox.mapboxsdk.constants.MyLocationTracking;
 import com.mapbox.mapboxsdk.constants.Style;
 import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.layers.CustomLayer;
+import com.mapbox.mapboxsdk.location.LocationListener;
 import com.mapbox.mapboxsdk.maps.widgets.MyLocationViewSettings;
 import java.util.ArrayList;
 import java.util.List;
@@ -195,7 +196,7 @@ public class MapboxMap {
      */
     public MyLocationViewSettings getMyLocationViewSettings() {
         if (myLocationViewSettings == null) {
-            myLocationViewSettings = new MyLocationViewSettings(mMapView,mMapView.getUserLocationView());
+            myLocationViewSettings = new MyLocationViewSettings(mMapView, mMapView.getUserLocationView());
         }
         return myLocationViewSettings;
     }
@@ -581,22 +582,32 @@ public class MapboxMap {
 
     /**
      * <p>
+     * DEPRECATED @see MapboxAccountManager#start(String)
+     * </p>
+     *
+     * <p>
      * Sets the current Mapbox access token used to load map styles and tiles.
      * </p>
      *
      * @param accessToken Your public Mapbox access token.
      * @see MapView#setAccessToken(String)
      */
+    @Deprecated
     @UiThread
     public void setAccessToken(@NonNull String accessToken) {
         mMapView.setAccessToken(accessToken);
     }
 
     /**
+     * <p>
+     * DEPRECATED @see MapboxAccountManager#getAccessToken()
+     * </p>
+     *
      * Returns the current Mapbox access token used to load map styles and tiles.
      *
      * @return The current Mapbox access token.
      */
+    @Deprecated
     @UiThread
     @Nullable
     public String getAccessToken() {
@@ -1193,7 +1204,7 @@ public class MapboxMap {
     /**
      * Sets the distance from the edges of the map view’s frame to the edges of the map
      * view’s logical viewport.
-     * <p/>
+     *
      * When the value of this property is equal to {0,0,0,0}, viewport
      * properties such as `centerCoordinate` assume a viewport that matches the map
      * view’s frame. Otherwise, those properties are inset, excluding part of the
@@ -1436,8 +1447,10 @@ public class MapboxMap {
      *
      * @param listener The callback that's invoked when the user clicks on a marker.
      *                 To unset the callback, use null.
+     * @deprecated As of release 4.1.0, replaced by {@link com.mapbox.mapboxsdk.location.LocationServices#addLocationListener(LocationListener)})}
      */
     @UiThread
+    @Deprecated
     public void setOnMyLocationChangeListener(@Nullable MapboxMap.OnMyLocationChangeListener listener) {
         mMapView.setOnMyLocationChangeListener(listener);
     }
@@ -1711,7 +1724,9 @@ public class MapboxMap {
      * Interface definition for a callback to be invoked when the the My Location view changes location.
      *
      * @see MapboxMap#setOnMyLocationChangeListener(OnMyLocationChangeListener)
+     * @deprecated As of release 4.1.0, replaced by {@link com.mapbox.mapboxsdk.location.LocationListener}
      */
+    @Deprecated
     public interface OnMyLocationChangeListener {
         /**
          * Called when the location of the My Location view has changed

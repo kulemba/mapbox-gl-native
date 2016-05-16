@@ -3,6 +3,7 @@
 #include <QMapboxGL>
 #include <QQuickMapboxGL>
 
+#include <QGuiApplication>
 #include <QSize>
 #include <QOpenGLFramebufferObject>
 #include <QOpenGLFramebufferObjectFormat>
@@ -16,6 +17,7 @@ QQuickMapboxGLRenderer::QQuickMapboxGLRenderer()
     settings.setAccessToken(qgetenv("MAPBOX_ACCESS_TOKEN"));
     settings.setCacheDatabasePath("/tmp/mbgl-cache.db");
     settings.setCacheDatabaseMaximumSize(20 * 1024 * 1024);
+    settings.setViewportMode(QMapboxGLSettings::FlippedYViewport);
 
     m_map.reset(new QMapboxGL(nullptr, settings));
 }
@@ -26,7 +28,7 @@ QQuickMapboxGLRenderer::~QQuickMapboxGLRenderer()
 
 QOpenGLFramebufferObject* QQuickMapboxGLRenderer::createFramebufferObject(const QSize &size)
 {
-    m_map->resize(size);
+    m_map->resize(size / qApp->devicePixelRatio());
 
     QOpenGLFramebufferObjectFormat format;
     format.setAttachment(QOpenGLFramebufferObject::CombinedDepthStencil);
@@ -53,13 +55,9 @@ void QQuickMapboxGLRenderer::synchronize(QQuickFramebufferObject *item)
     auto quickMap = static_cast<QQuickMapboxGL*>(item);
     auto syncStatus = quickMap->swapSyncState();
 
-    if (syncStatus & QQuickMapboxGL::ZoomNeedsSync) {
-        m_map->setZoom(quickMap->zoomLevel());
-    }
-
-    if (syncStatus & QQuickMapboxGL::CenterNeedsSync) {
+    if (syncStatus & QQuickMapboxGL::CenterNeedsSync || syncStatus & QQuickMapboxGL::ZoomNeedsSync) {
         const auto& center = quickMap->center();
-        m_map->setCoordinate(QMapbox::Coordinate(center.latitude(), center.longitude()));
+        m_map->setCoordinateZoom({ center.latitude(), center.longitude() }, quickMap->zoomLevel());
     }
 
     if (syncStatus & QQuickMapboxGL::StyleNeedsSync) {

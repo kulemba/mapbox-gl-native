@@ -9,12 +9,11 @@
 using namespace mbgl;
 
 void Painter::renderTileDebug(const Tile& tile) {
-    MBGL_DEBUG_GROUP(std::string { "debug " } + std::string(tile.id));
-    assert(tile.data);
+    MBGL_DEBUG_GROUP(std::string { "debug " } + util::toString(tile.id));
     if (frame.debugOptions != MapDebugOptions::NoDebug) {
         setClipping(tile.clip);
         if (frame.debugOptions & (MapDebugOptions::Timestamps | MapDebugOptions::ParseStatus)) {
-            renderDebugText(*tile.data, tile.matrix);
+            renderDebugText(tile.data, tile.matrix);
         }
         if (frame.debugOptions & MapDebugOptions::TileBorders) {
             renderDebugFrame(tile.matrix);
