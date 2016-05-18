@@ -42,8 +42,11 @@ void QQuickMapboxGLRenderer::render()
 void QQuickMapboxGLRenderer::synchronize(QQuickFramebufferObject *item)
 {
     if (!m_initialized) {
-        m_map->setStyleURL(QMapbox::defaultStyles()[0].first);
-        QObject::connect(m_map.data(), SIGNAL(needsRendering()), item, SLOT(update()));
+        auto qquickMapbox = static_cast<QQuickMapboxGL*>(item);
+
+        QObject::connect(m_map.data(), &QMapboxGL::needsRendering, qquickMapbox, &QQuickMapboxGL::update);
+        QObject::connect(this, &QQuickMapboxGLRenderer::centerChanged, qquickMapbox, &QQuickMapboxGL::setCenter);
+
         m_initialized = true;
     }
 
@@ -57,5 +60,22 @@ void QQuickMapboxGLRenderer::synchronize(QQuickFramebufferObject *item)
     if (syncStatus & QQuickMapboxGL::CenterNeedsSync) {
         const auto& center = quickMap->center();
         m_map->setCoordinate(QMapbox::Coordinate(center.latitude(), center.longitude()));
+    }
+
+    if (syncStatus & QQuickMapboxGL::StyleNeedsSync) {
+        m_map->setStyleURL(quickMap->style());
+    }
+
+    if (syncStatus & QQuickMapboxGL::PanNeedsSync) {
+        m_map->moveBy(quickMap->swapPan());
+        emit centerChanged(QGeoCoordinate(m_map->latitude(), m_map->longitude()));
+    }
+
+    if (syncStatus & QQuickMapboxGL::BearingNeedsSync) {
+        m_map->setBearing(quickMap->bearing());
+    }
+
+    if (syncStatus & QQuickMapboxGL::PitchNeedsSync) {
+        m_map->setPitch(quickMap->pitch());
     }
 }

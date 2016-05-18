@@ -17,12 +17,11 @@
 #include <mbgl/storage/default_file_source.hpp>
 #include <mbgl/storage/network_status.hpp>
 #include <mbgl/style/property_transition.hpp>
+#include <mbgl/math/wrap.hpp>
 #include <mbgl/util/geo.hpp>
-#include <mbgl/util/math.hpp>
 #include <mbgl/util/constants.hpp>
 #include <mbgl/util/image.hpp>
 #include <mbgl/util/projection.hpp>
-#include <mbgl/util/std.hpp>
 #include <mbgl/util/default_styles.hpp>
 #include <mbgl/util/chrono.hpp>
 
@@ -276,6 +275,96 @@ public:
     MGLCompassDirectionFormatter *_accessibilityCompassFormatter;
 }
 
+- (NS_ARRAY_OF(NS_DICTIONARY_OF(NSString *,NSObject *) *) *)queryRenderedFeaturesWithPoint:(CGPoint)point layerIDs:(nullable NS_ARRAY_OF(NSString *) *)layerIDs
+{
+    const mbgl::ScreenCoordinate &screenCoordinate = mbgl::ScreenCoordinate { point.x, point.y };
+    auto generateLayerIDs = [layerIDs]()
+    {
+        std::vector<std::string> returnLayerIDs;
+        for (NSString* layerID in layerIDs)
+            returnLayerIDs.emplace_back(layerID.UTF8String);
+        return returnLayerIDs;
+    };
+    const auto &features = _mbglMap->queryRenderedFeatures(screenCoordinate, layerIDs ? mbgl::optional<std::vector<std::string>> { std::move(generateLayerIDs()) } : mbgl::optional<std::vector<std::string>> {});
+    auto generateFeatures = [features]()
+    {
+        NSMutableArray *returnArray = [NSMutableArray arrayWithCapacity:features.size()];
+        for (const auto &feature: features)
+        {
+            NSMutableDictionary *properties = [NSMutableDictionary dictionaryWithCapacity:feature.properties.size()];
+            for (const auto &property: feature.properties)
+                switch (property.second.which())
+            {
+                case 0: //bool
+                    [properties setObject:@(property.second.get<bool>()) forKey:@(property.first.c_str())];
+                    break;
+                case 1: //int64_t
+                    [properties setObject:@(property.second.get<int64_t>()) forKey:@(property.first.c_str())];
+                    break;
+                case 2: //uint64_t
+                    [properties setObject:@(property.second.get<uint64_t>()) forKey:@(property.first.c_str())];
+                    break;
+                case 3: //double
+                    [properties setObject:@(property.second.get<double>()) forKey:@(property.first.c_str())];
+                    break;
+                case 4: //std::string
+                    [properties setObject:@(property.second.get<std::string>().c_str()) forKey:@(property.first.c_str())];
+                    break;
+                default:
+                    break;
+            }
+            [returnArray addObject:properties];
+        }
+        return returnArray;
+    };
+    return generateFeatures();
+}
+
+- (NS_ARRAY_OF(NS_DICTIONARY_OF(NSString *,NSObject *) *) *)queryRenderedFeaturesWithRect:(CGRect)rect layerIDs:(nullable NS_ARRAY_OF(NSString *) *)layerIDs
+{
+    const std::array<mbgl::ScreenCoordinate, 2> &box = std::array<mbgl::ScreenCoordinate, 2> { mbgl::ScreenCoordinate { CGRectGetMinX(rect), CGRectGetMinY(rect) }, mbgl::ScreenCoordinate { CGRectGetMaxX(rect), CGRectGetMaxY(rect) } };
+    auto generateLayerIDs = [layerIDs]()
+    {
+        std::vector<std::string> returnLayerIDs;
+        for (NSString* layerID in layerIDs)
+            returnLayerIDs.emplace_back(layerID.UTF8String);
+        return returnLayerIDs;
+    };
+    const auto &features = _mbglMap->queryRenderedFeatures(box, layerIDs ? mbgl::optional<std::vector<std::string>> { std::move(generateLayerIDs()) } : mbgl::optional<std::vector<std::string>> {});
+    auto generateFeatures = [features]()
+    {
+        NSMutableArray *returnArray = [NSMutableArray arrayWithCapacity:features.size()];
+        for (const auto &feature: features)
+        {
+            NSMutableDictionary *properties = [NSMutableDictionary dictionaryWithCapacity:feature.properties.size()];
+            for (const auto &property: feature.properties)
+                switch (property.second.which())
+            {
+                case 0: //bool
+                    [properties setObject:@(property.second.get<bool>()) forKey:@(property.first.c_str())];
+                    break;
+                case 1: //int64_t
+                    [properties setObject:@(property.second.get<int64_t>()) forKey:@(property.first.c_str())];
+                    break;
+                case 2: //uint64_t
+                    [properties setObject:@(property.second.get<uint64_t>()) forKey:@(property.first.c_str())];
+                    break;
+                case 3: //double
+                    [properties setObject:@(property.second.get<double>()) forKey:@(property.first.c_str())];
+                    break;
+                case 4: //std::string
+                    [properties setObject:@(property.second.get<std::string>().c_str()) forKey:@(property.first.c_str())];
+                    break;
+                default:
+                    break;
+            }
+            [returnArray addObject:properties];
+        }
+        return returnArray;
+    };
+    return generateFeatures();
+}
+
 #pragma mark - Setup & Teardown -
 
 mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
@@ -346,7 +435,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
     if ( ! styleURL)
     {
-        styleURL = [MGLStyle streetsStyleURL];
+        styleURL = [MGLStyle streetsStyleURLWithVersion:MGLStyleDefaultVersion];
     }
 
     if ( ! [styleURL scheme])
@@ -398,6 +487,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     // setup mbgl map
     mbgl::DefaultFileSource *mbglFileSource = [MGLOfflineStorage sharedOfflineStorage].mbglFileSource;
     _mbglMap = new mbgl::Map(*_mbglView, *mbglFileSource, mbgl::MapMode::Continuous, mbgl::GLContextMode::Unique, mbgl::ConstrainMode::None);
+    [self validateTileCacheSize];
 
     // start paused if in IB
     if (_isTargetingInterfaceBuilder || background) {
@@ -667,15 +757,37 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 - (void)setFrame:(CGRect)frame
 {
     [super setFrame:frame];
-
-    [self setNeedsLayout];
+    if ( ! CGRectEqualToRect(frame, self.frame))
+    {
+        [self validateTileCacheSize];
+    }
 }
 
 - (void)setBounds:(CGRect)bounds
 {
     [super setBounds:bounds];
+    if ( ! CGRectEqualToRect(bounds, self.bounds))
+    {
+        [self validateTileCacheSize];
+    }
+}
 
-    [self setNeedsLayout];
+- (void)validateTileCacheSize
+{
+    if ( ! _mbglMap)
+    {
+        return;
+    }
+    
+    CGFloat zoomFactor   = self.maximumZoomLevel - self.minimumZoomLevel + 1;
+    CGFloat cpuFactor    = [NSProcessInfo processInfo].processorCount;
+    CGFloat memoryFactor = (CGFloat)[NSProcessInfo processInfo].physicalMemory / 1000 / 1000 / 1000;
+    CGFloat sizeFactor   = (CGRectGetWidth(self.bounds)  / mbgl::util::tileSize) *
+                           (CGRectGetHeight(self.bounds) / mbgl::util::tileSize);
+
+    NSUInteger cacheSize = zoomFactor * cpuFactor * memoryFactor * sizeFactor * 0.5;
+
+    _mbglMap->setSourceTileCacheSize(cacheSize);
 }
 
 + (BOOL)requiresConstraintBasedLayout
@@ -851,15 +963,6 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 {
     if ( ! self.dormant)
     {
-        CGFloat zoomFactor   = _mbglMap->getMaxZoom() - _mbglMap->getMinZoom() + 1;
-        CGFloat cpuFactor    = (CGFloat)[[NSProcessInfo processInfo] processorCount];
-        CGFloat memoryFactor = (CGFloat)[[NSProcessInfo processInfo] physicalMemory] / 1000 / 1000 / 1000;
-        CGFloat sizeFactor   = ((CGFloat)_mbglMap->getWidth()  / mbgl::util::tileSize) *
-                               ((CGFloat)_mbglMap->getHeight() / mbgl::util::tileSize);
-
-        NSUInteger cacheSize = zoomFactor * cpuFactor * memoryFactor * sizeFactor * 0.5;
-
-        _mbglMap->setSourceTileCacheSize(cacheSize);
         _mbglMap->render();
 
         [self updateUserLocationAnnotationView];
@@ -1885,7 +1988,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
 - (NSString *)accessibilityValue
 {
-    double zoomLevel = round(self.zoomLevel - 1);
+    double zoomLevel = round(self.zoomLevel + 1);
     return [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"MAP_A11Y_VALUE", nil, nil, @"Zoom %dx\n%ld annotation(s) visible", @"Map accessibility value"), (int)zoomLevel, (long)self.accessibilityAnnotationCount];
 }
 
@@ -2201,6 +2304,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 - (void)setMinimumZoomLevel:(double)minimumZoomLevel
 {
     _mbglMap->setMinZoom(minimumZoomLevel);
+    [self validateTileCacheSize];
 }
 
 - (double)minimumZoomLevel
@@ -2211,6 +2315,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 - (void)setMaximumZoomLevel:(double)maximumZoomLevel
 {
     _mbglMap->setMaxZoom(maximumZoomLevel);
+    [self validateTileCacheSize];
 }
 
 - (double)maximumZoomLevel

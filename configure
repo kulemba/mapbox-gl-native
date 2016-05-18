@@ -97,6 +97,7 @@ CONFIG+="  'variables': {"$LN
 print_opengl_flags
 print_qt_flags
 
+print_flags protozero cflags
 print_flags boost cflags
 print_flags boost_libprogram_options static_libs
 print_flags openssl static_libs cflags ldflags
@@ -109,6 +110,7 @@ print_flags libuv static_libs cflags ldflags
 print_flags zlib static_libs cflags ldflags
 print_flags nunicode static_libs cflags ldflags
 print_flags libzip static_libs cflags ldflags
+print_flags geometry static_libs cflags ldflags
 print_flags geojsonvt static_libs cflags ldflags
 print_flags variant static_libs cflags ldflags
 print_flags rapidjson static_libs cflags ldflags

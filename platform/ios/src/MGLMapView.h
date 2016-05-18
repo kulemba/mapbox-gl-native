@@ -78,6 +78,10 @@ typedef NS_OPTIONS(NSUInteger, MGLMapDebugMaskOptions) {
 IB_DESIGNABLE
 @interface MGLMapView : UIView
 
+- (NS_ARRAY_OF(NS_DICTIONARY_OF(NSString *,NSObject *) *) *)queryRenderedFeaturesWithPoint:(CGPoint)point layerIDs:(nullable NS_ARRAY_OF(NSString *) *)layerIDs;
+
+- (NS_ARRAY_OF(NS_DICTIONARY_OF(NSString *,NSObject *) *) *)queryRenderedFeaturesWithRect:(CGRect)rect layerIDs:(nullable NS_ARRAY_OF(NSString *) *)layerIDs;
+
 #pragma mark Creating Instances
 
 /**

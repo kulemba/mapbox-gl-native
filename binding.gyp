@@ -35,6 +35,8 @@
         'platform/node/src/node_map.cpp',
         'platform/node/src/node_request.hpp',
         'platform/node/src/node_request.cpp',
+        'platform/node/src/node_feature.hpp',
+        'platform/node/src/node_feature.cpp',
         'platform/node/src/util/async_queue.hpp',
       ],
 
@@ -67,17 +69,21 @@
 
           'link_settings': {
             'libraries': [
-              '<@(nunicode_ldflags)',
               '<@(nunicode_static_libs)',
-              '<@(webp_ldflags)',
+              '<@(nunicode_ldflags)',
               '<@(webp_static_libs)',
-              '<@(libpng_ldflags)',
+              '<@(webp_ldflags)',
               '<@(libpng_static_libs)',
-              '<@(libjpeg-turbo_ldflags)',
+              '<@(libpng_ldflags)',
               '<@(libjpeg-turbo_static_libs)',
+              '<@(libjpeg-turbo_ldflags)',
             ],
           },
         }]
+      ],
+
+      'ldflags': [
+        '-Wl,-z,now',
       ],
 
       'xcode_settings': {

@@ -19,6 +19,7 @@
 #include <mbgl/util/string.hpp>
 #include <mbgl/platform/log.hpp>
 #include <mbgl/layer/background_layer.hpp>
+#include <mbgl/math/minmax.hpp>
 
 #include <csscolorparser/csscolorparser.hpp>
 
@@ -315,18 +316,17 @@ RenderData Style::getRenderData() const {
     return result;
 }
 
-std::vector<std::string> Style::queryRenderedFeatures(
+std::vector<Feature> Style::queryRenderedFeatures(
         const std::vector<TileCoordinate>& queryGeometry,
         const double zoom,
         const double bearing,
         const optional<std::vector<std::string>>& layerIDs) {
-    std::vector<std::unordered_map<std::string, std::vector<std::string>>> sourceResults;
+    std::vector<std::unordered_map<std::string, std::vector<Feature>>> sourceResults;
     for (const auto& source : sources) {
         sourceResults.emplace_back(source->queryRenderedFeatures(queryGeometry, zoom, bearing, layerIDs));
     }
 
-
-    std::vector<std::string> features;
+    std::vector<Feature> features;
     auto featuresInserter = std::back_inserter(features);
 
     // Combine all results based on the style layer order.
