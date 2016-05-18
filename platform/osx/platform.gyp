@@ -67,6 +67,7 @@
 
       'xcode_settings': {
         'OTHER_CPLUSPLUSFLAGS': [
+          '<@(boost_cflags)',
           '<@(sqlite_cflags)',
           '<@(zlib_cflags)',
           '<@(rapidjson_cflags)',
