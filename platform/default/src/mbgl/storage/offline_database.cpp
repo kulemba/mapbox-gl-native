@@ -15,7 +15,8 @@ namespace mbgl {
 
 OfflineDatabase::OfflineDatabase(std::string path_, uint64_t maximumCacheSize_)
     : path(std::move(path_)),
-      maximumCacheSize(maximumCacheSize_) {
+    maximumCacheSize(maximumCacheSize_),
+    nonIndexedURLTemplates(false) {
     try {
         initialize();
     } catch (const util::IOException& ex) {
@@ -60,7 +61,7 @@ void OfflineDatabase::initialize() {
         migrateToVersion6();
         // fall through
     case 6:
-        // Happy path; we're done
+        indexURLTemplates();
         return;
     default:
         // Downgrade: delete the database and try to reinitialize.
@@ -410,13 +411,16 @@ optional<std::pair<Response, uint64_t>> OfflineDatabase::getTile(const Resource:
     try {
         // clang-format off
         mapbox::sqlite::Query accessedQuery{ getStatement(
-            "UPDATE tiles "
-            "SET accessed       = ?1 "
-            "WHERE url_template = ?2 "
-            "  AND pixel_ratio  = ?3 "
-            "  AND x            = ?4 "
-            "  AND y            = ?5 "
-            "  AND z            = ?6 ") };
+        "UPDATE tiles "
+        "SET accessed           = ?1 "
+        "WHERE url_template_id  = ( "
+        "    SELECT id "
+        "    FROM url_templates "
+        "    WHERE url_template = ?2 ) "
+        "  AND pixel_ratio      = ?3 "
+        "  AND x                = ?4 "
+        "  AND y                = ?5 "
+        "  AND z                = ?6 ") };
         // clang-format on
 
         accessedQuery.bind(1, util::now());
@@ -440,11 +444,13 @@ optional<std::pair<Response, uint64_t>> OfflineDatabase::getTile(const Resource:
         //        0      1           2,            3,      4,      5
         "SELECT etag, expires, must_revalidate, modified, data, compressed "
         "FROM tiles "
-        "WHERE url_template = ?1 "
-        "  AND pixel_ratio  = ?2 "
-        "  AND x            = ?3 "
-        "  AND y            = ?4 "
-        "  AND z            = ?5 ") };
+        "INNER JOIN url_templates "
+        "ON url_template_id = url_templates.id "
+        "WHERE url_templates.url_template = ?1 "
+        "  AND pixel_ratio                = ?2 "
+        "  AND x                          = ?3 "
+        "  AND y                          = ?4 "
+        "  AND z                          = ?5 ") };
     // clang-format on
 
     query.bind(1, tile.urlTemplate);
@@ -512,14 +518,17 @@ bool OfflineDatabase::putTile(const Resource::TileData& tile,
         // clang-format off
         mapbox::sqlite::Query notModifiedQuery{ getStatement(
             "UPDATE tiles "
-            "SET accessed        = ?1, "
-            "    expires         = ?2, "
-            "    must_revalidate = ?3 "
-            "WHERE url_template  = ?4 "
-            "  AND pixel_ratio   = ?5 "
-            "  AND x             = ?6 "
-            "  AND y             = ?7 "
-            "  AND z             = ?8 ") };
+            "SET accessed           = ?1, "
+            "    expires            = ?2, "
+            "    must_revalidate    = ?3 "
+            "WHERE url_template_id  = ( "
+            "    SELECT id "
+            "    FROM url_templates "
+            "    WHERE url_template = ?4 ) "
+            "  AND pixel_ratio      = ?5 "
+            "  AND x                = ?6 "
+            "  AND y                = ?7 "
+            "  AND z                = ?8 ") };
         // clang-format on
 
         notModifiedQuery.bind(1, util::now());
@@ -539,18 +548,21 @@ bool OfflineDatabase::putTile(const Resource::TileData& tile,
     // clang-format off
     mapbox::sqlite::Query updateQuery{ getStatement(
         "UPDATE tiles "
-        "SET modified        = ?1, "
-        "    etag            = ?2, "
-        "    expires         = ?3, "
-        "    must_revalidate = ?4, "
-        "    accessed        = ?5, "
-        "    data            = ?6, "
-        "    compressed      = ?7 "
-        "WHERE url_template  = ?8 "
-        "  AND pixel_ratio   = ?9 "
-        "  AND x             = ?10 "
-        "  AND y             = ?11 "
-        "  AND z             = ?12 ") };
+        "SET modified           = ?1, "
+        "    etag               = ?2, "
+        "    expires            = ?3, "
+        "    must_revalidate    = ?4, "
+        "    accessed           = ?5, "
+        "    data               = ?6, "
+        "    compressed         = ?7 "
+        "WHERE url_template_id  = ( "
+        "    SELECT id "
+        "    FROM url_templates "
+        "    WHERE url_template = ?8 ) "
+        "  AND pixel_ratio      = ?9 "
+        "  AND x                = ?10 "
+        "  AND y                = ?11 "
+        "  AND z                = ?12 ") };
     // clang-format on
 
     updateQuery.bind(1, response.modified);
@@ -578,10 +590,30 @@ bool OfflineDatabase::putTile(const Resource::TileData& tile,
     }
 
     // clang-format off
-    mapbox::sqlite::Query insertQuery{ getStatement(
-        "INSERT INTO tiles (url_template, pixel_ratio, x,  y,  z,  modified, must_revalidate, etag, expires, accessed,  data, compressed) "
-        "VALUES            (?1,           ?2,          ?3, ?4, ?5, ?6,       ?7,              ?8,   ?9,      ?10,       ?11,  ?12)") };
+    mapbox::sqlite::Query insert1{ getStatement(
+        "INSERT OR IGNORE INTO url_templates (url_template) "
+        "VALUES                              (?1) ") };
     // clang-format on
+    
+    insert1.bind(1, tile.urlTemplate);
+    
+    insert1.run();
+        
+    // clang-format off
+    mapbox::sqlite::Query insertQuery{ getStatement( nonIndexedURLTemplates ?
+      "INSERT INTO tiles (url_template, url_template_id, pixel_ratio, x,  y,  z,  modified,  must_revalidate, etag,  expires,  accessed,  data, compressed) "
+      "VALUES            (?1,           ( "
+      "                   SELECT id "
+      "                   FROM url_templates "
+      "                   WHERE url_template = ?1 ), "
+      "                                                  ?2,          ?3, ?4, ?5, ?6,        ?7,              ?8,    ?9,       ?10,       ?11,  ?12) " :
+      "INSERT INTO tiles (url_template_id, pixel_ratio, x,  y,  z,  modified,  must_revalidate, etag,  expires,  accessed,  data, compressed) "
+      "VALUES            (( "
+      "                   SELECT id "
+      "                   FROM url_templates "
+      "                   WHERE url_template = ?1 ), "
+      "                                    ?2,          ?3, ?4, ?5, ?6,        ?7,              ?8,    ?9,       ?10,       ?11,  ?12) " ) };
+        // clang-format on
 
     insertQuery.bind(1, tile.urlTemplate);
     insertQuery.bind(2, tile.pixelRatio);
@@ -872,11 +904,13 @@ bool OfflineDatabase::markUsed(int64_t regionID, const Resource& resource) {
             "INSERT OR IGNORE INTO region_tiles (region_id, tile_id) "
             "SELECT                              ?1,        tiles.id "
             "FROM tiles "
-            "WHERE url_template = ?2 "
-            "  AND pixel_ratio  = ?3 "
-            "  AND x            = ?4 "
-            "  AND y            = ?5 "
-            "  AND z            = ?6 ") };
+            "INNER JOIN url_templates "
+            "ON url_template_id = url_templates.id "
+            "WHERE url_templates.url_template = ?2 "
+            "  AND pixel_ratio                = ?3 "
+            "  AND x                          = ?4 "
+            "  AND y                          = ?5 "
+            "  AND z                          = ?6 ") };
         // clang-format on
 
         const Resource::TileData& tile = *resource.tileData;
@@ -896,12 +930,14 @@ bool OfflineDatabase::markUsed(int64_t regionID, const Resource& resource) {
         mapbox::sqlite::Query selectQuery{ getStatement(
             "SELECT region_id "
             "FROM region_tiles, tiles "
-            "WHERE region_id   != ?1 "
-            "  AND url_template = ?2 "
-            "  AND pixel_ratio  = ?3 "
-            "  AND x            = ?4 "
-            "  AND y            = ?5 "
-            "  AND z            = ?6 "
+            "INNER JOIN url_templates "
+            "ON url_template_id = url_templates.id "
+            "WHERE region_id                 != ?1 "
+            "  AND url_templates.url_template = ?2 "
+            "  AND pixel_ratio                = ?3 "
+            "  AND x                          = ?4 "
+            "  AND y                          = ?5 "
+            "  AND z                          = ?6 "
             "LIMIT 1 ") };
         // clang-format on
 
@@ -1116,10 +1152,12 @@ uint64_t OfflineDatabase::getOfflineMapboxTileCount() try {
 
     // clang-format off
     mapbox::sqlite::Query query{ getStatement(
-        "SELECT COUNT(DISTINCT id) "
-        "FROM region_tiles, tiles "
-        "WHERE tile_id = tiles.id "
-        "AND url_template LIKE 'mapbox://%' ") };
+    "SELECT COUNT(DISTINCT tiles.id) "
+    "FROM region_tiles, tiles "
+    "INNER JOIN url_templates "
+    "ON url_template_id = url_templates.id "
+    "WHERE tile_id = tiles.id "
+    "AND url_templates.url_template LIKE 'mapbox://%' ") };
     // clang-format on
 
     query.run();
@@ -1143,6 +1181,46 @@ std::exception_ptr OfflineDatabase::resetCache() try {
     return nullptr;
 } catch (...) {
     return std::current_exception();
+}
+    
+bool OfflineDatabase::indexURLTemplates()
+{
+    mapbox::sqlite::Query checkTiles{ getStatement("PRAGMA table_info(tiles)") };
+    mapbox::sqlite::Query checkURLTemplates{ getStatement("PRAGMA table_info(url_templates)") };
+
+    bool urlTemplatesMissing = ! checkURLTemplates.run();
+    
+    while (checkTiles.run() && ! nonIndexedURLTemplates) {
+        std::string columnName = checkTiles.get<std::string>(1);
+        if (columnName == "url_template") {
+            nonIndexedURLTemplates = true;
+        }
+    }
+    
+    if (urlTemplatesMissing) {
+        try {
+            mapbox::sqlite::Transaction transaction(*db, mapbox::sqlite::Transaction::Immediate);
+            db->exec("CREATE TABLE url_templates (\n"
+                     "  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\n"
+                     "  url_template TEXT NOT NULL,\n"
+                     "  UNIQUE (url_template)\n"
+                     ");\n"
+                     "INSERT INTO url_templates (url_template) "
+                     "  SELECT DISTINCT url_template FROM tiles;\n"
+                     "ALTER TABLE tiles "
+                     "  ADD COLUMN url_template_id INTEGER REFERENCES url_templates(id);\n"
+                     "UPDATE tiles SET url_template_id = ( "
+                     "    SELECT id "
+                     "    FROM url_templates "
+                     "    WHERE url_template = tiles.url_template );\n");
+            transaction.commit();
+        } catch (...) {
+            Log::Error(Event::Database, "Unexpected error updating database schema: %s", util::toString(std::current_exception()).c_str());
+            throw;
+        }
+    }
+    
+    return urlTemplatesMissing;
 }
 
 } // namespace mbgl
