@@ -1,7 +1,6 @@
 #include <mbgl/renderer/painter.hpp>
 #include <mbgl/renderer/fill_bucket.hpp>
 #include <mbgl/layer/fill_layer.hpp>
-#include <mbgl/map/tile_id.hpp>
 #include <mbgl/sprite/sprite_atlas.hpp>
 #include <mbgl/shader/outline_shader.hpp>
 #include <mbgl/shader/outlinepattern_shader.hpp>
@@ -10,9 +9,13 @@
 
 using namespace mbgl;
 
-void Painter::renderFill(FillBucket& bucket, const FillLayer& layer, const TileID& id, const mat4& matrix) {
+void Painter::renderFill(FillBucket& bucket,
+                         const FillLayer& layer,
+                         const UnwrappedTileID& tileID,
+                         const mat4& matrix) {
     const FillPaintProperties& properties = layer.paint;
-    mat4 vtxMatrix = translatedMatrix(matrix, properties.fillTranslate, id, properties.fillTranslateAnchor);
+    mat4 vtxMatrix =
+        translatedMatrix(matrix, properties.fillTranslate, tileID, properties.fillTranslateAnchor);
 
     Color fill_color = properties.fillColor;
     fill_color[0] *= properties.fillOpacity;
@@ -65,7 +68,6 @@ void Painter::renderFill(FillBucket& bucket, const FillLayer& layer, const TileI
 
         // Image fill.
         if (pass == RenderPass::Translucent && posA && posB) {
-
             config.program = patternShader->getID();
             patternShader->u_matrix = vtxMatrix;
             patternShader->u_pattern_tl_a = (*posA).tl;
@@ -85,20 +87,24 @@ void Painter::renderFill(FillBucket& bucket, const FillLayer& layer, const TileI
                 (int)((*posB).size[1] * properties.fillPattern.value.toScale)
             }};
 
-            patternShader->u_patternscale_a = {{
-                1.0f / id.pixelsToTileUnits(imageSizeScaledA[0], state.getIntegerZoom()),
-                1.0f / id.pixelsToTileUnits(imageSizeScaledB[1], state.getIntegerZoom())
-            }};
-            patternShader->u_patternscale_b = {{
-                1.0f / id.pixelsToTileUnits(imageSizeScaledB[0], state.getIntegerZoom()),
-                1.0f / id.pixelsToTileUnits(imageSizeScaledB[1], state.getIntegerZoom())
-            }};
+            patternShader->u_patternscale_a = {
+                { 1.0f / tileID.pixelsToTileUnits(imageSizeScaledA[0], state.getIntegerZoom()),
+                  1.0f / tileID.pixelsToTileUnits(imageSizeScaledB[1], state.getIntegerZoom()) }
+            };
+            patternShader->u_patternscale_b = {
+                { 1.0f / tileID.pixelsToTileUnits(imageSizeScaledB[0], state.getIntegerZoom()),
+                  1.0f / tileID.pixelsToTileUnits(imageSizeScaledB[1], state.getIntegerZoom()) }
+            };
 
-            float offsetAx = (std::fmod(util::tileSize, imageSizeScaledA[0]) * id.x) / (float)imageSizeScaledA[0];
-            float offsetAy = (std::fmod(util::tileSize, imageSizeScaledA[1]) * id.y) / (float)imageSizeScaledA[1];
+            float offsetAx = (std::fmod(util::tileSize, imageSizeScaledA[0]) * tileID.canonical.x) /
+                             (float)imageSizeScaledA[0];
+            float offsetAy = (std::fmod(util::tileSize, imageSizeScaledA[1]) * tileID.canonical.y) /
+                             (float)imageSizeScaledA[1];
 
-            float offsetBx = (std::fmod(util::tileSize, imageSizeScaledB[0]) * id.x) / (float)imageSizeScaledB[0];
-            float offsetBy = (std::fmod(util::tileSize, imageSizeScaledB[1]) * id.y) / (float)imageSizeScaledB[1];
+            float offsetBx = (std::fmod(util::tileSize, imageSizeScaledB[0]) * tileID.canonical.x) /
+                             (float)imageSizeScaledB[0];
+            float offsetBy = (std::fmod(util::tileSize, imageSizeScaledB[1]) * tileID.canonical.y) /
+                             (float)imageSizeScaledB[1];
 
             patternShader->u_offset_a = std::array<float, 2>{{offsetAx, offsetAy}};
             patternShader->u_offset_b = std::array<float, 2>{{offsetBx, offsetBy}};
@@ -130,12 +136,12 @@ void Painter::renderFill(FillBucket& bucket, const FillLayer& layer, const TileI
                 outlinePatternShader->u_mix = properties.fillPattern.value.t;
 
                 outlinePatternShader->u_patternscale_a = {{
-                    1.0f / id.pixelsToTileUnits(imageSizeScaledA[0], state.getIntegerZoom()),
-                    1.0f / id.pixelsToTileUnits(imageSizeScaledB[1], state.getIntegerZoom())
+                    1.0f / tileID.pixelsToTileUnits(imageSizeScaledA[0], state.getIntegerZoom()),
+                    1.0f / tileID.pixelsToTileUnits(imageSizeScaledB[1], state.getIntegerZoom())
                 }};
                 outlinePatternShader->u_patternscale_b = {{
-                    1.0f / id.pixelsToTileUnits(imageSizeScaledB[0], state.getIntegerZoom()),
-                    1.0f / id.pixelsToTileUnits(imageSizeScaledB[1], state.getIntegerZoom())
+                    1.0f / tileID.pixelsToTileUnits(imageSizeScaledB[0], state.getIntegerZoom()),
+                    1.0f / tileID.pixelsToTileUnits(imageSizeScaledB[1], state.getIntegerZoom())
                 }};
 
                 outlinePatternShader->u_offset_a = std::array<float, 2>{{offsetAx, offsetAy}};

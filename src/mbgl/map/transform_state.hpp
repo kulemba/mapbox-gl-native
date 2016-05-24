@@ -12,16 +12,16 @@
 
 namespace mbgl {
 
-class TileID;
+class UnwrappedTileID;
 
 class TransformState {
     friend class Transform;
 
 public:
-    TransformState(ConstrainMode = ConstrainMode::HeightOnly);
+    TransformState(ConstrainMode = ConstrainMode::HeightOnly, ViewportMode = ViewportMode::Default);
 
     // Matrix
-    void matrixFor(mat4& matrix, const TileID& id, const int8_t z) const;
+    void matrixFor(mat4&, const UnwrappedTileID&) const;
     void getProjMatrix(mat4& matrix) const;
 
     // Dimensions
@@ -31,9 +31,12 @@ public:
     // North Orientation
     NorthOrientation getNorthOrientation() const;
     double getNorthOrientationAngle() const;
-    
+
     // Constrain mode
     ConstrainMode getConstrainMode() const;
+
+    // Viewport mode
+    ViewportMode getViewportMode() const;
 
     // Position
     LatLng getLatLng(LatLng::WrapMode = LatLng::Unwrapped) const;
@@ -99,6 +102,7 @@ private:
 
 private:
     ConstrainMode constrainMode;
+    ViewportMode viewportMode;
 
     // animation state
     bool rotating = false;

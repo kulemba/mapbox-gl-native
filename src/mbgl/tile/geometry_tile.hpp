@@ -28,21 +28,28 @@ enum class FeatureType : uint8_t {
 // Normalized vector tile coordinates.
 // Each geometry coordinate represents a point in a bidimensional space,
 // varying from -V...0...+V, where V is the maximum extent applicable.
-using GeometryCoordinate  = Point<int16_t>;
-using GeometryCoordinates = std::vector<GeometryCoordinate>;
-using GeometryCollection  = std::vector<GeometryCoordinates>;
+using GeometryCoordinate = Point<int16_t>;
+
+class GeometryCoordinates : public std::vector<GeometryCoordinate> {
+public:
+    using coordinate_type = int16_t;
+    using std::vector<GeometryCoordinate>::vector;
+};
+
+class GeometryCollection : public std::vector<GeometryCoordinates> {
+public:
+    using coordinate_type = int16_t;
+    using std::vector<GeometryCoordinates>::vector;
+};
 
 class GeometryTileFeature : private util::noncopyable {
 public:
-    static const uint32_t defaultExtent = util::EXTENT;
-
     virtual ~GeometryTileFeature() = default;
     virtual FeatureType getType() const = 0;
     virtual optional<Value> getValue(const std::string& key) const = 0;
     virtual Feature::property_map getProperties() const { return Feature::property_map(); }
     virtual optional<uint64_t> getID() const { return {}; }
     virtual GeometryCollection getGeometries() const = 0;
-    virtual uint32_t getExtent() const { return defaultExtent; }
 };
 
 class GeometryTileLayer : private util::noncopyable {
@@ -67,8 +74,8 @@ public:
 
     using Callback = std::function<void (std::exception_ptr,
                                          std::unique_ptr<GeometryTile>,
-                                         optional<SystemTimePoint> modified,
-                                         optional<SystemTimePoint> expires)>;
+                                         optional<Timestamp> modified,
+                                         optional<Timestamp> expires)>;
     /*
      * Monitor the tile held by this object for changes. When the tile is loaded for the first time,
      * or updates, the callback is executed. If an error occurs, the first parameter will be set.

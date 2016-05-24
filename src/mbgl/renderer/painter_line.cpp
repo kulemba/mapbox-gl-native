@@ -1,7 +1,6 @@
 #include <mbgl/renderer/painter.hpp>
 #include <mbgl/renderer/line_bucket.hpp>
 #include <mbgl/layer/line_layer.hpp>
-#include <mbgl/map/tile_id.hpp>
 #include <mbgl/shader/line_shader.hpp>
 #include <mbgl/shader/linesdf_shader.hpp>
 #include <mbgl/shader/linepattern_shader.hpp>
@@ -11,7 +10,10 @@
 
 using namespace mbgl;
 
-void Painter::renderLine(LineBucket& bucket, const LineLayer& layer, const TileID& id, const mat4& matrix) {
+void Painter::renderLine(LineBucket& bucket,
+                         const LineLayer& layer,
+                         const UnwrappedTileID& tileID,
+                         const mat4& matrix) {
     // Abort early.
     if (pass == RenderPass::Opaque) return;
 
@@ -50,7 +52,7 @@ void Painter::renderLine(LineBucket& bucket, const LineLayer& layer, const TileI
     color[2] *= properties.lineOpacity;
     color[3] *= properties.lineOpacity;
 
-    const float ratio = 1.0 / id.pixelsToTileUnits(1.0, state.getZoom());
+    const float ratio = 1.0 / tileID.pixelsToTileUnits(1.0, state.getZoom());
 
     mat2 antialiasingMatrix;
     matrix::identity(antialiasingMatrix);
@@ -63,7 +65,8 @@ void Painter::renderLine(LineBucket& bucket, const LineLayer& layer, const TileI
     float x = state.getHeight() / 2.0f * std::tan(state.getPitch());
     float extra = (topedgelength + x) / topedgelength - 1;
 
-    mat4 vtxMatrix = translatedMatrix(matrix, properties.lineTranslate, id, properties.lineTranslateAnchor);
+    mat4 vtxMatrix =
+        translatedMatrix(matrix, properties.lineTranslate, tileID, properties.lineTranslateAnchor);
 
     setDepthSublayer(0);
 
@@ -84,9 +87,9 @@ void Painter::renderLine(LineBucket& bucket, const LineLayer& layer, const TileI
         const float widthA = posA.width * properties.lineDasharray.value.fromScale * layer.dashLineWidth;
         const float widthB = posB.width * properties.lineDasharray.value.toScale * layer.dashLineWidth;
 
-        float scaleXA = 1.0 / id.pixelsToTileUnits(widthA, state.getIntegerZoom());
+        float scaleXA = 1.0 / tileID.pixelsToTileUnits(widthA, state.getIntegerZoom());
         float scaleYA = -posA.height / 2.0;
-        float scaleXB = 1.0 / id.pixelsToTileUnits(widthB, state.getIntegerZoom());
+        float scaleXB = 1.0 / tileID.pixelsToTileUnits(widthB, state.getIntegerZoom());
         float scaleYB = -posB.height / 2.0;
 
         linesdfShader->u_patternscale_a = {{ scaleXA, scaleYA }};
@@ -121,14 +124,14 @@ void Painter::renderLine(LineBucket& bucket, const LineLayer& layer, const TileI
         linepatternShader->u_blur = blur;
 
         linepatternShader->u_pattern_size_a = {{
-            id.pixelsToTileUnits((*imagePosA).size[0] * properties.linePattern.value.fromScale, state.getIntegerZoom()),
+            tileID.pixelsToTileUnits((*imagePosA).size[0] * properties.linePattern.value.fromScale, state.getIntegerZoom()),
             (*imagePosA).size[1]
         }};
         linepatternShader->u_pattern_tl_a = (*imagePosA).tl;
         linepatternShader->u_pattern_br_a = (*imagePosA).br;
 
         linepatternShader->u_pattern_size_b = {{
-            id.pixelsToTileUnits((*imagePosB).size[0] * properties.linePattern.value.toScale, state.getIntegerZoom()),
+            tileID.pixelsToTileUnits((*imagePosB).size[0] * properties.linePattern.value.toScale, state.getIntegerZoom()),
             (*imagePosB).size[1]
         }};
         linepatternShader->u_pattern_tl_b = (*imagePosB).tl;

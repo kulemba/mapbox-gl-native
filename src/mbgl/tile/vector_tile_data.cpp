@@ -10,7 +10,7 @@
 
 namespace mbgl {
 
-VectorTileData::VectorTileData(const TileID& id_,
+VectorTileData::VectorTileData(const OverscaledTileID& id_,
                                std::unique_ptr<GeometryTileMonitor> monitor_,
                                std::string sourceID,
                                Style& style_,
@@ -31,8 +31,8 @@ VectorTileData::VectorTileData(const TileID& id_,
     state = State::loading;
     tileRequest = monitor->monitorTile([callback, this](std::exception_ptr err,
                                                         std::unique_ptr<GeometryTile> tile,
-                                                        optional<SystemTimePoint> modified_,
-                                                        optional<SystemTimePoint> expires_) {
+                                                        optional<Timestamp> modified_,
+                                                        optional<Timestamp> expires_) {
         if (err) {
             callback(err);
             return;
