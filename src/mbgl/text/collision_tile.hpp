@@ -30,7 +30,7 @@ namespace bgm = bg::model;
 namespace bgi = bg::index;
 typedef bgm::point<float, 2, bg::cs::cartesian> CollisionPoint;
 typedef bgm::box<CollisionPoint> Box;
-typedef std::pair<Box, CollisionBox> CollisionTreeBox;
+typedef std::tuple<Box, CollisionBox, IndexedSubfeature> CollisionTreeBox;
 typedef bgi::rtree<CollisionTreeBox, bgi::linear<16, 4>> Tree;
 
 class IndexedSubfeature;
@@ -39,10 +39,10 @@ class CollisionTile {
 public:
     explicit CollisionTile(PlacementConfig);
 
-    float placeFeature(const CollisionFeature& feature, const bool allowOverlap, const bool avoidEdges);
-    void insertFeature(CollisionFeature& feature, const float minPlacementScale, const bool ignorePlacement);
+    float placeFeature(const CollisionFeature&, const bool allowOverlap, const bool avoidEdges);
+    void insertFeature(CollisionFeature&, const float minPlacementScale, const bool ignorePlacement);
 
-    std::vector<IndexedSubfeature> queryRenderedSymbols(const float minX, const float minY, const float maxX, const float maxY, const float scale);
+    std::vector<IndexedSubfeature> queryRenderedSymbols(const mapbox::geometry::box<int16_t>&, const float scale);
 
     const PlacementConfig config;
 

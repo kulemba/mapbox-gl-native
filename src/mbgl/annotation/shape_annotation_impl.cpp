@@ -80,12 +80,12 @@ void ShapeAnnotationImpl::updateStyle(Style& style) {
     }
 }
 
-void ShapeAnnotationImpl::updateTile(const TileID& tileID, AnnotationTile& tile) {
+void ShapeAnnotationImpl::updateTile(const CanonicalTileID& tileID, AnnotationTile& tile) {
     static const double baseTolerance = 4;
 
     if (!shapeTiler) {
         const uint64_t maxAmountOfTiles = 1 << maxZoom;
-        const double tolerance = baseTolerance / (maxAmountOfTiles * GeometryTileFeature::defaultExtent);
+        const double tolerance = baseTolerance / (maxAmountOfTiles * util::EXTENT);
 
         geojsonvt::ProjectedRings rings;
         std::vector<geojsonvt::LonLat> points;
@@ -114,7 +114,7 @@ void ShapeAnnotationImpl::updateTile(const TileID& tileID, AnnotationTile& tile)
         shapeTiler = std::make_unique<mapbox::geojsonvt::GeoJSONVT>(features, options);
     }
 
-    const auto& shapeTile = shapeTiler->getTile(tileID.sourceZ, tileID.x, tileID.y);
+    const auto& shapeTile = shapeTiler->getTile(tileID.z, tileID.x, tileID.y);
     if (!shapeTile)
         return;
 
