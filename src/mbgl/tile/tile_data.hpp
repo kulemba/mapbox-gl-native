@@ -5,7 +5,7 @@
 #include <mbgl/util/chrono.hpp>
 #include <mbgl/util/optional.hpp>
 #include <mbgl/util/feature.hpp>
-#include <mbgl/map/tile_id.hpp>
+#include <mbgl/tile/tile_id.hpp>
 #include <mbgl/renderer/bucket.hpp>
 #include <mbgl/text/placement_config.hpp>
 #include <mbgl/tile/geometry_tile.hpp>
@@ -73,7 +73,7 @@ public:
         return state == State::partial || state == State::parsed;
     }
 
-    TileData(const TileID&);
+    TileData(const OverscaledTileID&);
     virtual ~TileData();
 
     // Mark this tile as no longer needed and cancel any pending work.
@@ -106,9 +106,9 @@ public:
 
     void dumpDebugLogs() const;
 
-    const TileID id;
-    optional<SystemTimePoint> modified;
-    optional<SystemTimePoint> expires;
+    const OverscaledTileID id;
+    optional<Timestamp> modified;
+    optional<Timestamp> expires;
 
     // Contains the tile ID string for painting debug information.
     std::unique_ptr<DebugBucket> debugBucket;

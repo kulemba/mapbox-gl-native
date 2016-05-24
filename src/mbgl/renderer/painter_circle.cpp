@@ -3,15 +3,13 @@
 
 #include <mbgl/layer/circle_layer.hpp>
 
-#include <mbgl/map/tile_id.hpp>
-
 #include <mbgl/shader/circle_shader.hpp>
 
 using namespace mbgl;
 
 void Painter::renderCircle(CircleBucket& bucket,
                            const CircleLayer& layer,
-                           const TileID& id,
+                           const UnwrappedTileID& tileID,
                            const mat4& matrix) {
     // Abort early.
     if (pass == RenderPass::Opaque) return;
@@ -23,7 +21,8 @@ void Painter::renderCircle(CircleBucket& bucket,
     setDepthSublayer(0);
 
     const CirclePaintProperties& properties = layer.paint;
-    mat4 vtxMatrix = translatedMatrix(matrix, properties.circleTranslate, id, properties.circleTranslateAnchor);
+    mat4 vtxMatrix = translatedMatrix(matrix, properties.circleTranslate, tileID,
+                                      properties.circleTranslateAnchor);
 
     Color color = properties.circleColor;
     color[0] *= properties.circleOpacity;

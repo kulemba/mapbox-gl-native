@@ -34,7 +34,7 @@ enum class RenderState {
 
 class Map::Impl : public Style::Observer {
 public:
-    Impl(View&, FileSource&, MapMode, GLContextMode, ConstrainMode);
+    Impl(View&, FileSource&, MapMode, GLContextMode, ConstrainMode, ViewportMode);
 
     void onResourceLoaded() override;
     void onResourceError(std::exception_ptr) override;
@@ -76,16 +76,16 @@ public:
     bool loading = false;
 };
 
-Map::Map(View& view, FileSource& fileSource, MapMode mapMode, GLContextMode contextMode, ConstrainMode constrainMode)
-    : impl(std::make_unique<Impl>(view, fileSource, mapMode, contextMode, constrainMode)) {
+Map::Map(View& view, FileSource& fileSource, MapMode mapMode, GLContextMode contextMode, ConstrainMode constrainMode, ViewportMode viewportMode)
+    : impl(std::make_unique<Impl>(view, fileSource, mapMode, contextMode, constrainMode, viewportMode)) {
     view.initialize(this);
     update(Update::Dimensions);
 }
 
-Map::Impl::Impl(View& view_, FileSource& fileSource_, MapMode mode_, GLContextMode contextMode_, ConstrainMode constrainMode_)
+Map::Impl::Impl(View& view_, FileSource& fileSource_, MapMode mode_, GLContextMode contextMode_, ConstrainMode constrainMode_, ViewportMode viewportMode_)
     : view(view_),
       fileSource(fileSource_),
-      transform(view, constrainMode_),
+      transform(view, constrainMode_, viewportMode_),
       mode(mode_),
       contextMode(contextMode_),
       pixelRatio(view.getPixelRatio()),
@@ -638,6 +638,17 @@ ConstrainMode Map::getConstrainMode() const {
     return impl->transform.getConstrainMode();
 }
 
+#pragma mark - Viewport mode
+
+void Map::setViewportMode(mbgl::ViewportMode mode) {
+    impl->transform.setViewportMode(mode);
+    update(Update::Repaint);
+}
+
+ViewportMode Map::getViewportMode() const {
+    return impl->transform.getViewportMode();
+}
+
 #pragma mark - Projection
 
 double Map::getMetersPerPixelAtLatitude(double lat, double zoom) const {
@@ -725,23 +736,29 @@ std::vector<TileCoordinate> pointsToCoordinates(const std::vector<ScreenCoordina
 std::vector<Feature> Map::queryRenderedFeatures(const ScreenCoordinate& point, const optional<std::vector<std::string>>& layerIDs) {
     if (!impl->style) return {};
 
-    auto queryGeometry = pointsToCoordinates({ point }, impl->transform.getState());
-    return impl->style->queryRenderedFeatures(queryGeometry, impl->transform.getZoom(), impl->transform.getAngle(), layerIDs);
+    return impl->style->queryRenderedFeatures(
+        pointsToCoordinates({ point }, impl->transform.getState()),
+        impl->transform.getZoom(),
+        impl->transform.getAngle(),
+        layerIDs);
 }
 
-std::vector<Feature> Map::queryRenderedFeatures(const std::array<ScreenCoordinate, 2>& box, const optional<std::vector<std::string>>& layerIDs) {
+std::vector<Feature> Map::queryRenderedFeatures(const ScreenBox& box, const optional<std::vector<std::string>>& layerIDs) {
     if (!impl->style) return {};
 
     std::vector<ScreenCoordinate> queryPoints {
-        { box[0].x, box[0].y },
-            { box[1].x, box[0].y },
-            { box[1].x, box[1].y },
-            { box[0].x, box[1].y },
-            { box[0].x, box[0].y }
+        box.min,
+        { box.max.x, box.min.y },
+        box.max,
+        { box.min.x, box.max.y },
+        box.min
     };
-    auto queryGeometry = pointsToCoordinates(queryPoints, impl->transform.getState());
 
-    return impl->style->queryRenderedFeatures(queryGeometry, impl->transform.getZoom(), impl->transform.getAngle(), layerIDs);
+    return impl->style->queryRenderedFeatures(
+        pointsToCoordinates(queryPoints, impl->transform.getState()),
+        impl->transform.getZoom(),
+        impl->transform.getAngle(),
+        layerIDs);
 }
 
 
