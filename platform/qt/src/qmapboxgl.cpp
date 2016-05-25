@@ -11,7 +11,12 @@
 #include <mbgl/util/geo.hpp>
 #include <mbgl/util/traits.hpp>
 
+#if QT_VERSION >= 0x050000
+#include <QGuiApplication>
+#else
 #include <QCoreApplication>
+#endif
+
 #include <QImage>
 #include <QMapboxGL>
 #include <QMargins>
@@ -34,6 +39,10 @@ static_assert(mbgl::underlying_type(QMapboxGLSettings::SharedGLContext) == mbgl:
 static_assert(mbgl::underlying_type(QMapboxGLSettings::NoConstrain) == mbgl::underlying_type(mbgl::ConstrainMode::None), "error");
 static_assert(mbgl::underlying_type(QMapboxGLSettings::ConstrainHeightOnly) == mbgl::underlying_type(mbgl::ConstrainMode::HeightOnly), "error");
 static_assert(mbgl::underlying_type(QMapboxGLSettings::ConstrainWidthAndHeight) == mbgl::underlying_type(mbgl::ConstrainMode::WidthAndHeight), "error");
+
+// mbgl::ViewportMode
+static_assert(mbgl::underlying_type(QMapboxGLSettings::DefaultViewport) == mbgl::underlying_type(mbgl::ViewportMode::Default), "error");
+static_assert(mbgl::underlying_type(QMapboxGLSettings::FlippedYViewport) == mbgl::underlying_type(mbgl::ViewportMode::FlippedY), "error");
 
 // mbgl::NorthOrientation
 static_assert(mbgl::underlying_type(QMapboxGL::NorthUpwards) == mbgl::underlying_type(mbgl::NorthOrientation::Upwards), "error");
@@ -61,6 +70,7 @@ QMapboxGLSettings::QMapboxGLSettings()
     : m_mapMode(QMapboxGLSettings::ContinuousMap)
     , m_contextMode(QMapboxGLSettings::SharedGLContext)
     , m_constrainMode(QMapboxGLSettings::ConstrainHeightOnly)
+    , m_viewportMode(QMapboxGLSettings::DefaultViewport)
     , m_cacheMaximumSize(mbgl::util::DEFAULT_MAX_CACHE_SIZE)
     , m_cacheDatabasePath(":memory:")
     , m_assetPath(QCoreApplication::applicationDirPath())
@@ -95,6 +105,16 @@ QMapboxGLSettings::ConstrainMode QMapboxGLSettings::constrainMode() const
 void QMapboxGLSettings::setConstrainMode(ConstrainMode mode)
 {
     m_constrainMode = mode;
+}
+
+QMapboxGLSettings::ViewportMode QMapboxGLSettings::viewportMode() const
+{
+    return m_viewportMode;
+}
+
+void QMapboxGLSettings::setViewportMode(ViewportMode mode)
+{
+    m_viewportMode = mode;
 }
 
 unsigned QMapboxGLSettings::cacheDatabaseMaximumSize() const
@@ -605,7 +625,8 @@ QMapboxGLPrivate::QMapboxGLPrivate(QMapboxGL *q, const QMapboxGLSettings &settin
         *this, *fileSourceObj,
         static_cast<mbgl::MapMode>(settings.mapMode()),
         static_cast<mbgl::GLContextMode>(settings.contextMode()),
-        static_cast<mbgl::ConstrainMode>(settings.constrainMode())))
+        static_cast<mbgl::ConstrainMode>(settings.constrainMode()),
+        static_cast<mbgl::ViewportMode>(settings.viewportMode())))
 {
     qRegisterMetaType<QMapboxGL::MapChange>("QMapboxGL::MapChange");
 
@@ -620,8 +641,12 @@ QMapboxGLPrivate::~QMapboxGLPrivate()
 
 float QMapboxGLPrivate::getPixelRatio() const
 {
+#if QT_VERSION >= 0x050000
+    return qApp->devicePixelRatio();
+#else
     // FIXME: Should handle pixel ratio.
     return 1.0;
+#endif
 }
 
 std::array<uint16_t, 2> QMapboxGLPrivate::getSize() const

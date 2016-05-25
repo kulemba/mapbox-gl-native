@@ -1,5 +1,5 @@
 #include <mbgl/map/transform_state.hpp>
-#include <mbgl/map/tile_id.hpp>
+#include <mbgl/tile/tile_id.hpp>
 #include <mbgl/util/constants.hpp>
 #include <mbgl/util/interpolate.hpp>
 #include <mbgl/util/math.hpp>
@@ -7,19 +7,22 @@
 
 namespace mbgl {
 
-TransformState::TransformState(ConstrainMode constrainMode_)
+TransformState::TransformState(ConstrainMode constrainMode_, ViewportMode viewportMode_)
     : constrainMode(constrainMode_)
+    , viewportMode(viewportMode_)
 {
 }
 
 #pragma mark - Matrix
 
-void TransformState::matrixFor(mat4& matrix, const TileID& id, const int8_t z) const {
-    const double tile_scale = std::pow(2, z);
-    double s = worldSize() / tile_scale;
+void TransformState::matrixFor(mat4& matrix, const UnwrappedTileID& tileID) const {
+    const uint64_t tileScale = 1ull << tileID.canonical.z;
+    const double s = worldSize() / tileScale;
 
     matrix::identity(matrix);
-    matrix::translate(matrix, matrix, id.x * s, id.y * s, 0);
+    matrix::translate(matrix, matrix,
+                      static_cast<int64_t>(tileID.canonical.x + tileID.wrap * tileScale) * s,
+                      static_cast<int64_t>(tileID.canonical.y) * s, 0);
     matrix::scale(matrix, matrix, s / util::EXTENT, s / util::EXTENT, 1);
 }
 
@@ -37,7 +40,8 @@ void TransformState::getProjMatrix(mat4& projMatrix) const {
 
     // After the rotateX, z values are in pixel units. Convert them to
     // altitude unites. 1 altitude unit = the screen height.
-    matrix::scale(projMatrix, projMatrix, 1, -1, 1.0f / (rotatedNorth() ? getWidth() : getHeight()));
+    const bool flippedY = viewportMode == ViewportMode::FlippedY;
+    matrix::scale(projMatrix, projMatrix, 1, flippedY ? 1 : -1, 1.0f / (rotatedNorth() ? getWidth() : getHeight()));
 
     using NO = NorthOrientation;
     switch (getNorthOrientation()) {
@@ -85,6 +89,12 @@ double TransformState::getNorthOrientationAngle() const {
 
 ConstrainMode TransformState::getConstrainMode() const {
     return constrainMode;
+}
+
+#pragma mark - ViewportMode
+
+ViewportMode TransformState::getViewportMode() const {
+    return viewportMode;
 }
 
 #pragma mark - Position

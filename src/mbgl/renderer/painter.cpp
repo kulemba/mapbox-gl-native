@@ -31,7 +31,12 @@
 #include <mbgl/shader/box_shader.hpp>
 #include <mbgl/shader/circle_shader.hpp>
 
+#include <mbgl/algorithm/generate_clip_ids.hpp>
+#include <mbgl/algorithm/generate_clip_ids_impl.hpp>
+
 #include <mbgl/util/constants.hpp>
+#include <mbgl/util/mat3.hpp>
+#include <mbgl/util/string.hpp>
 
 #if defined(DEBUG)
 #include <mbgl/util/stopwatch.hpp>
@@ -144,11 +149,11 @@ void Painter::render(const Style& style, const FrameData& frame_, SpriteAtlas& a
         MBGL_DEBUG_GROUP("clip");
 
         // Update all clipping IDs.
-        ClipIDGenerator generator;
+        algorithm::ClipIDGenerator generator;
         for (const auto& source : sources) {
             if (source->type == SourceType::Vector || source->type == SourceType::GeoJSON ||
                 source->type == SourceType::Annotations) {
-                generator.update(source->getLoadedTiles());
+                source->updateClipIDs(generator);
             }
             source->updateMatrices(projMatrix, state);
         }
@@ -247,7 +252,7 @@ void Painter::renderPass(RenderPass pass_,
             layer.as<CustomLayer>()->render(state);
             config.setDirty();
         } else {
-            MBGL_DEBUG_GROUP(layer.id + " - " + std::string(item.tile->id));
+            MBGL_DEBUG_GROUP(layer.id + " - " + util::toString(item.tile->id));
             if (item.bucket->needsClipping()) {
                 setClipping(item.tile->clip);
             }
@@ -260,11 +265,13 @@ void Painter::renderPass(RenderPass pass_,
     }
 }
 
-mat4 Painter::translatedMatrix(const mat4& matrix, const std::array<float, 2> &translation, const TileID &id, TranslateAnchorType anchor) {
+mat4 Painter::translatedMatrix(const mat4& matrix,
+                               const std::array<float, 2>& translation,
+                               const UnwrappedTileID& id,
+                               TranslateAnchorType anchor) {
     if (translation[0] == 0 && translation[1] == 0) {
         return matrix;
     } else {
-
         mat4 vtxMatrix;
         if (anchor == TranslateAnchorType::Viewport) {
             const double sin_a = std::sin(-state.getAngle());
