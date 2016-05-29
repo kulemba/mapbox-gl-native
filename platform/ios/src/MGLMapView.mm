@@ -301,25 +301,28 @@ public:
             NSMutableDictionary *properties = [NSMutableDictionary dictionaryWithCapacity:feature.properties.size()];
             for (const auto &property: feature.properties)
                 switch (property.second.which())
-            {
-                case 0: //bool
-                    [properties setObject:@(property.second.get<bool>()) forKey:@(property.first.c_str())];
-                    break;
-                case 1: //int64_t
-                    [properties setObject:@(property.second.get<int64_t>()) forKey:@(property.first.c_str())];
-                    break;
-                case 2: //uint64_t
-                    [properties setObject:@(property.second.get<uint64_t>()) forKey:@(property.first.c_str())];
-                    break;
-                case 3: //double
-                    [properties setObject:@(property.second.get<double>()) forKey:@(property.first.c_str())];
-                    break;
-                case 4: //std::string
-                    [properties setObject:@(property.second.get<std::string>().c_str()) forKey:@(property.first.c_str())];
-                    break;
-                default:
-                    break;
-            }
+                {
+                    case 0: //nullptr_type
+                        [properties setObject:[NSNull null] forKey:@(property.first.c_str())];
+                        break;
+                    case 1: //bool
+                        [properties setObject:@(property.second.get<bool>()) forKey:@(property.first.c_str())];
+                        break;
+                    case 2: //uint64_t
+                        [properties setObject:@(property.second.get<uint64_t>()) forKey:@(property.first.c_str())];
+                        break;
+                    case 3: //int64_t
+                        [properties setObject:@(property.second.get<int64_t>()) forKey:@(property.first.c_str())];
+                        break;
+                    case 4: //double
+                        [properties setObject:@(property.second.get<double>()) forKey:@(property.first.c_str())];
+                        break;
+                    case 5: //std::string
+                        [properties setObject:@(property.second.get<std::string>().c_str()) forKey:@(property.first.c_str())];
+                        break;
+                    default:
+                        break;
+                }
             [returnArray addObject:properties];
         }
         return returnArray;
@@ -329,7 +332,7 @@ public:
 
 - (NS_ARRAY_OF(NS_DICTIONARY_OF(NSString *,NSObject *) *) *)queryRenderedFeaturesWithRect:(CGRect)rect layerIDs:(nullable NS_ARRAY_OF(NSString *) *)layerIDs
 {
-    const std::array<mbgl::ScreenCoordinate, 2> &box = std::array<mbgl::ScreenCoordinate, 2> { mbgl::ScreenCoordinate { CGRectGetMinX(rect), CGRectGetMinY(rect) }, mbgl::ScreenCoordinate { CGRectGetMaxX(rect), CGRectGetMaxY(rect) } };
+    const mbgl::ScreenBox &box = mbgl::ScreenBox { mbgl::ScreenCoordinate { CGRectGetMinX(rect), CGRectGetMinY(rect) }, mbgl::ScreenCoordinate { CGRectGetMaxX(rect), CGRectGetMaxY(rect) } };
     auto generateLayerIDs = [layerIDs]()
     {
         std::vector<std::string> returnLayerIDs;
@@ -346,25 +349,28 @@ public:
             NSMutableDictionary *properties = [NSMutableDictionary dictionaryWithCapacity:feature.properties.size()];
             for (const auto &property: feature.properties)
                 switch (property.second.which())
-            {
-                case 0: //bool
-                    [properties setObject:@(property.second.get<bool>()) forKey:@(property.first.c_str())];
-                    break;
-                case 1: //int64_t
-                    [properties setObject:@(property.second.get<int64_t>()) forKey:@(property.first.c_str())];
-                    break;
-                case 2: //uint64_t
-                    [properties setObject:@(property.second.get<uint64_t>()) forKey:@(property.first.c_str())];
-                    break;
-                case 3: //double
-                    [properties setObject:@(property.second.get<double>()) forKey:@(property.first.c_str())];
-                    break;
-                case 4: //std::string
-                    [properties setObject:@(property.second.get<std::string>().c_str()) forKey:@(property.first.c_str())];
-                    break;
-                default:
-                    break;
-            }
+                {
+                    case 0: //nullptr_type
+                        [properties setObject:[NSNull null] forKey:@(property.first.c_str())];
+                        break;
+                    case 1: //bool
+                        [properties setObject:@(property.second.get<bool>()) forKey:@(property.first.c_str())];
+                        break;
+                    case 2: //uint64_t
+                        [properties setObject:@(property.second.get<uint64_t>()) forKey:@(property.first.c_str())];
+                        break;
+                    case 3: //int64_t
+                        [properties setObject:@(property.second.get<int64_t>()) forKey:@(property.first.c_str())];
+                        break;
+                    case 4: //double
+                        [properties setObject:@(property.second.get<double>()) forKey:@(property.first.c_str())];
+                        break;
+                    case 5: //std::string
+                        [properties setObject:@(property.second.get<std::string>().c_str()) forKey:@(property.first.c_str())];
+                        break;
+                    default:
+                        break;
+                }
             [returnArray addObject:properties];
         }
         return returnArray;
