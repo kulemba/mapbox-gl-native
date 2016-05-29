@@ -4,15 +4,16 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.view.View;
 
-import com.mapbox.mapboxsdk.maps.MapboxMap;
 import com.mapbox.mapboxsdk.R;
 import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.maps.MapView;
+import com.mapbox.mapboxsdk.maps.MapboxMap;
 
 /**
  * Marker is an annotation that shows an icon image at a geographical location.
- *
+ * <p>
  * An {@link InfoWindow} can be shown when a Marker is pressed
+ * </p>
  */
 public class Marker extends Annotation {
 
@@ -20,9 +21,12 @@ public class Marker extends Annotation {
     private String snippet;
     private Icon icon;
     private String title;
-    private InfoWindow infoWindow = null;
-    private boolean infoWindowShown = false;
+
+    private InfoWindow infoWindow;
+    private boolean infoWindowShown;
+
     private int topOffsetPixels;
+    private int rightOffsetPixels;
 
     /**
      * Constructor
@@ -36,6 +40,13 @@ public class Marker extends Annotation {
         snippet = baseMarkerOptions.snippet;
         icon = baseMarkerOptions.icon;
         title = baseMarkerOptions.title;
+    }
+
+    Marker(BaseMarkerViewOptions baseMarkerViewOptions){
+        position = baseMarkerViewOptions.position;
+        snippet = baseMarkerViewOptions.snippet;
+        icon = baseMarkerViewOptions.icon;
+        title = baseMarkerViewOptions.title;
     }
 
     public LatLng getPosition() {
@@ -129,7 +140,7 @@ public class Marker extends Annotation {
     }
 
     private InfoWindow showInfoWindow(InfoWindow iw, MapView mapView) {
-        iw.open(mapView, this, getPosition(), 0, topOffsetPixels);
+        iw.open(mapView, this, getPosition(), rightOffsetPixels, topOffsetPixels);
         infoWindowShown = true;
         return iw;
     }
@@ -146,6 +157,13 @@ public class Marker extends Annotation {
      */
     public void setTopOffsetPixels(int topOffsetPixels) {
         this.topOffsetPixels = topOffsetPixels;
+    }
+
+    /**
+     * Do not use this method. Used internally by the SDK.
+     */
+    public void setRightOffsetPixels(int rightOffsetPixels) {
+        this.rightOffsetPixels = rightOffsetPixels;
     }
 
     @Override
