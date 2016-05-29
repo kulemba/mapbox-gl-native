@@ -2,7 +2,7 @@
 #define MBGL_MAP_VECTOR_TILE
 
 #include <mbgl/tile/geometry_tile.hpp>
-#include <mbgl/map/tile_id.hpp>
+#include <mbgl/tile/tile_id.hpp>
 #include <protozero/pbf_reader.hpp>
 
 #include <map>
@@ -25,7 +25,6 @@ public:
     std::unordered_map<std::string,Value> getProperties() const override;
     optional<uint64_t> getID() const override;
     GeometryCollection getGeometries() const override;
-    uint32_t getExtent() const override;
 
 private:
     const VectorTileLayer& layer;
@@ -72,12 +71,12 @@ class FileSource;
 
 class VectorTileMonitor : public GeometryTileMonitor {
 public:
-    VectorTileMonitor(const TileID&, float pixelRatio, const std::string& urlTemplate, FileSource&);
+    VectorTileMonitor(const OverscaledTileID&, float pixelRatio, const std::string& urlTemplate, FileSource&);
 
     std::unique_ptr<AsyncRequest> monitorTile(const GeometryTileMonitor::Callback&) override;
 
 private:
-    TileID tileID;
+    OverscaledTileID tileID;
     float pixelRatio;
     std::string urlTemplate;
     FileSource& fileSource;
