@@ -67,8 +67,15 @@ void MapWindow::changeStyle()
 
 void MapWindow::keyPressEvent(QKeyEvent *ev)
 {
-    if (ev->key() == Qt::Key_S) {
+    switch (ev->key()) {
+    case Qt::Key_S:
         changeStyle();
+        break;
+    case Qt::Key_Tab:
+        m_map.cycleDebugOptions();
+        break;
+    default:
+        break;
     }
 
     ev->accept();
@@ -150,11 +157,7 @@ void MapWindow::initializeGL()
 void MapWindow::resizeGL(int w, int h)
 {
     QSize size(w, h);
-#if QT_VERSION >= 0x050000
-    size /= qApp->devicePixelRatio();
-#endif
     m_map.resize(size);
-    glViewport(0, 0, size.width(), size.height());
 }
 
 void MapWindow::paintGL()

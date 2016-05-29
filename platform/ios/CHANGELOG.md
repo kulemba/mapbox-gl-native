@@ -10,6 +10,8 @@ Mapbox welcomes participation and contributions from everyone.  Please read [CON
 - The user dot now moves smoothly between user location updates while user location tracking is disabled. ([#1582](https://github.com/mapbox/mapbox-gl-native/pull/1582))
 - An MGLAnnotation can be relocated by changing its `coordinate` property in a KVO-compliant way. An MGLMultiPoint cannot be relocated. ([#3835](https://github.com/mapbox/mapbox-gl-native/pull/3835))
 - Setting the `image` property of an MGLAnnotationImage to `nil` resets it to the default red pin image and reclaims resources that can be used to customize additional annotations. ([#3835](https://github.com/mapbox/mapbox-gl-native/pull/3835))
+- Added methods to MGLMapView for obtaining the underlying map data rendered by the current style, along with additional classes to represent complex geometry in that data. ([#5110](https://github.com/mapbox/mapbox-gl-native/pull/5110))
+- An MGLPolygon can now have interior polygons, representing holes knocked out of the overall shape. ([#5110](https://github.com/mapbox/mapbox-gl-native/pull/5110))
 - `MGLOfflinePackProgress` now indicates how many tiles have been downloaded and how much space they take up. ([#4874](https://github.com/mapbox/mapbox-gl-native/pull/4874))
 - The compass, user dot, and visible annotations are now accessible to VoiceOver users. ([#1496](https://github.com/mapbox/mapbox-gl-native/pull/1496))
 - The SDK is now localizable. No localizations are currently provided, other than English, but if you need a particular localization, you can install the SDK manually and drop a .lproj folder into the framework. ([#4783](https://github.com/mapbox/mapbox-gl-native/pull/4783))
@@ -28,6 +30,10 @@ Mapbox welcomes participation and contributions from everyone.  Please read [CON
 - Added `MGLCoordinateInCoordinateBounds()`, a function that tests whether or not a coordinate is in a given bounds. ([#5053](https://github.com/mapbox/mapbox-gl-native/pull/5053))
 - An MGLAnnotationView can be repositioned in relation to the associated MGLAnnotation.coordinate by changing its `centerOffset` property. ([#5059](https://github.com/mapbox/mapbox-gl-native/issues/5059))
 - An MGLAnnotationView can be rotated to match the rotation pitch of the associated map view.
+- An MGLAnnotationView can be scaled to shrink as it approaches the horizon and grow as it moves away from the horizon when the associated map view is tilted. ([#5085](https://github.com/mapbox/mapbox-gl-native/pull/5085))
+- Added a new option to `MGLMapDebugMaskOptions`, `MGLMapDebugWireframesMask`, that shows wireframes instead of the usual rendered output. ([#4359](https://github.com/mapbox/mapbox-gl-native/pull/4359))
+- Fixed an issue (speculatively) where the tile cache could be included in iCloud backups. ([#5124](https://github.com/mapbox/mapbox-gl-native/pull/5124))
+- Fixed a memory leak when using raster resources. ([#5141](https://github.com/mapbox/mapbox-gl-native/pull/5141))
 
 ## 3.2.2
 

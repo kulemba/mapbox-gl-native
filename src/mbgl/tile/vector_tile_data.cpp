@@ -25,11 +25,10 @@ VectorTileData::VectorTileData(const OverscaledTileID& id_,
                  *style_.spriteStore,
                  *style_.glyphAtlas,
                  *style_.glyphStore,
-                 state,
+                 obsolete,
                  mode_),
       monitor(std::move(monitor_))
 {
-    state = State::loading;
     tileRequest = monitor->monitorTile([callback, this](std::exception_ptr err,
                                                         std::unique_ptr<GeometryTile> tile,
                                                         optional<Timestamp> modified_,
@@ -45,16 +44,16 @@ VectorTileData::VectorTileData(const OverscaledTileID& id_,
         if (!tile) {
             // This is a 404 response. We're treating these as empty tiles.
             workRequest.reset();
-            state = State::parsed;
+            availableData = DataAvailability::All;
             buckets.clear();
             callback(err);
             return;
         }
 
-        if (state == State::loading) {
-            state = State::loaded;
-        } else if (isReady()) {
-            state = State::partial;
+        // Mark the tile as pending again if it was complete before to prevent signaling a complete
+        // state despite pending parse operations.
+        if (availableData == DataAvailability::All) {
+            availableData = DataAvailability::Some;
         }
 
         // Kick off a fresh parse of this tile. This happens when the tile is new, or
@@ -63,14 +62,12 @@ VectorTileData::VectorTileData(const OverscaledTileID& id_,
         workRequest.reset();
         workRequest = worker.parseGeometryTile(tileWorker, style.getLayers(), std::move(tile), targetConfig, [callback, this, config = targetConfig] (TileParseResult result) {
             workRequest.reset();
-            if (state == State::obsolete) {
-                return;
-            }
 
             std::exception_ptr error;
             if (result.is<TileParseResultData>()) {
                 auto& resultBuckets = result.get<TileParseResultData>();
-                state = resultBuckets.state;
+                availableData =
+                    resultBuckets.complete ? DataAvailability::All : DataAvailability::Some;
 
                 // Persist the configuration we just placed so that we can later check whether we need to
                 // place again in case the configuration has changed.
@@ -80,14 +77,15 @@ VectorTileData::VectorTileData(const OverscaledTileID& id_,
                 // existing buckets in case we got a refresh parse.
                 buckets = std::move(resultBuckets.buckets);
 
-                if (state == State::parsed) {
+                if (isComplete()) {
                     featureIndex = std::move(resultBuckets.featureIndex);
                     geometryTile = std::move(resultBuckets.geometryTile);
                 }
 
             } else {
+                // This is triggered when parsing fails (e.g. due to an invalid vector tile)
                 error = result.get<std::exception_ptr>();
-                state = State::obsolete;
+                availableData = DataAvailability::All;
             }
 
             callback(error);
@@ -108,14 +106,12 @@ bool VectorTileData::parsePending(std::function<void(std::exception_ptr)> callba
     workRequest.reset();
     workRequest = worker.parsePendingGeometryTileLayers(tileWorker, targetConfig, [this, callback, config = targetConfig] (TileParseResult result) {
         workRequest.reset();
-        if (state == State::obsolete) {
-            return;
-        }
 
         std::exception_ptr error;
         if (result.is<TileParseResultData>()) {
             auto& resultBuckets = result.get<TileParseResultData>();
-            state = resultBuckets.state;
+            availableData =
+                    resultBuckets.complete ? DataAvailability::All : DataAvailability::Some;
 
             // Move over all buckets we received in this parse request, potentially overwriting
             // existing buckets in case we got a refresh parse.
@@ -127,14 +123,14 @@ bool VectorTileData::parsePending(std::function<void(std::exception_ptr)> callba
             // place again in case the configuration has changed.
             placedConfig = config;
 
-            if (state == State::parsed) {
+            if (isComplete()) {
                 featureIndex = std::move(resultBuckets.featureIndex);
                 geometryTile = std::move(resultBuckets.geometryTile);
             }
 
         } else {
             error = result.get<std::exception_ptr>();
-            state = State::obsolete;
+            availableData = DataAvailability::All;
         }
 
         callback(error);
@@ -211,13 +207,9 @@ void VectorTileData::queryRenderedFeatures(
 }
 
 void VectorTileData::cancel() {
-    state = State::obsolete;
+    obsolete = true;
     tileRequest.reset();
     workRequest.reset();
-}
-
-bool VectorTileData::hasData() const {
-    return !buckets.empty();
 }
 
 } // namespace mbgl

@@ -1,5 +1,4 @@
-#ifndef MBGL_MAP_SOURCE
-#define MBGL_MAP_SOURCE
+#pragma once
 
 #include <mbgl/tile/tile_id.hpp>
 #include <mbgl/tile/tile_data.hpp>
@@ -32,21 +31,10 @@ class AsyncRequest;
 class TransformState;
 class Tile;
 struct ClipID;
+class SourceObserver;
 
 class Source : private util::noncopyable {
 public:
-    class Observer {
-    public:
-        virtual ~Observer() = default;
-
-        virtual void onSourceLoaded(Source&) {};
-        virtual void onSourceError(Source&, std::exception_ptr) {};
-
-        virtual void onTileLoaded(Source&, const OverscaledTileID&, bool /* isNewTile */) {};
-        virtual void onTileError(Source&, const OverscaledTileID&, std::exception_ptr) {};
-        virtual void onPlacementRedone() {};
-    };
-
     Source(SourceType,
            const std::string& id,
            const std::string& url,
@@ -86,7 +74,7 @@ public:
     void setCacheSize(size_t);
     void onLowMemory();
 
-    void setObserver(Observer* observer);
+    void setObserver(SourceObserver* observer);
     void dumpDebugLogs() const;
 
     const SourceType type;
@@ -115,10 +103,7 @@ private:
 
     std::unique_ptr<AsyncRequest> req;
 
-    Observer nullObserver;
-    Observer* observer = &nullObserver;
+    SourceObserver* observer = nullptr;
 };
 
 } // namespace mbgl
-
-#endif

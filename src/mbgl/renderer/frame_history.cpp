@@ -4,7 +4,6 @@
 using namespace mbgl;
 
 FrameHistory::FrameHistory() {
-    changeTimes.fill(TimePoint::min());
     changeOpacities.fill(0);
     opacities.fill(0);
 };
@@ -14,6 +13,7 @@ void FrameHistory::record(const TimePoint& now, float zoom, const Duration& dura
     int16_t zoomIndex = std::floor(zoom * 10.0);
 
     if (firstFrame) {
+        changeTimes.fill(now);
 
         for (int16_t z = 0; z <= zoomIndex; z++) {
             opacities[z] = 255u;
@@ -60,7 +60,7 @@ bool FrameHistory::needsAnimation(const Duration& duration) const {
 void FrameHistory::upload(gl::GLObjectStore& glObjectStore) {
 
     if (changed) {
-        const bool first = !texture;
+        const bool first = !texture.created();
         bind(glObjectStore);
 
         if (first) {
@@ -95,7 +95,7 @@ void FrameHistory::upload(gl::GLObjectStore& glObjectStore) {
 }
 
 void FrameHistory::bind(gl::GLObjectStore& glObjectStore) {
-    if (!texture) {
+    if (!texture.created()) {
         texture.create(glObjectStore);
         MBGL_CHECK_ERROR(glBindTexture(GL_TEXTURE_2D, texture.getID()));
 #ifndef GL_ES_VERSION_2_0
