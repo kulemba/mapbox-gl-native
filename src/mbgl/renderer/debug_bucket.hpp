@@ -1,5 +1,4 @@
-#ifndef MBGL_RENDERER_DEBUGBUCKET
-#define MBGL_RENDERER_DEBUGBUCKET
+#pragma once
 
 #include <mbgl/tile/tile_data.hpp>
 #include <mbgl/map/mode.hpp>
@@ -17,7 +16,9 @@ class GLObjectStore;
 
 class DebugBucket : private util::noncopyable {
 public:
-    DebugBucket(const OverscaledTileID& id, TileData::State,
+    DebugBucket(const OverscaledTileID& id,
+                bool renderable,
+                bool complete,
                 optional<Timestamp> modified,
                 optional<Timestamp> expires,
                 MapDebugOptions);
@@ -25,7 +26,8 @@ public:
     void drawLines(PlainShader&, gl::GLObjectStore&);
     void drawPoints(PlainShader&, gl::GLObjectStore&);
 
-    const TileData::State state;
+    const bool renderable;
+    const bool complete;
     const optional<Timestamp> modified;
     const optional<Timestamp> expires;
     const MapDebugOptions debugMode;
@@ -36,5 +38,3 @@ private:
 };
 
 } // namespace mbgl
-
-#endif

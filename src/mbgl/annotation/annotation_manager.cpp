@@ -1,5 +1,6 @@
 #include <mbgl/annotation/annotation_manager.hpp>
 #include <mbgl/annotation/annotation_tile.hpp>
+#include <mbgl/source/source.hpp>
 #include <mbgl/style/style.hpp>
 #include <mbgl/layer/symbol_layer.hpp>
 
@@ -89,7 +90,7 @@ std::unique_ptr<AnnotationTile> AnnotationManager::getTile(const CanonicalTileID
 
     AnnotationTileLayer& pointLayer = *tile->layers.emplace(
         PointLayerID,
-        std::make_unique<AnnotationTileLayer>()).first->second;
+        std::make_unique<AnnotationTileLayer>(PointLayerID)).first->second;
 
     LatLngBounds tileBounds(tileID);
 
