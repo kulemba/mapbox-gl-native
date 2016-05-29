@@ -1,5 +1,4 @@
-#ifndef MBGL_RENDERER_SYMBOLBUCKET
-#define MBGL_RENDERER_SYMBOLBUCKET
+#pragma once
 
 #include <mbgl/renderer/bucket.hpp>
 #include <mbgl/tile/geometry_tile.hpp>
@@ -26,7 +25,6 @@ namespace mbgl {
 class SDFShader;
 class IconShader;
 class CollisionBoxShader;
-class DotShader;
 class CollisionTile;
 class SpriteAtlas;
 class SpriteStore;
@@ -157,5 +155,3 @@ private:
 };
 
 } // namespace mbgl
-
-#endif

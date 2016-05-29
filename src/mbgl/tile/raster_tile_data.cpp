@@ -18,8 +18,6 @@ RasterTileData::RasterTileData(const OverscaledTileID& id_,
     : TileData(id_),
       texturePool(texturePool_),
       worker(worker_) {
-    state = State::loading;
-
     const Resource resource =
         Resource::tile(urlTemplate, pixelRatio, id.canonical.x, id.canonical.y, id.canonical.z);
     req = fileSource.request(resource, [callback, this](Response res) {
@@ -29,7 +27,7 @@ RasterTileData::RasterTileData(const OverscaledTileID& id_,
             modified = res.modified;
             expires = res.expires;
         } else if (res.noContent) {
-            state = State::parsed;
+            availableData = DataAvailability::All;
             modified = res.modified;
             expires = res.expires;
             workRequest.reset();
@@ -39,27 +37,19 @@ RasterTileData::RasterTileData(const OverscaledTileID& id_,
             modified = res.modified;
             expires = res.expires;
 
-            // Only overwrite the state when we didn't have a previous tile.
-            if (state == State::loading) {
-                state = State::loaded;
-            }
-
             workRequest.reset();
             workRequest = worker.parseRasterTile(std::make_unique<RasterBucket>(texturePool), res.data, [this, callback] (RasterTileParseResult result) {
                 workRequest.reset();
-                if (state != State::loaded) {
-                    return;
-                }
 
                 std::exception_ptr error;
                 if (result.is<std::unique_ptr<Bucket>>()) {
-                    state = State::parsed;
                     bucket = std::move(result.get<std::unique_ptr<Bucket>>());
                 } else {
                     error = result.get<std::exception_ptr>();
-                    state = State::obsolete;
                     bucket.reset();
                 }
+
+                availableData = DataAvailability::All;
 
                 callback(error);
             });
@@ -76,13 +66,6 @@ Bucket* RasterTileData::getBucket(StyleLayer const&) {
 }
 
 void RasterTileData::cancel() {
-    if (state != State::obsolete) {
-        state = State::obsolete;
-    }
     req = nullptr;
     workRequest.reset();
-}
-
-bool RasterTileData::hasData() const {
-    return bucket.get() != nullptr;
 }
