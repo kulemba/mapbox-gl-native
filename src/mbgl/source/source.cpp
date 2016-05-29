@@ -12,6 +12,7 @@
 #include <mbgl/storage/file_source.hpp>
 #include <mbgl/style/style_layer.hpp>
 #include <mbgl/style/style_update_parameters.hpp>
+#include <mbgl/style/style_query_parameters.hpp>
 #include <mbgl/platform/log.hpp>
 #include <mbgl/math/minmax.hpp>
 #include <mbgl/math/clamp.hpp>
@@ -30,6 +31,7 @@
 
 #include <mapbox/geojsonvt.hpp>
 #include <mapbox/geojsonvt/convert.hpp>
+#include <mapbox/geometry/envelope.hpp>
 
 #include <rapidjson/error/en.h>
 
@@ -328,53 +330,35 @@ bool Source::update(const StyleUpdateParameters& parameters) {
     return allTilesUpdated;
 }
 
-static Point<int16_t> coordinateToTilePoint(const CanonicalTileID& tileID, const TileCoordinate& coord) {
-    auto zoomedCoord = coord.zoomTo(tileID.z);
+static Point<int16_t> coordinateToTilePoint(const UnwrappedTileID& tileID, const Point<double>& p) {
+    auto zoomedCoord = TileCoordinate { p, 0 }.zoomTo(tileID.canonical.z);
     return {
-        int16_t(util::clamp<int64_t>((zoomedCoord.x - tileID.x) * util::EXTENT,
+        int16_t(util::clamp<int64_t>((zoomedCoord.p.x - tileID.canonical.x - tileID.wrap * std::pow(2, tileID.canonical.z)) * util::EXTENT,
                     std::numeric_limits<int16_t>::min(),
                     std::numeric_limits<int16_t>::max())),
-        int16_t(util::clamp<int64_t>((zoomedCoord.y - tileID.y) * util::EXTENT,
+        int16_t(util::clamp<int64_t>((zoomedCoord.p.y - tileID.canonical.y) * util::EXTENT,
                     std::numeric_limits<int16_t>::min(),
                     std::numeric_limits<int16_t>::max()))
     };
 }
 
-struct TileQuery {
-    TileData& tileData;
-    GeometryCollection queryGeometry;
-    double tileSize;
-    double scale;
-};
+std::unordered_map<std::string, std::vector<Feature>> Source::queryRenderedFeatures(const StyleQueryParameters& parameters) const {
+    LineString<double> queryGeometry;
 
-std::unordered_map<std::string, std::vector<Feature>> Source::queryRenderedFeatures(
-        const std::vector<TileCoordinate>& queryGeometry,
-        const double zoom,
-        const double bearing,
-        const optional<std::vector<std::string>>& layerIDs) const {
+    for (const auto& p : parameters.geometry) {
+        queryGeometry.push_back(TileCoordinate::fromScreenCoordinate(
+            parameters.transformState, 0, { p.x, parameters.transformState.getHeight() - p.y }).p);
+    }
+
+    mapbox::geometry::box<double> box = mapbox::geometry::envelope(queryGeometry);
 
     std::unordered_map<std::string, std::vector<Feature>> result;
 
-    double minX = std::numeric_limits<double>::infinity();
-    double minY = std::numeric_limits<double>::infinity();
-    double maxX = -std::numeric_limits<double>::infinity();
-    double maxY = -std::numeric_limits<double>::infinity();
-    double z = queryGeometry[0].z;
-
-    for (const auto& c : queryGeometry) {
-        minX = util::min(minX, c.x);
-        minY = util::min(minY, c.y);
-        maxX = util::max(maxX, c.x);
-        maxY = util::max(maxY, c.y);
-    }
-
-    std::map<CanonicalTileID, TileQuery> tileQueries;
-
     for (const auto& tilePtr : tiles) {
-        const auto& tile = tilePtr.second;
+        const Tile& tile = tilePtr.second;
 
-        auto tileSpaceBoundsMin = coordinateToTilePoint(tile.id.canonical, { minX, minY, z });
-        auto tileSpaceBoundsMax = coordinateToTilePoint(tile.id.canonical, { maxX, maxY, z });
+        Point<int16_t> tileSpaceBoundsMin = coordinateToTilePoint(tile.id, box.min);
+        Point<int16_t> tileSpaceBoundsMax = coordinateToTilePoint(tile.id, box.max);
 
         if (tileSpaceBoundsMin.x >= util::EXTENT || tileSpaceBoundsMin.y >= util::EXTENT ||
             tileSpaceBoundsMax.x < 0 || tileSpaceBoundsMax.y < 0) continue;
@@ -382,26 +366,13 @@ std::unordered_map<std::string, std::vector<Feature>> Source::queryRenderedFeatu
         GeometryCoordinates tileSpaceQueryGeometry;
 
         for (const auto& c : queryGeometry) {
-            tileSpaceQueryGeometry.push_back(coordinateToTilePoint(tile.id.canonical, c));
+            tileSpaceQueryGeometry.push_back(coordinateToTilePoint(tile.id, c));
         }
 
-        auto it = tileQueries.find(tile.id.canonical);
-        if (it != tileQueries.end()) {
-            it->second.queryGeometry.push_back(std::move(tileSpaceQueryGeometry));
-        } else {
-            (void)zoom;
-            tileQueries.emplace(tile.id.canonical, TileQuery{
-                    tile.data,
-                    { tileSpaceQueryGeometry },
-                    util::tileSize * tile.data.id.overscaleFactor(),
-                    std::pow(2, zoom - tile.data.id.overscaledZ)
-                });
-        }
-    }
-
-    for (const auto& it : tileQueries) {
-        auto& tileQuery = std::get<1>(it);
-        tileQuery.tileData.queryRenderedFeatures(result, tileQuery.queryGeometry, bearing, tileQuery.tileSize, tileQuery.scale, layerIDs);
+        tile.data.queryRenderedFeatures(result,
+                                        tileSpaceQueryGeometry,
+                                        parameters.transformState,
+                                        parameters.layerIDs);
     }
 
     return result;

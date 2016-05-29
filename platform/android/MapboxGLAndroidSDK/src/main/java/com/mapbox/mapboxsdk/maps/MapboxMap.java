@@ -1,6 +1,12 @@
 package com.mapbox.mapboxsdk.maps;
 
+import android.animation.ObjectAnimator;
+import android.content.Context;
+import android.animation.Animator;
+import android.animation.AnimatorInflater;
+import android.animation.AnimatorListenerAdapter;
 import android.graphics.Bitmap;
+import android.graphics.Point;
 import android.location.Location;
 import android.os.SystemClock;
 import android.support.annotation.FloatRange;
@@ -8,15 +14,25 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.UiThread;
 import android.support.v4.util.LongSparseArray;
+import android.support.v4.util.Pools;
+import android.support.v4.view.animation.FastOutSlowInInterpolator;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+
+import com.mapbox.mapboxsdk.MapboxAccountManager;
+
+import android.view.ViewGroup;
+
 import com.mapbox.mapboxsdk.annotations.Annotation;
 import com.mapbox.mapboxsdk.annotations.BaseMarkerOptions;
+import com.mapbox.mapboxsdk.annotations.BaseMarkerViewOptions;
 import com.mapbox.mapboxsdk.annotations.Icon;
+import com.mapbox.mapboxsdk.annotations.IconFactory;
 import com.mapbox.mapboxsdk.annotations.InfoWindow;
 import com.mapbox.mapboxsdk.annotations.Marker;
 import com.mapbox.mapboxsdk.annotations.MarkerOptions;
+import com.mapbox.mapboxsdk.annotations.MarkerView;
 import com.mapbox.mapboxsdk.annotations.Polygon;
 import com.mapbox.mapboxsdk.annotations.PolygonOptions;
 import com.mapbox.mapboxsdk.annotations.Polyline;
@@ -32,8 +48,13 @@ import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.layers.CustomLayer;
 import com.mapbox.mapboxsdk.location.LocationListener;
 import com.mapbox.mapboxsdk.maps.widgets.MyLocationViewSettings;
+
+import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -55,9 +76,15 @@ public class MapboxMap {
     private CameraPosition mCameraPosition;
     private boolean mInvalidCameraPosition;
     private LongSparseArray<Annotation> mAnnotations;
+
     private List<Marker> mSelectedMarkers;
+    private Map<MarkerView, View> mMarkerViewMap;
+
     private List<InfoWindow> mInfoWindows;
     private MapboxMap.InfoWindowAdapter mInfoWindowAdapter;
+
+    private OnMarkerViewClickListener mOnMarkerViewClickListener;
+    private Bitmap mViewMarkerBitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
 
     private boolean mMyLocationEnabled;
     private boolean mAllowConcurrentMultipleInfoWindows;
@@ -78,6 +105,8 @@ public class MapboxMap {
     private double mMaxZoomLevel = -1;
     private double mMinZoomLevel = -1;
 
+    private List<MapboxMap.MarkerViewAdapter> mMarkerViewAdapters;
+
     MapboxMap(@NonNull MapView mapView) {
         mMapView = mapView;
         mMapView.addOnMapChangedListener(new MapChangeCameraPositionListener());
@@ -85,8 +114,10 @@ public class MapboxMap {
         mTrackingSettings = new TrackingSettings(mMapView, mUiSettings);
         mProjection = new Projection(mapView);
         mAnnotations = new LongSparseArray<>();
+        mMarkerViewAdapters = new ArrayList<>();
         mSelectedMarkers = new ArrayList<>();
         mInfoWindows = new ArrayList<>();
+        mMarkerViewMap = new HashMap<>();
     }
 
     //
@@ -584,13 +615,13 @@ public class MapboxMap {
      * <p>
      * DEPRECATED @see MapboxAccountManager#start(String)
      * </p>
-     *
      * <p>
      * Sets the current Mapbox access token used to load map styles and tiles.
      * </p>
      *
      * @param accessToken Your public Mapbox access token.
      * @see MapView#setAccessToken(String)
+     * @deprecated As of release 4.1.0, replaced by {@link com.mapbox.mapboxsdk.MapboxAccountManager#start(Context, String)}
      */
     @Deprecated
     @UiThread
@@ -602,10 +633,12 @@ public class MapboxMap {
      * <p>
      * DEPRECATED @see MapboxAccountManager#getAccessToken()
      * </p>
-     *
+     * <p>
      * Returns the current Mapbox access token used to load map styles and tiles.
+     * </p>
      *
      * @return The current Mapbox access token.
+     * @deprecated As of release 4.1.0, replaced by {@link MapboxAccountManager#getAccessToken()}
      */
     @Deprecated
     @UiThread
@@ -617,6 +650,114 @@ public class MapboxMap {
     //
     // Annotations
     //
+
+    void invalidateViewMarkersInBounds() {
+        List<MarkerView> markers = mMapView.getMarkerViewsInBounds(mProjection.getVisibleRegion().latLngBounds);
+        View convertView;
+
+        // remove old markers
+        Iterator<MarkerView> iterator = mMarkerViewMap.keySet().iterator();
+        while (iterator.hasNext()) {
+            MarkerView m = iterator.next();
+            if (!markers.contains(m)) {
+                // remove marker
+                convertView = mMarkerViewMap.get(m);
+                int deselectAnimRes = m.getDeselectAnimRes();
+                if (deselectAnimRes != 0) {
+                    Animator animator = AnimatorInflater.loadAnimator(mMapView.getContext(), deselectAnimRes);
+                    animator.setDuration(0);
+                    animator.setTarget(convertView);
+                    animator.start();
+                }
+                removeMarkerView(m);
+                iterator.remove();
+            }
+        }
+
+        // introduce new markers
+        for (final MarkerView marker : markers) {
+            if (!mMarkerViewMap.containsKey(marker)) {
+                for (final MarkerViewAdapter adapter : mMarkerViewAdapters) {
+                    if (adapter.getMarkerClass() == marker.getClass()) {
+                        convertView = (View) adapter.getViewReusePool().acquire();
+                        View adaptedView = adapter.getView(marker, convertView, mMapView);
+
+                        // InfoWindow offset
+                        Point infoWindowOffset = marker.getInfoWindowOffset();
+                        marker.setTopOffsetPixels(-infoWindowOffset.y);
+                        marker.setRightOffsetPixels(infoWindowOffset.x);
+
+                        if (adaptedView != null) {
+
+                            // tilt
+                            adaptedView.setRotationX(marker.getTiltValue());
+
+                            // rotation
+                            adaptedView.setRotation(marker.getRotation());
+
+                            if (mSelectedMarkers.contains(marker)) {
+                                // if a marker to be shown was selected
+                                // replay that animation with duration 0
+                                int selectAnimRes = marker.getSelectAnimRes();
+                                if (selectAnimRes != 0) {
+                                    Animator animator = AnimatorInflater.loadAnimator(mMapView.getContext(), selectAnimRes);
+                                    animator.setDuration(0);
+                                    animator.setTarget(convertView);
+                                    animator.start();
+                                }
+                            }
+
+                            final int animSelectRes = marker.getSelectAnimRes();
+                            adaptedView.setOnClickListener(new View.OnClickListener() {
+                                @Override
+                                public void onClick(final View v) {
+                                    boolean clickHandled = false;
+                                    if (mOnMarkerViewClickListener != null) {
+                                        clickHandled = mOnMarkerViewClickListener.onMarkerClick(marker, v, adapter);
+                                    }
+
+                                    if (!clickHandled) {
+                                        if (animSelectRes != 0) {
+                                            v.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+                                            Animator animator = AnimatorInflater.loadAnimator(mMapView.getContext(), animSelectRes);
+                                            animator.setTarget(v);
+                                            animator.addListener(new AnimatorListenerAdapter() {
+                                                @Override
+                                                public void onAnimationEnd(Animator animation) {
+                                                    super.onAnimationEnd(animation);
+                                                    selectMarker(marker);
+                                                    v.setLayerType(View.LAYER_TYPE_NONE, null);
+                                                }
+                                            });
+                                            animator.start();
+                                        } else {
+                                            selectMarker(marker);
+                                        }
+                                    }
+                                }
+                            });
+
+                            mMarkerViewMap.put(marker, adaptedView);
+                            if (convertView == null) {
+                                mMapView.addView(adaptedView);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    void setTilt(double tilt) {
+        for (MarkerView markerView : mMarkerViewMap.keySet()) {
+            if (markerView.isFlat()) {
+                markerView.setTiltValue((float) tilt);
+                mMarkerViewMap.get(markerView).setRotationX((float) tilt);
+            }
+        }
+        mMapView.setTilt(tilt);
+    }
+
 
     /**
      * <p>
@@ -657,6 +798,27 @@ public class MapboxMap {
 
     /**
      * <p>
+     * Adds a marker to this map.
+     * </p>
+     * The marker's icon is rendered on the map at the location {@code Marker.position}.
+     * If {@code Marker.title} is defined, the map shows an info box with the marker's title and snippet.
+     *
+     * @param markerOptions A marker options object that defines how to render the marker.
+     * @return The {@code Marker} that was added to the map.
+     */
+    @UiThread
+    @NonNull
+    public MarkerView addMarkerView(@NonNull BaseMarkerViewOptions markerOptions) {
+        MarkerView marker = prepareViewMarker(markerOptions);
+        long id = mMapView.addMarker(marker);
+        marker.setMapboxMap(this);
+        marker.setId(id);
+        mAnnotations.put(id, marker);
+        return marker;
+    }
+
+    /**
+     * <p>
      * Adds multiple markers to this map.
      * </p>
      * The marker's icon is rendered on the map at the location {@code Marker.position}.
@@ -667,11 +829,11 @@ public class MapboxMap {
      */
     @UiThread
     @NonNull
-    public List<Marker> addMarkers(@NonNull List<MarkerOptions> markerOptionsList) {
+    public List<Marker> addMarkers(@NonNull List<? extends BaseMarkerOptions> markerOptionsList) {
         int count = markerOptionsList.size();
         List<Marker> markers = new ArrayList<>(count);
         if (count > 0) {
-            MarkerOptions markerOptions;
+            BaseMarkerOptions markerOptions;
             Marker marker;
             for (int i = 0; i < count; i++) {
                 markerOptions = markerOptionsList.get(i);
@@ -701,6 +863,58 @@ public class MapboxMap {
                 }
             }
         }
+        return markers;
+    }
+
+    /**
+     * <p>
+     * Adds multiple markers to this map.
+     * </p>
+     * The marker's icon is rendered on the map at the location {@code Marker.position}.
+     * If {@code Marker.title} is defined, the map shows an info box with the marker's title and snippet.
+     *
+     * @param markerOptionsList A list of marker options objects that defines how to render the markers.
+     * @return A list of the {@code Marker}s that were added to the map.
+     */
+    @UiThread
+    @NonNull
+    public List<Marker> addMarkerViews(@NonNull List<? extends BaseMarkerViewOptions> markerOptionsList) {
+        int count = markerOptionsList.size();
+        List<Marker> markers = new ArrayList<>(count);
+        if (count > 0) {
+            BaseMarkerViewOptions markerOptions;
+            Marker marker;
+            for (int i = 0; i < count; i++) {
+                markerOptions = markerOptionsList.get(i);
+                marker = markerOptions.getMarker();
+                Icon icon = IconFactory.recreate("markerViewSettings", mViewMarkerBitmap);
+                marker.setIcon(icon);
+                markers.add(marker);
+            }
+
+            if (markers.size() > 0) {
+                long[] ids = mMapView.addMarkers(markers);
+
+                // if unittests or markers are correctly added to map
+                if (ids == null || ids.length == markers.size()) {
+                    long id = 0;
+                    Marker m;
+                    for (int i = 0; i < markers.size(); i++) {
+                        m = markers.get(i);
+                        m.setMapboxMap(this);
+                        if (ids != null) {
+                            id = ids[i];
+                        } else {
+                            //unit test
+                            id++;
+                        }
+                        m.setId(id);
+                        mAnnotations.put(id, m);
+                    }
+                }
+            }
+        }
+        invalidateViewMarkersInBounds();
         return markers;
     }
 
@@ -827,7 +1041,7 @@ public class MapboxMap {
 
             long[] ids = mMapView.addPolygons(polygons);
 
-            // if unit tests or polygons correcly added to map
+            // if unit tests or polygons correctly added to map
             if (ids == null || ids.length == polygons.size()) {
                 long id = 0;
                 for (int i = 0; i < polygons.size(); i++) {
@@ -894,11 +1108,46 @@ public class MapboxMap {
     @UiThread
     public void removeAnnotation(@NonNull Annotation annotation) {
         if (annotation instanceof Marker) {
-            ((Marker) annotation).hideInfoWindow();
+            Marker marker = (Marker) annotation;
+            marker.hideInfoWindow();
+            removeMarkerView(marker);
+            mMarkerViewMap.remove(marker);
         }
         long id = annotation.getId();
         mMapView.removeAnnotation(id);
         mAnnotations.remove(id);
+    }
+
+    private void removeMarkerView(Marker marker) {
+        final View viewHolder = mMarkerViewMap.get(marker);
+        if (viewHolder != null && marker != null) {
+            for (final MarkerViewAdapter<?> adapter : mMarkerViewAdapters) {
+                if (adapter.getMarkerClass() == marker.getClass()) {
+
+                    // get pool of Views associated to an adapter
+                    final Pools.SimplePool<View> viewPool = adapter.getViewReusePool();
+
+                    // cancel ongoing animations
+                    viewHolder.animate().cancel();
+                    viewHolder.setAlpha(1);
+
+                    // animate alpha
+                    viewHolder.animate()
+                            .alpha(0)
+                            .setDuration(MapboxConstants.ANIMATION_DURATION_SHORT)
+                            .setInterpolator(new FastOutSlowInInterpolator())
+                            .setListener(new AnimatorListenerAdapter() {
+
+                                @Override
+                                public void onAnimationEnd(Animator animation) {
+                                    super.onAnimationEnd(animation);
+                                    viewHolder.setVisibility(View.GONE);
+                                    viewPool.release(viewHolder);
+                                }
+                            });
+                }
+            }
+        }
     }
 
     /**
@@ -924,7 +1173,10 @@ public class MapboxMap {
         for (int i = 0; i < count; i++) {
             Annotation annotation = annotationList.get(i);
             if (annotation instanceof Marker) {
-                ((Marker) annotation).hideInfoWindow();
+                Marker marker = (Marker) annotation;
+                marker.hideInfoWindow();
+                removeMarkerView(marker);
+                mMarkerViewMap.remove(marker);
             }
             ids[i] = annotationList.get(i).getId();
         }
@@ -946,7 +1198,10 @@ public class MapboxMap {
             ids[i] = mAnnotations.keyAt(i);
             annotation = mAnnotations.get(ids[i]);
             if (annotation instanceof Marker) {
-                ((Marker) annotation).hideInfoWindow();
+                Marker marker = (Marker) annotation;
+                marker.hideInfoWindow();
+                removeMarkerView(marker);
+                mMarkerViewMap.remove(marker);
             }
         }
         mMapView.removeAnnotations(ids);
@@ -966,7 +1221,6 @@ public class MapboxMap {
      *
      * @return An annotation with a matched id, null is returned if no match was found.
      */
-    @UiThread
     @Nullable
     public Annotation getAnnotation(long id) {
         return mAnnotations.get(id);
@@ -1057,8 +1311,7 @@ public class MapboxMap {
     @UiThread
     public void selectMarker(@NonNull Marker marker) {
         if (marker == null) {
-            Log.w(MapboxConstants.TAG, "marker was null, so just" +
-                    " returning");
+            Log.w(MapboxConstants.TAG, "marker was null, so just returning");
             return;
         }
 
@@ -1099,6 +1352,26 @@ public class MapboxMap {
             if (marker.isInfoWindowShown()) {
                 marker.hideInfoWindow();
             }
+
+            if (marker instanceof MarkerView) {
+                final View viewMarker = mMarkerViewMap.get(marker);
+                if (viewMarker != null) {
+                    int deselectAnimatorRes = ((MarkerView) marker).getDeselectAnimRes();
+                    if (deselectAnimatorRes != 0) {
+                        viewMarker.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+                        Animator animator = AnimatorInflater.loadAnimator(mMapView.getContext(), deselectAnimatorRes);
+                        animator.addListener(new AnimatorListenerAdapter() {
+                            @Override
+                            public void onAnimationEnd(Animator animation) {
+                                super.onAnimationEnd(animation);
+                                viewMarker.setLayerType(View.LAYER_TYPE_NONE, null);
+                            }
+                        });
+                        animator.setTarget(viewMarker);
+                        animator.start();
+                    }
+                }
+            }
         }
 
         // Removes all selected markers from the list
@@ -1136,6 +1409,44 @@ public class MapboxMap {
         Icon icon = mMapView.loadIconForMarker(marker);
         marker.setTopOffsetPixels(mMapView.getTopOffsetPixelsForIcon(icon));
         return marker;
+    }
+
+    private MarkerView prepareViewMarker(BaseMarkerViewOptions markerViewOptions) {
+        MarkerView marker = markerViewOptions.getMarker();
+        Icon icon = IconFactory.recreate("markerViewSettings", mViewMarkerBitmap);
+        marker.setIcon(icon);
+        return marker;
+    }
+
+    public void addMarkerViewAdapter(@Nullable MarkerViewAdapter markerViewAdapter) {
+        if (!mMarkerViewAdapters.contains(markerViewAdapter)) {
+            mMarkerViewAdapters.add(markerViewAdapter);
+            invalidateViewMarkersInBounds();
+        }
+    }
+
+    public List<MarkerViewAdapter> getMarkerViewAdapters() {
+        return mMarkerViewAdapters;
+    }
+
+    public void setMarkerViewRotation(@NonNull MarkerView markerView, float rotation) {
+        final View convertView = mMarkerViewMap.get(markerView);
+        if (convertView != null) {
+            convertView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+            ObjectAnimator rotateAnimator = ObjectAnimator.ofFloat(convertView, View.ROTATION, convertView.getRotation(), rotation);
+            rotateAnimator.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    super.onAnimationEnd(animation);
+                    convertView.setLayerType(View.LAYER_TYPE_NONE, null);
+                }
+            });
+            rotateAnimator.start();
+        }
+    }
+
+    public void setOnMarkerViewClickListener(@Nullable OnMarkerViewClickListener listener) {
+        mOnMarkerViewClickListener = listener;
     }
 
     //
@@ -1193,6 +1504,10 @@ public class MapboxMap {
         return mInfoWindows;
     }
 
+    Map<MarkerView, View> getMarkerViewMap() {
+        return mMarkerViewMap;
+    }
+
     private boolean isInfoWindowValidForMarker(@NonNull Marker marker) {
         return !TextUtils.isEmpty(marker.getTitle()) || !TextUtils.isEmpty(marker.getSnippet());
     }
@@ -1204,12 +1519,13 @@ public class MapboxMap {
     /**
      * Sets the distance from the edges of the map view’s frame to the edges of the map
      * view’s logical viewport.
-     *
+     * <p/>
      * When the value of this property is equal to {0,0,0,0}, viewport
      * properties such as `centerCoordinate` assume a viewport that matches the map
      * view’s frame. Otherwise, those properties are inset, excluding part of the
      * frame from the viewport. For instance, if the only the top edge is inset, the
      * map center is effectively shifted downward.
+     * </p>
      *
      * @param left   The left margin in pixels.
      * @param top    The top margin in pixels.
@@ -1718,6 +2034,40 @@ public class MapboxMap {
          */
         @Nullable
         View getInfoWindow(@NonNull Marker marker);
+    }
+
+    public static abstract class MarkerViewAdapter<U extends MarkerView> {
+
+        private Context context;
+        private final Class<U> persistentClass;
+        private final Pools.SimplePool<View> mViewReusePool;
+
+        @SuppressWarnings("unchecked")
+        public MarkerViewAdapter(Context context) {
+            this.context = context;
+            persistentClass = (Class<U>) ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0];
+            mViewReusePool = new Pools.SimplePool<>(20);
+        }
+
+        @Nullable
+        public abstract View getView(@NonNull U marker, @NonNull View convertView, @NonNull ViewGroup parent);
+
+        public Class<U> getMarkerClass() {
+            return persistentClass;
+        }
+
+        public Pools.SimplePool<View> getViewReusePool() {
+            return mViewReusePool;
+        }
+
+        public Context getContext() {
+            return context;
+        }
+    }
+
+    public interface OnMarkerViewClickListener {
+
+        boolean onMarkerClick(@NonNull Marker marker, @NonNull View view, @NonNull MarkerViewAdapter adapter);
     }
 
     /**
