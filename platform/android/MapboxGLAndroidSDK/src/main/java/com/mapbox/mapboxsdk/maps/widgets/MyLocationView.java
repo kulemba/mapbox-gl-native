@@ -20,7 +20,6 @@ import android.support.annotation.ColorInt;
 import android.support.annotation.FloatRange;
 import android.support.annotation.IntRange;
 import android.support.annotation.NonNull;
-import android.support.v4.view.animation.FastOutLinearInInterpolator;
 import android.util.AttributeSet;
 import android.view.View;
 
@@ -56,7 +55,6 @@ public class MyLocationView extends View {
     private long locationUpdateTimestamp;
 
     private float gpsDirection;
-    private float compassDirection;
     private float previousDirection;
 
     private float accuracy = 0;
@@ -119,7 +117,6 @@ public class MyLocationView extends View {
         if (defaultDrawable.getIntrinsicWidth() != bearingDrawable.getIntrinsicWidth() || defaultDrawable.getIntrinsicHeight() != bearingDrawable.getIntrinsicHeight()) {
             throw new RuntimeException("The dimensions from location and bearing drawables should be match");
         }
-
 
         foregroundDrawable = defaultDrawable;
         foregroundBearingDrawable = bearingDrawable;
@@ -594,8 +591,7 @@ public class MyLocationView extends View {
             if (previousUpdateTimeStamp == 0) {
                 locationUpdateDuration = 0;
             } else {
-                // TODO remove 10 * hack to multiply duration to workaround easing interpolation (easeCamera)
-                locationUpdateDuration = 10 * (locationUpdateTimestamp - previousUpdateTimeStamp);
+                locationUpdateDuration = locationUpdateTimestamp - previousUpdateTimeStamp;
             }
 
             // calculate interpolated location
@@ -613,19 +609,18 @@ public class MyLocationView extends View {
                 }
                 gpsDirection = 0;
                 setCompass(gpsDirection);
-//                }
             } else if (myBearingTrackingMode == MyBearingTracking.COMPASS) {
                 if (!compassListener.isPaused()) {
                     builder.bearing(compassListener.getCurrentDegree());
-                    compassDirection = 0;
-                    setCompass(compassDirection);
+                    setCompass(0);
                 }
             }
 
+            // accuracy
             updateAccuracy(location);
 
-            // animate to new camera
-            mapboxMap.easeCamera(CameraUpdateFactory.newCameraPosition(builder.build()), (int) locationUpdateDuration, null);
+            // ease to new camera position with a linear interpolator
+            mapboxMap.easeCamera(CameraUpdateFactory.newCameraPosition(builder.build()), (int) locationUpdateDuration, false /*linear interpolator*/);
         }
 
         @Override
@@ -664,7 +659,7 @@ public class MyLocationView extends View {
             // calculate updateLatLng time + add some extra offset to improve animation
             long previousUpdateTimeStamp = locationUpdateTimestamp;
             locationUpdateTimestamp = SystemClock.elapsedRealtime();
-            long locationUpdateDuration = (long) ((locationUpdateTimestamp - previousUpdateTimeStamp) * 1.2);
+            long locationUpdateDuration = (long) ((locationUpdateTimestamp - previousUpdateTimeStamp) * 1.1);
 
             // calculate interpolated entity
             interpolatedLocation = new LatLng((latLng.getLatitude() + previousLocation.getLatitude()) / 2, (latLng.getLongitude() + previousLocation.getLongitude()) / 2);
@@ -680,7 +675,6 @@ public class MyLocationView extends View {
             locationChangeAnimator.addUpdateListener(new MarkerCoordinateAnimatorListener(this,
                     previousLocation, interpolatedLocation
             ));
-            locationChangeAnimator.setInterpolator(new FastOutLinearInInterpolator());
             locationChangeAnimator.start();
 
             // use interpolated location as current location

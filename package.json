@@ -1,6 +1,6 @@
 {
   "name": "mapbox-gl-native",
-  "version": "3.1.2",
+  "version": "3.1.3",
   "description": "Renders map tiles with Mapbox GL",
   "keywords": [
     "mapbox",
@@ -18,6 +18,8 @@
   },
   "devDependencies": {
     "aws-sdk": "^2.3.5",
+    "express": "^4.11.1",
+    "mapbox-gl-shaders": "mapbox/mapbox-gl-shaders#4a567b438be303fbbf13e5ddf49d72d8debd811d",
     "mapbox-gl-test-suite": "mapbox/mapbox-gl-test-suite#b3441d9a285ffbe9b876677acb13d7df07e5b975",
     "node-gyp": "^3.3.1",
     "request": "^2.72.0",

@@ -5,6 +5,7 @@
 #import "MGLOpenGLLayer.h"
 #import "MGLStyle.h"
 
+#import "MGLFeature_Private.h"
 #import "MGLGeometry_Private.h"
 #import "MGLMultiPoint_Private.h"
 #import "MGLOfflineStorage_Private.h"
@@ -1603,7 +1604,9 @@ public:
     
     BOOL delegateHasImagesForAnnotations = [self.delegate respondsToSelector:@selector(mapView:imageForAnnotation:)];
     
+    NSMutableArray *userPoints = [NSMutableArray array];
     std::vector<mbgl::PointAnnotation> points;
+    NSMutableArray *userShapes = [NSMutableArray array];
     std::vector<mbgl::ShapeAnnotation> shapes;
     NSMutableArray *annotationImages = [NSMutableArray arrayWithCapacity:annotations.count];
     
@@ -1612,7 +1615,16 @@ public:
         
         if ([annotation isKindOfClass:[MGLMultiPoint class]]) {
             // The multipoint knows how to style itself (with the map view’s help).
-            [(MGLMultiPoint *)annotation addShapeAnnotationObjectToCollection:shapes withDelegate:self];
+            MGLMultiPoint *multiPoint = (MGLMultiPoint *)annotation;
+            if (!multiPoint.pointCount) {
+                continue;
+            }
+            shapes.emplace_back(multiPoint.annotationSegments, [multiPoint shapeAnnotationPropertiesObjectWithDelegate:self]);
+            [userShapes addObject:annotation];
+        } else if ([annotation isKindOfClass:[MGLMultiPolyline class]]
+                   || [annotation isKindOfClass:[MGLMultiPolygon class]]
+                   || [annotation isKindOfClass:[MGLShapeCollection class]]) {
+            continue;
         } else {
             MGLAnnotationImage *annotationImage = nil;
             if (delegateHasImagesForAnnotations) {
@@ -1637,6 +1649,7 @@ public:
             }
             [annotationImages addObject:annotationImage];
             
+            [userPoints addObject:annotation];
             points.emplace_back(MGLLatLngFromLocationCoordinate2D(annotation.coordinate), symbolName.UTF8String ?: "");
             
             // Opt into potentially expensive tooltip tracking areas.
@@ -1654,7 +1667,7 @@ public:
             MGLAnnotationTag annotationTag = annotationTags[i];
             MGLAnnotationImage *annotationImage = annotationImages[i];
             annotationImage.styleIconIdentifier = @(points[i].icon.c_str());
-            id <MGLAnnotation> annotation = annotations[i];
+            id <MGLAnnotation> annotation = userPoints[i];
             
             MGLAnnotationContext context;
             context.annotation = annotation;
@@ -1674,7 +1687,7 @@ public:
         
         for (size_t i = 0; i < annotationTags.size(); ++i) {
             MGLAnnotationTag annotationTag = annotationTags[i];
-            id <MGLAnnotation> annotation = annotations[i];
+            id <MGLAnnotation> annotation = userShapes[i];
             
             MGLAnnotationContext context;
             context.annotation = annotation;
@@ -2242,6 +2255,55 @@ public:
     }
 }
 
+#pragma mark Data
+
+- (NS_ARRAY_OF(id <MGLFeature>) *)visibleFeaturesAtPoint:(NSPoint)point {
+    return [self visibleFeaturesAtPoint:point inStyleLayersWithIdentifiers:nil];
+}
+
+- (NS_ARRAY_OF(id <MGLFeature>) *)visibleFeaturesAtPoint:(NSPoint)point inStyleLayersWithIdentifiers:(NS_SET_OF(NSString *) *)styleLayerIdentifiers {
+    // Cocoa origin is at the lower-left corner.
+    mbgl::ScreenCoordinate screenCoordinate = { point.x, NSHeight(self.bounds) - point.y };
+    
+    mbgl::optional<std::vector<std::string>> optionalLayerIDs;
+    if (styleLayerIdentifiers) {
+        __block std::vector<std::string> layerIDs;
+        layerIDs.reserve(styleLayerIdentifiers.count);
+        [styleLayerIdentifiers enumerateObjectsUsingBlock:^(NSString * _Nonnull identifier, BOOL * _Nonnull stop) {
+            layerIDs.push_back(identifier.UTF8String);
+        }];
+        optionalLayerIDs = layerIDs;
+    }
+    
+    std::vector<mbgl::Feature> features = _mbglMap->queryRenderedFeatures(screenCoordinate, optionalLayerIDs);
+    return MGLFeaturesFromMBGLFeatures(features);
+}
+
+- (NS_ARRAY_OF(id <MGLFeature>) *)visibleFeaturesInRect:(NSRect)rect {
+    return [self visibleFeaturesInRect:rect inStyleLayersWithIdentifiers:nil];
+}
+
+- (NS_ARRAY_OF(id <MGLFeature>) *)visibleFeaturesInRect:(NSRect)rect inStyleLayersWithIdentifiers:(NS_SET_OF(NSString *) *)styleLayerIdentifiers {
+    // Cocoa origin is at the lower-left corner.
+    mbgl::ScreenBox screenBox = {
+        { NSMinX(rect), NSHeight(self.bounds) - NSMaxY(rect) },
+        { NSMaxX(rect), NSHeight(self.bounds) - NSMinY(rect) },
+    };
+    
+    mbgl::optional<std::vector<std::string>> optionalLayerIDs;
+    if (styleLayerIdentifiers) {
+        __block std::vector<std::string> layerIDs;
+        layerIDs.reserve(styleLayerIdentifiers.count);
+        [styleLayerIdentifiers enumerateObjectsUsingBlock:^(NSString * _Nonnull identifier, BOOL * _Nonnull stop) {
+            layerIDs.push_back(identifier.UTF8String);
+        }];
+        optionalLayerIDs = layerIDs;
+    }
+    
+    std::vector<mbgl::Feature> features = _mbglMap->queryRenderedFeatures(screenBox, optionalLayerIDs);
+    return MGLFeaturesFromMBGLFeatures(features);
+}
+
 #pragma mark Interface Builder methods
 
 - (void)prepareForInterfaceBuilder {
@@ -2362,6 +2424,12 @@ public:
     if (options & mbgl::MapDebugOptions::Collision) {
         mask |= MGLMapDebugCollisionBoxesMask;
     }
+    if (options & mbgl::MapDebugOptions::Wireframe) {
+        mask |= MGLMapDebugWireframesMask;
+    }
+    if (options & mbgl::MapDebugOptions::StencilClip) {
+        mask |= MGLMapDebugStencilBufferMask;
+    }
     return mask;
 }
 
@@ -2378,6 +2446,12 @@ public:
     }
     if (debugMask & MGLMapDebugCollisionBoxesMask) {
         options |= mbgl::MapDebugOptions::Collision;
+    }
+    if (debugMask & MGLMapDebugWireframesMask) {
+        options |= mbgl::MapDebugOptions::Wireframe;
+    }
+    if (debugMask & MGLMapDebugStencilBufferMask) {
+        options |= mbgl::MapDebugOptions::StencilClip;
     }
     _mbglMap->setDebug(options);
 }

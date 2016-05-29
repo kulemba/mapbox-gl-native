@@ -7,6 +7,7 @@
 #include <mbgl/annotation/shape_annotation.hpp>
 #include <mbgl/annotation/annotation_manager.hpp>
 #include <mbgl/style/style.hpp>
+#include <mbgl/style/style_observer.hpp>
 #include <mbgl/style/style_layer.hpp>
 #include <mbgl/style/property_transition.hpp>
 #include <mbgl/style/style_update_parameters.hpp>
@@ -33,7 +34,7 @@ enum class RenderState {
     fully
 };
 
-class Map::Impl : public Style::Observer {
+class Map::Impl : public StyleObserver {
 public:
     Impl(View&, FileSource&, MapMode, GLContextMode, ConstrainMode, ViewportMode);
 
@@ -796,8 +797,17 @@ void Map::setDebug(MapDebugOptions debugOptions) {
 }
 
 void Map::cycleDebugOptions() {
-    if (impl->debugOptions & MapDebugOptions::Collision)
+#ifndef GL_ES_VERSION_2_0
+    if (impl->debugOptions & MapDebugOptions::StencilClip)
         impl->debugOptions = MapDebugOptions::NoDebug;
+    else if (impl->debugOptions & MapDebugOptions::Wireframe)
+        impl->debugOptions = MapDebugOptions::StencilClip;
+#else
+    if (impl->debugOptions & MapDebugOptions::Wireframe)
+        impl->debugOptions = MapDebugOptions::NoDebug;
+#endif // GL_ES_VERSION_2_0
+    else if (impl->debugOptions & MapDebugOptions::Collision)
+        impl->debugOptions = MapDebugOptions::Collision | MapDebugOptions::Wireframe;
     else if (impl->debugOptions & MapDebugOptions::Timestamps)
         impl->debugOptions = impl->debugOptions | MapDebugOptions::Collision;
     else if (impl->debugOptions & MapDebugOptions::ParseStatus)

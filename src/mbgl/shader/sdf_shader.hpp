@@ -1,5 +1,4 @@
-#ifndef MBGL_SHADER_SDF_SHADER
-#define MBGL_SHADER_SDF_SHADER
+#pragma once
 
 #include <mbgl/shader/shader.hpp>
 #include <mbgl/shader/uniform.hpp>
@@ -13,6 +12,7 @@ public:
     UniformMatrix<4>                u_matrix      = {"u_matrix",      *this};
     UniformMatrix<4>                u_exmatrix    = {"u_exmatrix",    *this};
     Uniform<std::array<GLfloat, 4>> u_color       = {"u_color",       *this};
+    Uniform<GLfloat>                u_opacity     = {"u_opacity",     *this};
     Uniform<std::array<GLfloat, 2>> u_texsize     = {"u_texsize",     *this};
     Uniform<GLfloat>                u_buffer      = {"u_buffer",      *this};
     Uniform<GLfloat>                u_gamma       = {"u_gamma",       *this};
@@ -40,5 +40,3 @@ public:
 };
 
 } // namespace mbgl
-
-#endif
