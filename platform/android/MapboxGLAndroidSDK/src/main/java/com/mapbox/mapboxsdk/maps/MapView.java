@@ -1,6 +1,8 @@
 package com.mapbox.mapboxsdk.maps;
 
 import android.Manifest;
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Dialog;
@@ -24,6 +26,7 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.support.annotation.CallSuper;
 import android.support.annotation.FloatRange;
 import android.support.annotation.IntDef;
@@ -33,6 +36,7 @@ import android.support.annotation.UiThread;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GestureDetectorCompat;
 import android.support.v4.view.ScaleGestureDetectorCompat;
+import android.support.v4.view.animation.FastOutSlowInInterpolator;
 import android.support.v7.app.AlertDialog;
 import android.text.TextUtils;
 import android.util.AttributeSet;
@@ -65,6 +69,7 @@ import com.mapbox.mapboxsdk.annotations.Icon;
 import com.mapbox.mapboxsdk.annotations.IconFactory;
 import com.mapbox.mapboxsdk.annotations.InfoWindow;
 import com.mapbox.mapboxsdk.annotations.Marker;
+import com.mapbox.mapboxsdk.annotations.MarkerView;
 import com.mapbox.mapboxsdk.annotations.Polygon;
 import com.mapbox.mapboxsdk.annotations.Polyline;
 import com.mapbox.mapboxsdk.camera.CameraPosition;
@@ -85,6 +90,7 @@ import com.mapbox.mapboxsdk.maps.widgets.MyLocationViewSettings;
 import com.mapbox.mapboxsdk.telemetry.MapboxEvent;
 import com.mapbox.mapboxsdk.telemetry.MapboxEventManager;
 import com.mapbox.mapboxsdk.utils.ColorUtils;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.nio.ByteBuffer;
@@ -93,6 +99,7 @@ import java.util.Collections;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
@@ -108,11 +115,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * </p>
  * <strong>Warning:</strong> Please note that you are responsible for getting permission to use the map data,
  * and for ensuring your use adheres to the relevant terms of use.
- *
  */
 public class MapView extends FrameLayout {
 
     private MapboxMap mMapboxMap;
+    private boolean mInitialLoad;
+    private boolean mDestroyed;
 
     private List<Icon> mIcons;
     private int mAverageIconHeight;
@@ -147,11 +155,10 @@ public class MapView extends FrameLayout {
     private int mContentPaddingRight;
     private int mContentPaddingBottom;
 
-    private List<OnMapReadyCallback> mOnMapReadyCallbackList;
-    private boolean mInitialLoad;
-    private boolean mDestroyed;
-
     private StyleInitializer mStyleInitializer;
+
+    private List<OnMapReadyCallback> mOnMapReadyCallbackList;
+    private long mViewMarkerBoundsUpdateTime;
 
     @UiThread
     public MapView(@NonNull Context context) {
@@ -445,6 +452,12 @@ public class MapView extends FrameLayout {
                             iterator.remove();
                         }
                     }
+                } else if (change == REGION_IS_CHANGING || change == REGION_DID_CHANGE) {
+                    if (!mMapboxMap.getMarkerViewAdapters().isEmpty()) {
+                        invalidateViewMarkers();
+                    }
+                }else if(change== DID_FINISH_LOADING_MAP){
+                    invalidateViewMarkers();
                 }
             }
         });
@@ -456,6 +469,15 @@ public class MapView extends FrameLayout {
             evt.put(MapboxEvent.ATTRIBUTE_CREATED, MapboxEventManager.generateCreateDate());
             MapboxEventManager.getMapboxEventManager().pushEvent(evt);
         }
+    }
+
+    void invalidateViewMarkers() {
+        long currentTime = SystemClock.elapsedRealtime();
+        if (currentTime < mViewMarkerBoundsUpdateTime) {
+            return;
+        }
+        mMapboxMap.invalidateViewMarkersInBounds();
+        mViewMarkerBoundsUpdateTime = currentTime + 250;
     }
 
     /**
@@ -597,13 +619,9 @@ public class MapView extends FrameLayout {
         return mNativeMapView.getPitch();
     }
 
-    void setTilt(Double pitch, @Nullable Long duration) {
-        long actualDuration = 0;
-        if (duration != null) {
-            actualDuration = duration;
-        }
+    void setTilt(Double pitch) {
         mMyLocationView.setTilt(pitch);
-        mNativeMapView.setPitch(pitch, actualDuration);
+        mNativeMapView.setPitch(pitch, 0);
     }
 
 
@@ -837,10 +855,9 @@ public class MapView extends FrameLayout {
      * <p>
      * DEPRECATED @see MapboxAccountManager#start(String)
      * </p>
-     *
+     * <p>
      * <p>
      * Sets the current Mapbox access token used to load map styles and tiles.
-     * </p>
      * <p>
      * You must set a valid access token before you call {@link MapView#onCreate(Bundle)}
      * or an exception will be thrown.
@@ -848,6 +865,7 @@ public class MapView extends FrameLayout {
      *
      * @param accessToken Your public Mapbox access token.
      * @see MapView#onCreate(Bundle)
+     * @deprecated As of release 4.1.0, replaced by {@link com.mapbox.mapboxsdk.MapboxAccountManager#start(Context, String)}
      */
     @Deprecated
     @UiThread
@@ -867,10 +885,12 @@ public class MapView extends FrameLayout {
      * <p>
      * DEPRECATED @see MapboxAccountManager#getAccessToken()
      * </p>
-     *
+     * <p/>
      * Returns the current Mapbox access token used to load map styles and tiles.
-     *
+     * </p>
+     * 
      * @return The current Mapbox access token.
+     * @deprecated As of release 4.1.0, replaced by {@link MapboxAccountManager#getAccessToken()}
      */
     @Deprecated
     @UiThread
@@ -1064,7 +1084,7 @@ public class MapView extends FrameLayout {
         mNativeMapView.removeAnnotations(ids);
     }
 
-    private List<Marker> getMarkersInBounds(@NonNull LatLngBounds bbox) {
+    List<Marker> getMarkersInBounds(@NonNull LatLngBounds bbox) {
         if (mDestroyed || bbox == null) {
             return new ArrayList<>();
         }
@@ -1089,6 +1109,33 @@ public class MapView extends FrameLayout {
 
         return new ArrayList<>(annotations);
     }
+
+    List<MarkerView> getMarkerViewsInBounds(@NonNull LatLngBounds bbox) {
+        if (mDestroyed || bbox == null) {
+            return new ArrayList<>();
+        }
+
+        // TODO: filter in JNI using C++ parameter to getAnnotationsInBounds
+        long[] ids = mNativeMapView.getAnnotationsInBounds(bbox);
+
+        List<Long> idsList = new ArrayList<>(ids.length);
+        for (int i = 0; i < ids.length; i++) {
+            idsList.add(ids[i]);
+        }
+
+        List<MarkerView> annotations = new ArrayList<>(ids.length);
+        List<Annotation> annotationList = mMapboxMap.getAnnotations();
+        int count = annotationList.size();
+        for (int i = 0; i < count; i++) {
+            Annotation annotation = annotationList.get(i);
+            if (annotation instanceof MarkerView && idsList.contains(annotation.getId())) {
+                annotations.add((MarkerView) annotation);
+            }
+        }
+
+        return new ArrayList<>(annotations);
+    }
+
 
     int getTopOffsetPixelsForIcon(Icon icon) {
         if (mDestroyed) {
@@ -1282,6 +1329,10 @@ public class MapView extends FrameLayout {
     private class SurfaceTextureListener implements TextureView.SurfaceTextureListener {
 
         private Surface mSurface;
+        private View mViewHolder;
+
+        private static final int VIEW_MARKERS_POOL_SIZE = 20;
+
 
         // Called when the native surface texture has been created
         // Must do all EGL/GL ES initialization here
@@ -1289,7 +1340,6 @@ public class MapView extends FrameLayout {
         public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
             mNativeMapView.createSurface(mSurface = new Surface(surface));
             mNativeMapView.resizeFramebuffer(width, height);
-
             mHasSurface = true;
         }
 
@@ -1327,6 +1377,34 @@ public class MapView extends FrameLayout {
 
             mCompassView.update(getDirection());
             mMyLocationView.update();
+
+            Map<MarkerView, View> viewMarkers = mMapboxMap.getMarkerViewMap();
+            for (Marker marker : viewMarkers.keySet()) {
+                mViewHolder = viewMarkers.get(marker);
+                if (mViewHolder != null) {
+                    PointF point = mMapboxMap.getProjection().toScreenLocation(marker.getPosition());
+                    mViewHolder.setX(point.x - (mViewHolder.getMeasuredWidth() / 2));
+                    mViewHolder.setY(point.y - (mViewHolder.getMeasuredHeight() / 2));
+
+                    if (mViewHolder.getVisibility() == GONE) {
+                        mViewHolder.animate().cancel();
+                        mViewHolder.setAlpha(0);
+                        mViewHolder.animate()
+                                .alpha(1)
+                                .setDuration(MapboxConstants.ANIMATION_DURATION_SHORT)
+                                .setInterpolator(new FastOutSlowInInterpolator())
+                                .setListener(new AnimatorListenerAdapter() {
+                                    @Override
+                                    public void onAnimationStart(Animator animation) {
+                                        super.onAnimationStart(animation);
+                                        mViewHolder.setVisibility(VISIBLE);
+                                    }
+                                })
+                                .start();
+                    }
+                }
+            }
+
             for (InfoWindow infoWindow : mMapboxMap.getInfoWindows()) {
                 infoWindow.update();
             }
@@ -1619,7 +1697,10 @@ public class MapView extends FrameLayout {
                     if (annotation instanceof Marker) {
                         if (annotation.getId() == newSelectedMarkerId) {
                             if (selectedMarkers.isEmpty() || !selectedMarkers.contains(annotation)) {
-                                mMapboxMap.selectMarker((Marker) annotation);
+                                // only handle click if no marker view is available
+                                if (mMapboxMap.getMarkerViewMap().get(annotation) == null) {
+                                    mMapboxMap.selectMarker((Marker) annotation);
+                                }
                             }
                             break;
                         }
@@ -1939,7 +2020,7 @@ public class MapView extends FrameLayout {
             pitch = Math.max(MapboxConstants.MINIMUM_TILT, Math.min(MapboxConstants.MAXIMUM_TILT, pitch));
 
             // Tilt the map
-            setTilt(pitch, null);
+            mMapboxMap.setTilt(pitch);
 
             return true;
         }
@@ -2660,7 +2741,7 @@ public class MapView extends FrameLayout {
         private String mStyle;
         private boolean mDefaultStyle;
 
-        StyleInitializer(@NonNull  Context context) {
+        StyleInitializer(@NonNull Context context) {
             mStyle = Style.getMapboxStreetsUrl(context.getResources().getInteger(R.integer.style_version));
             mDefaultStyle = true;
         }
