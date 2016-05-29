@@ -9,7 +9,7 @@ PointAnnotationImpl::PointAnnotationImpl(const AnnotationID id_, const PointAnno
   point(point_) {
 }
 
-void PointAnnotationImpl::updateLayer(const TileID& tileID, AnnotationTileLayer& layer) const {
+void PointAnnotationImpl::updateLayer(const CanonicalTileID& tileID, AnnotationTileLayer& layer) const {
     std::unordered_map<std::string, std::string> featureProperties;
     featureProperties.emplace("sprite", point.icon.empty() ? std::string("default_marker") : point.icon);
 
@@ -25,7 +25,7 @@ void PointAnnotationImpl::updateLayer(const TileID& tileID, AnnotationTileLayer&
     projected *= std::pow(2, tileID.z);
     projected.x = std::fmod(projected.x, 1);
     projected.y = std::fmod(projected.y, 1);
-    projected *= double(GeometryTileFeature::defaultExtent);
+    projected *= double(util::EXTENT);
 
     layer.features.emplace_back(
         std::make_shared<const AnnotationTileFeature>(FeatureType::Point,

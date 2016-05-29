@@ -6,7 +6,6 @@
 #include <mbgl/shader/sdf_shader.hpp>
 #include <mbgl/shader/icon_shader.hpp>
 #include <mbgl/shader/box_shader.hpp>
-#include <mbgl/map/tile_id.hpp>
 #include <mbgl/util/math.hpp>
 
 #include <cmath>
@@ -14,7 +13,7 @@
 using namespace mbgl;
 
 void Painter::renderSDF(SymbolBucket &bucket,
-                        const TileID &id,
+                        const UnwrappedTileID &tileID,
                         const mat4 &matrix,
                         float sdfFontSize,
                         std::array<float, 2> texsize,
@@ -35,7 +34,7 @@ void Painter::renderSDF(SymbolBucket &bucket,
                         TranslateAnchorType translateAnchor,
                         float paintSize)
 {
-    mat4 vtxMatrix = translatedMatrix(matrix, translate, id, translateAnchor);
+    mat4 vtxMatrix = translatedMatrix(matrix, translate, tileID, translateAnchor);
 
     bool skewed = rotationAlignment == RotationAlignmentType::Map;
     mat4 exMatrix;
@@ -44,7 +43,7 @@ void Painter::renderSDF(SymbolBucket &bucket,
 
     if (skewed) {
         matrix::identity(exMatrix);
-        s = id.pixelsToTileUnits(1, state.getZoom());
+        s = tileID.pixelsToTileUnits(1, state.getZoom());
         gammaScale = 1.0f / std::cos(state.getPitch());
     } else {
         exMatrix = extrudeMatrix;
@@ -52,7 +51,8 @@ void Painter::renderSDF(SymbolBucket &bucket,
         gammaScale = 1.0f;
         matrix::rotate_z(exMatrix, exMatrix, state.getNorthOrientationAngle());
     }
-    matrix::scale(exMatrix, exMatrix, s, s, 1);
+    const bool flippedY = !skewed && state.getViewportMode() == ViewportMode::FlippedY;
+    matrix::scale(exMatrix, exMatrix, s, flippedY ? -s : s, 1);
 
     // If layerStyle.size > bucket.info.fontSize then labels may collide
     float fontSize = paintSize;
@@ -130,7 +130,10 @@ void Painter::renderSDF(SymbolBucket &bucket,
     }
 }
 
-void Painter::renderSymbol(SymbolBucket& bucket, const SymbolLayer& layer, const TileID& id, const mat4& matrix) {
+void Painter::renderSymbol(SymbolBucket& bucket,
+                           const SymbolLayer& layer,
+                           const UnwrappedTileID& tileID,
+                           const mat4& matrix) {
     // Abort early.
     if (pass == RenderPass::Opaque) {
         return;
@@ -183,7 +186,7 @@ void Painter::renderSymbol(SymbolBucket& bucket, const SymbolLayer& layer, const
 
         if (sdf) {
             renderSDF(bucket,
-                      id,
+                      tileID,
                       matrix,
                       1.0f,
                       {{ float(activeSpriteAtlas->getWidth()) / 4.0f, float(activeSpriteAtlas->getHeight()) / 4.0f }},
@@ -200,7 +203,8 @@ void Painter::renderSymbol(SymbolBucket& bucket, const SymbolLayer& layer, const
                       paint.iconTranslateAnchor,
                       layer.iconSize);
         } else {
-            mat4 vtxMatrix = translatedMatrix(matrix, paint.iconTranslate, id, paint.iconTranslateAnchor);
+            mat4 vtxMatrix =
+                translatedMatrix(matrix, paint.iconTranslate, tileID, paint.iconTranslateAnchor);
 
             bool skewed = layout.iconRotationAlignment == RotationAlignmentType::Map;
             mat4 exMatrix;
@@ -208,13 +212,14 @@ void Painter::renderSymbol(SymbolBucket& bucket, const SymbolLayer& layer, const
 
             if (skewed) {
                 matrix::identity(exMatrix);
-                s = id.pixelsToTileUnits(1, state.getZoom());
+                s = tileID.pixelsToTileUnits(1, state.getZoom());
             } else {
                 exMatrix = extrudeMatrix;
                 matrix::rotate_z(exMatrix, exMatrix, state.getNorthOrientationAngle());
                 s = state.getAltitude();
             }
-            matrix::scale(exMatrix, exMatrix, s, s, 1);
+            const bool flippedY = !skewed && state.getViewportMode() == ViewportMode::FlippedY;
+            matrix::scale(exMatrix, exMatrix, s, flippedY ? -s : s, 1);
 
             matrix::scale(exMatrix, exMatrix, fontScale, fontScale, 1.0f);
 
@@ -259,7 +264,7 @@ void Painter::renderSymbol(SymbolBucket& bucket, const SymbolLayer& layer, const
         glyphAtlas->bind(glObjectStore);
 
         renderSDF(bucket,
-                  id,
+                  tileID,
                   matrix,
                   24.0f,
                   {{ float(glyphAtlas->width) / 4, float(glyphAtlas->height) / 4 }},
@@ -283,9 +288,10 @@ void Painter::renderSymbol(SymbolBucket& bucket, const SymbolLayer& layer, const
 
         config.program = collisionBoxShader->getID();
         collisionBoxShader->u_matrix = matrix;
-        collisionBoxShader->u_scale = std::pow(2, state.getZoom() - id.z);
+        // TODO: This was the overscaled z instead of the canonical z.
+        collisionBoxShader->u_scale = std::pow(2, state.getZoom() - tileID.canonical.z);
         collisionBoxShader->u_zoom = state.getZoom() * 10;
-        collisionBoxShader->u_maxzoom = (id.z + 1) * 10;
+        collisionBoxShader->u_maxzoom = (tileID.canonical.z + 1) * 10;
         config.lineWidth = 1.0f;
 
         setDepthSublayer(0);

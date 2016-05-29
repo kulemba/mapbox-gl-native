@@ -1,9 +1,11 @@
 #ifndef MBGL_MAP_SOURCE
 #define MBGL_MAP_SOURCE
 
+#include <mbgl/tile/tile_id.hpp>
 #include <mbgl/tile/tile_data.hpp>
 #include <mbgl/tile/tile_cache.hpp>
 #include <mbgl/source/source_info.hpp>
+#include <mbgl/renderer/renderable.hpp>
 
 #include <mbgl/util/mat4.hpp>
 #include <mbgl/util/rapidjson.hpp>
@@ -30,7 +32,6 @@ class TransformState;
 class Tile;
 class TileCoordinate;
 struct ClipID;
-struct box;
 
 class Source : private util::noncopyable {
 public:
@@ -41,8 +42,8 @@ public:
         virtual void onSourceLoaded(Source&) {};
         virtual void onSourceError(Source&, std::exception_ptr) {};
 
-        virtual void onTileLoaded(Source&, const TileID&, bool /* isNewTile */) {};
-        virtual void onTileError(Source&, const TileID&, std::exception_ptr) {};
+        virtual void onTileLoaded(Source&, const OverscaledTileID&, bool /* isNewTile */) {};
+        virtual void onTileError(Source&, const OverscaledTileID&, std::exception_ptr) {};
         virtual void onPlacementRedone() {};
     };
 
@@ -67,17 +68,23 @@ public:
     // new data available that a tile in the "partial" state might be interested at.
     bool update(const StyleUpdateParameters&);
 
+    template <typename ClipIDGenerator>
+    void updateClipIDs(ClipIDGenerator& generator) {
+        generator.update(tiles);
+    }
+
     void updateMatrices(const mat4 &projMatrix, const TransformState &transform);
     void finishRender(Painter &painter);
 
-    std::forward_list<Tile *> getLoadedTiles() const;
-    const std::vector<Tile*>& getTiles() const;
+    const std::map<UnwrappedTileID, Tile>& getTiles() const;
+
+    TileData* getTileData(const OverscaledTileID&) const;
 
     std::unordered_map<std::string, std::vector<Feature>> queryRenderedFeatures(
             const std::vector<TileCoordinate>& queryGeometry,
             const double zoom,
             const double bearing,
-            const optional<std::vector<std::string>>& layerIDs);
+            const optional<std::vector<std::string>>& layerIDs) const;
 
     void setCacheSize(size_t);
     void onLowMemory();
@@ -92,16 +99,10 @@ public:
     bool enabled = false;
 
 private:
-    void tileLoadingCallback(const TileID&,
-                             std::exception_ptr,
-                             bool isNewTile);
-    bool handlePartialTile(const TileID&);
-    bool findLoadedChildren(const TileID&, int32_t maxCoveringZoom, std::vector<TileID>& retain);
-    void findLoadedParent(const TileID&, int32_t minCoveringZoom, std::vector<TileID>& retain, const StyleUpdateParameters&);
+    void tileLoadingCallback(const OverscaledTileID&, std::exception_ptr, bool isNewTile);
 
-    TileData::State addTile(const TileID&, const StyleUpdateParameters&);
-    TileData::State hasTile(const TileID&);
-    void updateTilePtrs();
+    std::unique_ptr<TileData> createTile(const OverscaledTileID&,
+                                         const StyleUpdateParameters& parameters);
 
 private:
     std::unique_ptr<const SourceInfo> info;
@@ -111,9 +112,8 @@ private:
     // Stores the time when this source was most recently updated.
     TimePoint updated = TimePoint::min();
 
-    std::map<TileID, std::unique_ptr<Tile>> tiles;
-    std::vector<Tile*> tilePtrs;
-    std::map<TileID, std::weak_ptr<TileData>> tileDataMap;
+    std::map<UnwrappedTileID, Tile> tiles;
+    std::map<OverscaledTileID, std::unique_ptr<TileData>> tileDataMap;
     TileCache cache;
 
     std::unique_ptr<AsyncRequest> req;
