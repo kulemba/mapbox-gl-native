@@ -97,16 +97,35 @@ public:
 
     void request(AsyncRequest* req, Resource resource, Callback callback) {
         auto offlineResponse = offlineDatabase.get(resource);
-
+        
+        if (! offlineResponse) {
+            auto supplementaryCachePathsOfKind = supplementaryCachePaths.find(resource.kind);
+            if (supplementaryCachePathsOfKind != supplementaryCachePaths.end()) {
+                const auto &latLngBoundsCachePathTree = supplementaryCachePathsOfKind->second;
+                auto qCachePathsBegin = resource.tileData ? latLngBoundsCachePathTree.qbegin(boost::geometry::index::intersects(LatLngBounds(CanonicalTileID(resource.tileData->z, resource.tileData->x, resource.tileData->y)))): latLngBoundsCachePathTree.qbegin(boost::geometry::index::contains(LatLng()));
+                auto qCachePathsEnd = latLngBoundsCachePathTree.qend();
+                for (auto j = qCachePathsBegin; ! offlineResponse && j != qCachePathsEnd; ++ j) {
+                    const auto &cachePath = j->second;
+                    auto supplementaryOfflineDatabase = supplementaryOfflineDatabases.find(cachePath);
+                    if (supplementaryOfflineDatabase == supplementaryOfflineDatabases.end()) {
+                        supplementaryOfflineDatabase = supplementaryOfflineDatabases.emplace(cachePath, std::make_unique<OfflineDatabase>(cachePath)).first;
+                    }
+                    if (supplementaryOfflineDatabase != supplementaryOfflineDatabases.end()) {
+                        offlineResponse = supplementaryOfflineDatabase->second->get(resource);
+                    }
+                }
+            }
+        }
+        
         Resource revalidation = resource;
-
+        
         if (offlineResponse) {
             revalidation.priorModified = offlineResponse->modified;
             revalidation.priorExpires = offlineResponse->expires;
             revalidation.priorEtag = offlineResponse->etag;
             callback(*offlineResponse);
         }
-
+        
         tasks[req] = onlineFileSource.request(revalidation, [=] (Response onlineResponse) {
             this->offlineDatabase.put(revalidation, onlineResponse);
             callback(onlineResponse);
