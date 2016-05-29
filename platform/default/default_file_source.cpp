@@ -96,40 +96,54 @@ public:
     }
 
     void request(AsyncRequest* req, Resource resource, Callback callback) {
-        auto offlineResponse = offlineDatabase.get(resource);
-        
-        if (! offlineResponse) {
-            auto supplementaryCachePathsOfKind = supplementaryCachePaths.find(resource.kind);
-            if (supplementaryCachePathsOfKind != supplementaryCachePaths.end()) {
-                const auto &latLngBoundsCachePathTree = supplementaryCachePathsOfKind->second;
-                auto qCachePathsBegin = resource.tileData ? latLngBoundsCachePathTree.qbegin(boost::geometry::index::intersects(LatLngBounds(CanonicalTileID(resource.tileData->z, resource.tileData->x, resource.tileData->y)))): latLngBoundsCachePathTree.qbegin(boost::geometry::index::contains(LatLng()));
-                auto qCachePathsEnd = latLngBoundsCachePathTree.qend();
-                for (auto j = qCachePathsBegin; ! offlineResponse && j != qCachePathsEnd; ++ j) {
-                    const auto &cachePath = j->second;
-                    auto supplementaryOfflineDatabase = supplementaryOfflineDatabases.find(cachePath);
-                    if (supplementaryOfflineDatabase == supplementaryOfflineDatabases.end()) {
-                        supplementaryOfflineDatabase = supplementaryOfflineDatabases.emplace(cachePath, std::make_unique<OfflineDatabase>(cachePath)).first;
-                    }
-                    if (supplementaryOfflineDatabase != supplementaryOfflineDatabases.end()) {
-                        offlineResponse = supplementaryOfflineDatabase->second->get(resource);
+        Resource revalidation = resource;
+
+        const bool hasPrior = resource.priorEtag || resource.priorModified || resource.priorExpires;
+        if (!hasPrior || resource.necessity == Resource::Optional) {
+            auto offlineResponse = offlineDatabase.get(resource);
+
+            if (resource.necessity == Resource::Optional && !offlineResponse) {
+                // Ensure there's always a response that we can send, so the caller knows that
+                // there's no optional data available in the cache.
+                offlineResponse.emplace();
+                offlineResponse->noContent = true;
+                offlineResponse->error = std::make_unique<Response::Error>(
+                    Response::Error::Reason::NotFound, "Not found in offline database");
+            }
+
+            if (! offlineResponse) {
+                auto supplementaryCachePathsOfKind = supplementaryCachePaths.find(resource.kind);
+                if (supplementaryCachePathsOfKind != supplementaryCachePaths.end()) {
+                    const auto &latLngBoundsCachePathTree = supplementaryCachePathsOfKind->second;
+                    auto qCachePathsBegin = resource.tileData ? latLngBoundsCachePathTree.qbegin(boost::geometry::index::intersects(LatLngBounds(CanonicalTileID(resource.tileData->z, resource.tileData->x, resource.tileData->y)))): latLngBoundsCachePathTree.qbegin(boost::geometry::index::contains(LatLng()));
+                    auto qCachePathsEnd = latLngBoundsCachePathTree.qend();
+                    for (auto j = qCachePathsBegin; ! offlineResponse && j != qCachePathsEnd; ++ j) {
+                        const auto &cachePath = j->second;
+                        auto supplementaryOfflineDatabase = supplementaryOfflineDatabases.find(cachePath);
+                        if (supplementaryOfflineDatabase == supplementaryOfflineDatabases.end()) {
+                            supplementaryOfflineDatabase = supplementaryOfflineDatabases.emplace(cachePath, std::make_unique<OfflineDatabase>(cachePath)).first;
+                        }
+                        if (supplementaryOfflineDatabase != supplementaryOfflineDatabases.end()) {
+                            offlineResponse = supplementaryOfflineDatabase->second->get(resource);
+                        }
                     }
                 }
             }
+            
+            if (offlineResponse) {
+                revalidation.priorModified = offlineResponse->modified;
+                revalidation.priorExpires = offlineResponse->expires;
+                revalidation.priorEtag = offlineResponse->etag;
+                callback(*offlineResponse);
+            }
         }
-        
-        Resource revalidation = resource;
-        
-        if (offlineResponse) {
-            revalidation.priorModified = offlineResponse->modified;
-            revalidation.priorExpires = offlineResponse->expires;
-            revalidation.priorEtag = offlineResponse->etag;
-            callback(*offlineResponse);
+
+        if (resource.necessity == Resource::Required) {
+            tasks[req] = onlineFileSource.request(revalidation, [=] (Response onlineResponse) {
+                this->offlineDatabase.put(revalidation, onlineResponse);
+                callback(onlineResponse);
+            });
         }
-        
-        tasks[req] = onlineFileSource.request(revalidation, [=] (Response onlineResponse) {
-            this->offlineDatabase.put(revalidation, onlineResponse);
-            callback(onlineResponse);
-        });
     }
 
     void cancel(AsyncRequest* req) {

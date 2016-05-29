@@ -26,6 +26,20 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property (nonatomic, readonly, nullable) NSString *reuseIdentifier;
 
+/**
+ Annotation view is centered at the coordinate point of the associated annotation.
+ 
+ By changing this property you can reposition the view as needed. The offset is measured in points.
+ Positive offset moves the annotation view towards the bottom right, while negative offset moves it towards the top left.
+ */
+@property (nonatomic) CGVector centerOffset;
+
+
+/**
+ Setting this property to YES will force the annotation view to tilt according to the associated map view.
+ */
+@property (nonatomic, assign, getter=isFlat) BOOL flat;
+
 
 /**
  Called when the view is removed from the reuse queue.

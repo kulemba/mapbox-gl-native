@@ -25,6 +25,8 @@ enum class FeatureType : uint8_t {
     Polygon = 3
 };
 
+class CanonicalTileID;
+
 // Normalized vector tile coordinates.
 // Each geometry coordinate represents a point in a bidimensional space,
 // varying from -V...0...+V, where V is the maximum extent applicable.
@@ -86,6 +88,12 @@ public:
      */
     virtual std::unique_ptr<AsyncRequest> monitorTile(const Callback&) = 0;
 };
+
+// classifies an array of rings into polygons with outer rings and holes
+std::vector<GeometryCollection> classifyRings(const GeometryCollection&);
+
+// convert from GeometryTileFeature to Feature (eventually we should eliminate GeometryTileFeature)
+Feature convertFeature(const GeometryTileFeature&, const CanonicalTileID&);
 
 } // namespace mbgl
 

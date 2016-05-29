@@ -1,13 +1,9 @@
 package com.mapbox.mapboxsdk.constants;
 
-import android.support.annotation.IntRange;
 import android.support.annotation.StringDef;
-
 import com.mapbox.mapboxsdk.maps.MapView;
-
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.util.Locale;
 
 /**
  * <p>
@@ -42,7 +38,12 @@ public class Style {
     /**
      * Satellite Streets: Global satellite and aerial imagery with unobtrusive labels.
      */
-    private static final String SATELLITE_STREETS_BASE = "mapbox://styles/mapbox/satellite-hybrid-v%d";
+    private static final String SATELLITE_STREETS_BASE = "mapbox://styles/mapbox/satellite-streets-v%d";
+
+    /**
+     * Satellite Streets: Global satellite and aerial imagery with unobtrusive labels (Version 8).
+     */
+    private static final String SATELLITE_STREETS_V8 = "mapbox://styles/mapbox/satellite-hybrid-v8";
 
     /**
      * Get versioned url of Mapbox streets style.
@@ -59,7 +60,7 @@ public class Style {
      * @return uri to load style from
      */
     public static String getMapboxStreetsUrl(int version) {
-        return String.format(Locale.US, MAPBOX_STREETS_BASE, version);
+        return String.format(MapboxConstants.MAPBOX_LOCALE, MAPBOX_STREETS_BASE, version);
     }
 
     /**
@@ -77,7 +78,7 @@ public class Style {
      * @return uri to load style from
      */
     public static String getOutdoorsStyleUrl(int version) {
-        return String.format(Locale.US, OUTDOORS_BASE, version);
+        return String.format(MapboxConstants.MAPBOX_LOCALE, OUTDOORS_BASE, version);
     }
 
     /**
@@ -95,7 +96,7 @@ public class Style {
      * @return uri to load style from
      */
     public static String getLightStyleUrl(int version) {
-        return String.format(Locale.US, LIGHT_BASE, version);
+        return String.format(MapboxConstants.MAPBOX_LOCALE, LIGHT_BASE, version);
     }
 
     /**
@@ -113,7 +114,7 @@ public class Style {
      * @return uri to load style from
      */
     public static String getDarkStyleUrl(int version) {
-        return String.format(Locale.US, DARK_BASE, version);
+        return String.format(MapboxConstants.MAPBOX_LOCALE, DARK_BASE, version);
     }
 
     /**
@@ -131,7 +132,7 @@ public class Style {
      * @return uri to load style from
      */
     public static String getSatelliteStyleUrl(int version) {
-        return String.format(Locale.US, SATELLITE_BASE, version);
+        return String.format(MapboxConstants.MAPBOX_LOCALE, SATELLITE_BASE, version);
     }
 
     /**
@@ -149,7 +150,10 @@ public class Style {
      * @return uri to load style from
      */
     public static String getSatelliteStreetsStyleUrl(int version) {
-        return String.format(Locale.US, SATELLITE_STREETS_BASE, version);
+        if (version == 8) {
+            return SATELLITE_STREETS_V8;
+        }
+        return String.format(MapboxConstants.MAPBOX_LOCALE, SATELLITE_STREETS_BASE, version);
     }
 
     /**
@@ -211,5 +215,5 @@ public class Style {
      * @deprecated use {@link #getSatelliteStreetsStyleUrl(int)} (int)} instead.
      */
     @Deprecated
-    public static final String SATELLITE_STREETS = "mapbox://styles/mapbox/satellite-hybrid-v9";
+    public static final String SATELLITE_STREETS = "mapbox://styles/mapbox/satellite-streets-v9";
 }
