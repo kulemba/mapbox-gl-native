@@ -1,5 +1,4 @@
-#ifndef MBGL_COMMON_GLFW_VIEW
-#define MBGL_COMMON_GLFW_VIEW
+#pragma once
 
 #include <mbgl/mbgl.hpp>
 #include <mbgl/util/run_loop.hpp>
@@ -49,9 +48,6 @@ private:
     makeSpriteImage(int width, int height, float pixelRatio);
 
     void nextOrientation();
-    void toggleClipMasks();
-
-    void renderClipMasks();
 
     void addRandomPointAnnotations(int count);
     void addRandomShapeAnnotations(int count);
@@ -81,8 +77,6 @@ private:
     int fbHeight;
     float pixelRatio;
 
-    bool showClipMasks = false;
-
     double lastX = 0, lastY = 0;
 
     double lastClick = -1;
@@ -95,5 +89,3 @@ private:
     GLFWwindow *window = nullptr;
     bool dirty = false;
 };
-
-#endif

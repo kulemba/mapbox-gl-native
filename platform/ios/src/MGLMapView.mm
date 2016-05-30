@@ -26,6 +26,7 @@
 #include <mbgl/util/chrono.hpp>
 
 #import "Mapbox.h"
+#import "MGLFeature_Private.h"
 #import "MGLGeometry_Private.h"
 #import "MGLMultiPoint_Private.h"
 #import "MGLOfflineStorage_Private.h"
@@ -1022,6 +1023,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         _displayLink.frameInterval = MGLTargetFrameInterval;
         [_displayLink addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
         _needsDisplayRefresh = YES;
+        [self updateFromDisplayLink];
     }
     else if ( ! isVisible && _displayLink)
     {
@@ -1119,6 +1121,10 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     if ([view respondsToSelector:@selector(setTintColor:)]) view.tintColor = self.tintColor;
 
     for (UIView *subview in view.subviews) [self updateTintColorForView:subview];
+}
+
+- (BOOL)canBecomeFirstResponder {
+    return YES;
 }
 
 #pragma mark - Gestures -
@@ -1820,6 +1826,10 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     {
         mask |= MGLMapDebugCollisionBoxesMask;
     }
+    if (options & mbgl::MapDebugOptions::Wireframe)
+    {
+        mask |= MGLMapDebugWireframesMask;
+    }
     return mask;
 }
 
@@ -1841,6 +1851,10 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     if (debugMask & MGLMapDebugCollisionBoxesMask)
     {
         options |= mbgl::MapDebugOptions::Collision;
+    }
+    if (debugMask & MGLMapDebugWireframesMask)
+    {
+        options |= mbgl::MapDebugOptions::Wireframe;
     }
     _mbglMap->setDebug(options);
 }
@@ -2781,7 +2795,9 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     if ( ! annotations) return;
     [self willChangeValueForKey:@"annotations"];
 
+    NSMutableArray *userPoints = [NSMutableArray array];
     std::vector<mbgl::PointAnnotation> points;
+    NSMutableArray *userShapes = [NSMutableArray array];
     std::vector<mbgl::ShapeAnnotation> shapes;
     
     NSMutableDictionary *annotationImagesForAnnotation = [NSMutableDictionary dictionary];
@@ -2796,7 +2812,19 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
         if ([annotation isKindOfClass:[MGLMultiPoint class]])
         {
-            [(MGLMultiPoint *)annotation addShapeAnnotationObjectToCollection:shapes withDelegate:self];
+            // The multipoint knows how to style itself (with the map view’s help).
+            MGLMultiPoint *multiPoint = (MGLMultiPoint *)annotation;
+            if (!multiPoint.pointCount) {
+                continue;
+            }
+            shapes.emplace_back(multiPoint.annotationSegments, [multiPoint shapeAnnotationPropertiesObjectWithDelegate:self]);
+            [userShapes addObject:annotation];
+        }
+        else if ([annotation isKindOfClass:[MGLMultiPolyline class]]
+                 || [annotation isKindOfClass:[MGLMultiPolygon class]]
+                 || [annotation isKindOfClass:[MGLShapeCollection class]])
+        {
+            continue;
         }
         else
         {
@@ -2846,6 +2874,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
                 annotationImagesForAnnotation[annotationValue] = annotationImage;
             }
 
+            [userPoints addObject:annotation];
             points.emplace_back(MGLLatLngFromLocationCoordinate2D(annotation.coordinate), symbolName.UTF8String ?: "");
         }
     }
@@ -2858,7 +2887,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         
         for (size_t i = 0; i < annotationTags.size(); ++i)
         {
-            id<MGLAnnotation> annotation = annotations[i];
+            id<MGLAnnotation> annotation = userPoints[i];
             NSValue *annotationValue = [NSValue valueWithNonretainedObject:annotation];
             
             MGLAnnotationContext context;
@@ -2890,7 +2919,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         for (size_t i = 0; i < annotationTags.size(); ++i)
         {
             MGLAnnotationTag annotationTag = annotationTags[i];
-            id <MGLAnnotation> annotation = annotations[i];
+            id <MGLAnnotation> annotation = userShapes[i];
             
             MGLAnnotationContext context;
             context.annotation = annotation;
@@ -4165,6 +4194,57 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
             }
         }
     }
+}
+
+#pragma mark Data
+
+- (NS_ARRAY_OF(id <MGLFeature>) *)visibleFeaturesAtPoint:(CGPoint)point
+{
+    return [self visibleFeaturesAtPoint:point inStyleLayersWithIdentifiers:nil];
+}
+
+- (NS_ARRAY_OF(id <MGLFeature>) *)visibleFeaturesAtPoint:(CGPoint)point inStyleLayersWithIdentifiers:(NS_SET_OF(NSString *) *)styleLayerIdentifiers
+{
+    mbgl::ScreenCoordinate screenCoordinate = { point.x, point.y };
+    
+    mbgl::optional<std::vector<std::string>> optionalLayerIDs;
+    if (styleLayerIdentifiers)
+    {
+        __block std::vector<std::string> layerIDs;
+        layerIDs.reserve(styleLayerIdentifiers.count);
+        [styleLayerIdentifiers enumerateObjectsUsingBlock:^(NSString * _Nonnull identifier, BOOL * _Nonnull stop)
+        {
+            layerIDs.push_back(identifier.UTF8String);
+        }];
+        optionalLayerIDs = layerIDs;
+    }
+    
+    std::vector<mbgl::Feature> features = _mbglMap->queryRenderedFeatures(screenCoordinate, optionalLayerIDs);
+    return MGLFeaturesFromMBGLFeatures(features);
+}
+
+- (NS_ARRAY_OF(id <MGLFeature>) *)visibleFeaturesInRect:(CGRect)rect {
+    return [self visibleFeaturesInRect:rect inStyleLayersWithIdentifiers:nil];
+}
+
+- (NS_ARRAY_OF(id <MGLFeature>) *)visibleFeaturesInRect:(CGRect)rect inStyleLayersWithIdentifiers:(NS_SET_OF(NSString *) *)styleLayerIdentifiers {
+    mbgl::ScreenBox screenBox = {
+        { CGRectGetMinX(rect), CGRectGetMinY(rect) },
+        { CGRectGetMaxX(rect), CGRectGetMaxY(rect) },
+    };
+    
+    mbgl::optional<std::vector<std::string>> optionalLayerIDs;
+    if (styleLayerIdentifiers) {
+        __block std::vector<std::string> layerIDs;
+        layerIDs.reserve(styleLayerIdentifiers.count);
+        [styleLayerIdentifiers enumerateObjectsUsingBlock:^(NSString * _Nonnull identifier, BOOL * _Nonnull stop) {
+            layerIDs.push_back(identifier.UTF8String);
+        }];
+        optionalLayerIDs = layerIDs;
+    }
+    
+    std::vector<mbgl::Feature> features = _mbglMap->queryRenderedFeatures(screenBox, optionalLayerIDs);
+    return MGLFeaturesFromMBGLFeatures(features);
 }
 
 #pragma mark - Utility -

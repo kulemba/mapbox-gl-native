@@ -18,25 +18,26 @@ void Painter::renderFill(FillBucket& bucket,
         translatedMatrix(matrix, properties.fillTranslate, tileID, properties.fillTranslateAnchor);
 
     Color fill_color = properties.fillColor;
-    fill_color[0] *= properties.fillOpacity;
-    fill_color[1] *= properties.fillOpacity;
-    fill_color[2] *= properties.fillOpacity;
-    fill_color[3] *= properties.fillOpacity;
+    float opacity = properties.fillOpacity;
 
     Color stroke_color = properties.fillOutlineColor;
     if (stroke_color[3] < 0) {
         stroke_color = fill_color;
-    } else {
-        stroke_color[0] *= properties.fillOpacity;
-        stroke_color[1] *= properties.fillOpacity;
-        stroke_color[2] *= properties.fillOpacity;
-        stroke_color[3] *= properties.fillOpacity;
     }
 
-    const bool pattern = !properties.fillPattern.value.from.empty();
-
+    bool pattern = !properties.fillPattern.value.from.empty();
     bool outline = properties.fillAntialias && !pattern && stroke_color != fill_color;
     bool fringeline = properties.fillAntialias && !pattern && stroke_color == fill_color;
+
+    bool wireframe = frame.debugOptions & MapDebugOptions::Wireframe;
+    if (wireframe) {
+        fill_color = {{ 1.0f, 1.0f, 1.0f, 1.0f }};
+        stroke_color = {{ 1.0f, 1.0f, 1.0f, 1.0f }};
+        opacity = 1.0f;
+        pattern = false;
+        outline = true;
+        fringeline = true;
+    }
 
     config.stencilOp.reset();
     config.stencilTest = GL_TRUE;
@@ -52,6 +53,7 @@ void Painter::renderFill(FillBucket& bucket,
         config.lineWidth = 2.0f; // This is always fixed and does not depend on the pixelRatio!
 
         outlineShader->u_color = stroke_color;
+        outlineShader->u_opacity = opacity;
 
         // Draw the entire line
         outlineShader->u_world = {{
@@ -154,10 +156,9 @@ void Painter::renderFill(FillBucket& bucket,
                 bucket.drawVertices(*outlinePatternShader, glObjectStore);
             }
         }
-    }
-    else {
+    } else if (!wireframe) {
         // No image fill.
-        if ((fill_color[3] >= 1.0f) == (pass == RenderPass::Opaque)) {
+        if ((fill_color[3] >= 1.0f && opacity >= 1.0f) == (pass == RenderPass::Opaque)) {
             // Only draw the fill when it's either opaque and we're drawing opaque
             // fragments or when it's translucent and we're drawing translucent
             // fragments
@@ -165,6 +166,7 @@ void Painter::renderFill(FillBucket& bucket,
             config.program = plainShader->getID();
             plainShader->u_matrix = vtxMatrix;
             plainShader->u_color = fill_color;
+            plainShader->u_opacity = opacity;
 
             // Draw the actual triangles into the color & stencil buffer.
             setDepthSublayer(1);
@@ -180,7 +182,8 @@ void Painter::renderFill(FillBucket& bucket,
         config.lineWidth = 2.0f; // This is always fixed and does not depend on the pixelRatio!
 
         outlineShader->u_color = fill_color;
-        
+        outlineShader->u_opacity = opacity;
+
         // Draw the entire line
         outlineShader->u_world = {{
             static_cast<float>(frame.framebufferSize[0]),

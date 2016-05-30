@@ -1,5 +1,4 @@
-#ifndef MBGL_ANNOTATION_TILE
-#define MBGL_ANNOTATION_TILE
+#pragma once
 
 #include <mbgl/tile/geometry_tile.hpp>
 #include <mbgl/tile/tile_id.hpp>
@@ -25,11 +24,16 @@ public:
 
 class AnnotationTileLayer : public GeometryTileLayer {
 public:
+    AnnotationTileLayer(const std::string&);
+
     std::size_t featureCount() const override { return features.size(); }
     util::ptr<const GeometryTileFeature> getFeature(std::size_t i) const override { return features[i]; }
-    std::string getName() const override { return ""; };
+    std::string getName() const override { return name; };
 
     std::vector<util::ptr<const AnnotationTileFeature>> features;
+
+private:
+    std::string name;
 };
 
 class AnnotationTile : public GeometryTile {
@@ -57,5 +61,3 @@ private:
 };
 
 } // namespace mbgl
-
-#endif

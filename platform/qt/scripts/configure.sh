@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+CXX11ABI=$(scripts/check-cxx11abi.sh)
+
 PROTOZERO_VERSION=1.3.0
 BOOST_VERSION=1.60.0
 GEOMETRY_VERSION=0.5.0
@@ -71,7 +73,7 @@ function print_qt_flags {
     fi
 }
 
-CONFIGURE_SUPLATFORM=platform/qt/scripts/configure-${SUBPLATFORM}.sh
+CONFIGURE_SUPLATFORM=platform/qt/scripts/configure-${MASON_PLATFORM_VERSION}.sh
 
 if [ -f $CONFIGURE_SUPLATFORM ]; then
    source $CONFIGURE_SUPLATFORM

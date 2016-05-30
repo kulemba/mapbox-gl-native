@@ -1,4 +1,5 @@
 #include <mbgl/source/source.hpp>
+#include <mbgl/source/source_observer.hpp>
 #include <mbgl/map/transform.hpp>
 #include <mbgl/tile/tile.hpp>
 #include <mbgl/tile/vector_tile.hpp>
@@ -23,11 +24,10 @@
 
 #include <mbgl/tile/vector_tile_data.hpp>
 #include <mbgl/tile/raster_tile_data.hpp>
-#include <mbgl/style/style.hpp>
 #include <mbgl/style/style_parser.hpp>
 #include <mbgl/gl/debugging.hpp>
 
-#include <mbgl/algorithm/update_renderables_impl.hpp>
+#include <mbgl/algorithm/update_renderables.hpp>
 
 #include <mapbox/geojsonvt.hpp>
 #include <mapbox/geojsonvt/convert.hpp>
@@ -40,6 +40,8 @@
 
 namespace mbgl {
 
+static SourceObserver nullObserver;
+
 Source::Source(SourceType type_,
                const std::string& id_,
                const std::string& url_,
@@ -51,7 +53,8 @@ Source::Source(SourceType type_,
       url(url_),
       tileSize(tileSize_),
       info(std::move(info_)),
-      geojsonvt(std::move(geojsonvt_)) {
+      geojsonvt(std::move(geojsonvt_)),
+      observer(&nullObserver) {
 }
 
 Source::~Source() = default;
@@ -60,7 +63,7 @@ bool Source::isLoaded() const {
     if (!loaded) return false;
 
     for (const auto& pair : tileDataMap) {
-        if (pair.second->getState() != TileData::State::parsed) {
+        if (!pair.second->isComplete()) {
             return false;
         }
     }
@@ -248,7 +251,7 @@ bool Source::update(const StyleUpdateParameters& parameters) {
         }
 
         idealTiles = util::tileCover(parameters.transformState, idealZoom);
-   }
+    }
 
     // Stores a list of all the data tiles that we're definitely going to retain. There are two
     // kinds of tiles we need: the ideal tiles determined by the tile cover. They may not yet be in
@@ -256,29 +259,26 @@ bool Source::update(const StyleUpdateParameters& parameters) {
     // we're actively using, e.g. as a replacement for tile that aren't loaded yet.
     std::set<OverscaledTileID> retain;
 
-    // Create all tiles that we definitely want to load
-    for (const auto& unwrappedTileID : idealTiles) {
-        const OverscaledTileID dataTileID(dataTileZoom, unwrappedTileID.canonical);
-        retain.emplace(dataTileID);
-
-        auto it = tileDataMap.find(dataTileID);
-        if (it == tileDataMap.end()) {
-            if (auto data = createTile(dataTileID, parameters)) {
-                it = tileDataMap.emplace(dataTileID, std::move(data)).first;
-            }
+    auto retainTileDataFn = [&retain](const TileData& tileData) -> void {
+        retain.emplace(tileData.id);
+    };
+    auto getTileDataFn = [this](const OverscaledTileID& dataTileID) -> TileData* {
+        return getTileData(dataTileID);
+    };
+    auto createTileDataFn = [this, &parameters](const OverscaledTileID& dataTileID) -> TileData* {
+        if (auto data = createTile(dataTileID, parameters)) {
+            return tileDataMap.emplace(dataTileID, std::move(data)).first->second.get();
+        } else {
+            return nullptr;
         }
-    }
+    };
+    auto renderTileFn = [this](const UnwrappedTileID& renderTileID, TileData& tileData) {
+        tiles.emplace(renderTileID, Tile{ renderTileID, tileData });
+    };
 
-    tiles = algorithm::updateRenderables<Tile>(tileDataMap, idealTiles, *info, overscaledZoom, retain, [this,parameters,&allTilesUpdated] (const OverscaledTileID& overscaledTileID) {
-        auto&& data = createTile(overscaledTileID, parameters);
-        if (data)
-            allTilesUpdated = false;
-        return std::move(data);
-    });
-
-    for (auto& pair : tiles) {
-        retain.emplace(pair.second.data.id);
-    }
+    tiles.clear();
+    algorithm::updateRenderables(getTileDataFn, createTileDataFn, retainTileDataFn, renderTileFn,
+                                 idealTiles, *info, dataTileZoom);
 
     if (type != SourceType::Raster && type != SourceType::Annotations && cache.getSize() == 0) {
         size_t conservativeCacheSize =
@@ -309,8 +309,7 @@ bool Source::update(const StyleUpdateParameters& parameters) {
     for (auto& pair : tileDataMap) {
         const auto& dataTileID = pair.first;
         auto tileData = pair.second.get();
-        if (parameters.shouldReparsePartialTiles &&
-            tileData->getState() == TileData::State::partial) {
+        if (parameters.shouldReparsePartialTiles && tileData->isIncomplete()) {
             auto callback = std::bind(&Source::tileLoadingCallback, this, dataTileID,
                                       std::placeholders::_1, false);
 
@@ -386,7 +385,7 @@ void Source::onLowMemory() {
     cache.clear();
 }
 
-void Source::setObserver(Observer* observer_) {
+void Source::setObserver(SourceObserver* observer_) {
     observer = observer_;
 }
 

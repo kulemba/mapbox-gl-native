@@ -27,8 +27,7 @@
 #include <mbgl/shader/icon_shader.hpp>
 #include <mbgl/shader/raster_shader.hpp>
 #include <mbgl/shader/sdf_shader.hpp>
-#include <mbgl/shader/dot_shader.hpp>
-#include <mbgl/shader/box_shader.hpp>
+#include <mbgl/shader/collision_box_shader.hpp>
 #include <mbgl/shader/circle_shader.hpp>
 
 #include <mbgl/algorithm/generate_clip_ids.hpp>
@@ -64,7 +63,6 @@ Painter::Painter(const TransformState& state_, gl::GLObjectStore& glObjectStore_
     rasterShader = std::make_unique<RasterShader>(glObjectStore);
     sdfGlyphShader = std::make_unique<SDFGlyphShader>(glObjectStore);
     sdfIconShader = std::make_unique<SDFIconShader>(glObjectStore);
-    dotShader = std::make_unique<DotShader>(glObjectStore);
     collisionBoxShader = std::make_unique<CollisionBoxShader>(glObjectStore);
     circleShader = std::make_unique<CircleShader>(glObjectStore);
 
@@ -141,7 +139,11 @@ void Painter::render(const Style& style, const FrameData& frame_, SpriteAtlas& a
         config.depthTest = GL_FALSE;
         config.depthMask = GL_TRUE;
         config.colorMask = { GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE };
-        config.clearColor = { background[0], background[1], background[2], background[3] };
+        if (frame.debugOptions & MapDebugOptions::Wireframe) {
+            config.clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+        } else {
+            config.clearColor = { background[0], background[1], background[2], background[3] };
+        }
         config.clearStencil = 0;
         config.clearDepth = 1;
         MBGL_CHECK_ERROR(glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
@@ -163,6 +165,11 @@ void Painter::render(const Style& style, const FrameData& frame_, SpriteAtlas& a
         }
 
         drawClippingMasks(generator.getStencils());
+    }
+
+    if (frame.debugOptions & MapDebugOptions::StencilClip) {
+        renderClipMasks();
+        return;
     }
 
     // Actually render the layers
