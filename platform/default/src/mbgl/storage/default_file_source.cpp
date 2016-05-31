@@ -125,7 +125,11 @@ public:
         } else {
             // Try the offline database
             if (resource.hasLoadingMethod(Resource::LoadingMethod::Cache)) {
-                auto offlineResponse = offlineDatabase->get(resource);
+                optional<Response> offlineResponse;
+                try {
+                    offlineResponse = offlineDatabase->get(resource);
+                } catch (...) {
+                }
 
                 if (! offlineResponse) {
                     auto supplementaryCachePathsOfKind = supplementaryCachePaths.find(resource.kind);
@@ -137,10 +141,16 @@ public:
                             const auto &cachePath = j->second;
                             auto supplementaryOfflineDatabase = supplementaryOfflineDatabases.find(cachePath);
                             if (supplementaryOfflineDatabase == supplementaryOfflineDatabases.end()) {
-                                supplementaryOfflineDatabase = supplementaryOfflineDatabases.emplace(cachePath, std::make_unique<OfflineDatabase>(cachePath)).first;
+                                try {
+                                    supplementaryOfflineDatabase = supplementaryOfflineDatabases.emplace(cachePath, std::make_unique<OfflineDatabase>(cachePath)).first;
+                                } catch (...) {
+                                }
                             }
                             if (supplementaryOfflineDatabase != supplementaryOfflineDatabases.end()) {
-                                offlineResponse = supplementaryOfflineDatabase->second->get(resource);
+                                try {
+                                    offlineResponse = supplementaryOfflineDatabase->second->get(resource);
+                                } catch (...) {
+                                }
                             }
                         }
                     }
@@ -180,14 +190,17 @@ public:
             if (resource.hasLoadingMethod(Resource::LoadingMethod::Network)) {
                 MBGL_TIMING_START(watch);
                 tasks[req] = onlineFileSource.request(resource, [=] (Response onlineResponse) {
-                    this->offlineDatabase->put(resource, onlineResponse);
-                    if (resource.kind == Resource::Kind::Tile) {
-                        // onlineResponse.data will be null if data not modified
-                        MBGL_TIMING_FINISH(watch,
-                                           " Action: " << "Requesting," <<
-                                           " URL: " << resource.url.c_str() <<
-                                           " Size: " << (onlineResponse.data != nullptr ? onlineResponse.data->size() : 0) << "B," <<
-                                           " Time")
+                    try {
+                        this->offlineDatabase->put(resource, onlineResponse);
+                        if (resource.kind == Resource::Kind::Tile) {
+                            // onlineResponse.data will be null if data not modified
+                            MBGL_TIMING_FINISH(watch,
+                                               " Action: " << "Requesting," <<
+                                               " URL: " << resource.url.c_str() <<
+                                               " Size: " << (onlineResponse.data != nullptr ? onlineResponse.data->size() : 0) << "B," <<
+                                               " Time")
+                        }
+                    } catch (...) {
                     }
                     callback(onlineResponse);
                 });
@@ -234,7 +247,10 @@ public:
     }
     
     void put(const Resource& resource, const Response& response) {
-        offlineDatabase->put(resource, response);
+        try {
+            offlineDatabase->put(resource, response);
+        } catch (...) {
+        }
     }
 
     void resetCache(std::function<void (std::exception_ptr)> callback) {
