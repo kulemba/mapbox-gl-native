@@ -131,7 +131,11 @@ public:
         } else {
             // Try the offline database
             if (resource.hasLoadingMethod(Resource::LoadingMethod::Cache)) {
-                auto offlineResponse = offlineDatabase->get(resource);
+                optional<Response> offlineResponse;
+                try {
+                    offlineResponse = offlineDatabase->get(resource);
+                } catch (...) {
+                }
 
                 if (! offlineResponse) {
                     auto supplementaryCachePathsOfKind = supplementaryCachePaths.find(resource.kind);
@@ -143,10 +147,16 @@ public:
                             const auto &cachePath = j->second;
                             auto supplementaryOfflineDatabase = supplementaryOfflineDatabases.find(cachePath);
                             if (supplementaryOfflineDatabase == supplementaryOfflineDatabases.end()) {
-                                supplementaryOfflineDatabase = supplementaryOfflineDatabases.emplace(cachePath, std::make_unique<OfflineDatabase>(cachePath)).first;
+                                try {
+                                    supplementaryOfflineDatabase = supplementaryOfflineDatabases.emplace(cachePath, std::make_unique<OfflineDatabase>(cachePath)).first;
+                                } catch (...) {
+                                }
                             }
                             if (supplementaryOfflineDatabase != supplementaryOfflineDatabases.end()) {
-                                offlineResponse = supplementaryOfflineDatabase->second->get(resource);
+                                try {
+                                    offlineResponse = supplementaryOfflineDatabase->second->get(resource);
+                                } catch (...) {
+                                }
                             }
                         }
                     }
@@ -185,7 +195,10 @@ public:
             // Get from the online file source
             if (resource.hasLoadingMethod(Resource::LoadingMethod::Network)) {
                 tasks[req] = onlineFileSource.request(resource, [=] (Response onlineResponse) mutable {
-                    this->offlineDatabase->put(resource, onlineResponse);
+                    try {
+                        this->offlineDatabase->put(resource, onlineResponse);
+                    } catch (...) {
+                    }
                     callback(onlineResponse);
                 });
             }
@@ -231,7 +244,10 @@ public:
     }
     
     void put(const Resource& resource, const Response& response) {
-        offlineDatabase->put(resource, response);
+        try {
+            offlineDatabase->put(resource, response);
+        } catch (...) {
+        }
     }
 
 private:
