@@ -1438,6 +1438,11 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     }
     else
     {
+        if ([self.delegate respondsToSelector:@selector(mapView:didReceiveTapOnMapAtLocation:)]) {
+            CLLocationCoordinate2D tapCoordinate = [self convertPoint:tapPoint toCoordinateFromView:self];
+            CLLocation *tapLocation = [[CLLocation alloc]initWithLatitude:tapCoordinate.latitude longitude:tapCoordinate.longitude];
+            [self.delegate mapView:self didReceiveTapOnMapAtLocation:tapLocation];
+        }
         [self deselectAnnotation:self.selectedAnnotation animated:YES];
     }
 }
