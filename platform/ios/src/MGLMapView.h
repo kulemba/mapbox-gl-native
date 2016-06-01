@@ -1463,6 +1463,14 @@ IB_DESIGNABLE
  */
 - (void)mapView:(MGLMapView *)mapView didDeselectAnnotation:(id <MGLAnnotation>)annotation;
 
+/**
+ Tells the delegate that a tap on map was received at a certain location. This delegate method is called whenever a map tap does not result in the mapView:didSelectAnnotation: method being called (ie, no annoatation was found at that point.
+
+ @param mapView The map view where the tap occurred
+ @param location the location of the tap point
+ */
+- (void)mapView:(MGLMapView *)mapView didReceiveTapOnMapAtLocation:(CLLocation*)location;
+
 @end
 
 NS_ASSUME_NONNULL_END
