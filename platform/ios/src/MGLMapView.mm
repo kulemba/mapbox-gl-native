@@ -865,6 +865,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         _mbglMap->render();
 
         [self updateUserLocationAnnotationView];
+        [self updateSelectedAnnotationCalloutView];
     }
 }
 
@@ -892,6 +893,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     }
     
     [self updateUserLocationAnnotationView];
+    [self updateSelectedAnnotationCalloutView];
 }
 
 /// Updates `contentInset` to reflect the current window geometry.
@@ -3345,11 +3347,6 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
     if (annotation == self.selectedAnnotation) return;
 
-    if (annotation != self.userLocation)
-    {
-        self.userTrackingMode = MGLUserTrackingModeNone;
-    }
-
     [self deselectAnnotation:self.selectedAnnotation animated:NO];
     
     // Add the annotation to the map if it hasn’t been added yet.
@@ -4327,13 +4324,6 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         case mbgl::MapChangeRegionWillChange:
         case mbgl::MapChangeRegionWillChangeAnimated:
         {
-            if ( ! _userLocationAnnotationIsSelected
-                || self.userTrackingMode == MGLUserTrackingModeNone
-                || self.userTrackingState != MGLUserTrackingStateChanged)
-            {
-                [self deselectAnnotation:self.selectedAnnotation animated:NO];
-            }
-
             if ( ! [self isSuppressingChangeDelimiters] && [self.delegate respondsToSelector:@selector(mapView:regionWillChangeAnimated:)])
             {
                 BOOL animated = change == mbgl::MapChangeRegionWillChangeAnimated;
@@ -4573,6 +4563,18 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         {
             [self deselectAnnotation:self.selectedAnnotation animated:YES];
         }
+    }
+}
+
+-(void)updateSelectedAnnotationCalloutView
+{
+    if (self.calloutViewForSelectedAnnotation && [self.calloutViewForSelectedAnnotation respondsToSelector:@selector(updateCalloutFrameWithRect:)])
+    {
+        MGLAnnotationTag annotationTag = [self annotationTagForAnnotation:self.calloutViewForSelectedAnnotation.representedObject];
+        CGRect positioningRect = [self positioningRectForCalloutForAnnotationWithTag:annotationTag];
+        
+        // update location of selected annotation callout in view
+        [self.calloutViewForSelectedAnnotation updateCalloutFrameWithRect:positioningRect];
     }
 }
 
