@@ -317,7 +317,7 @@ const CGFloat MGLUserLocationAnnotationArrowSize = MGLUserLocationAnnotationPuck
         {
             CGFloat headingIndicatorSize = MGLUserLocationAnnotationHaloSize;
             
-            _headingIndicatorLayer = [CALayer layer];
+            _headingIndicatorLayer = [MGLNoHitLayer layer];
             _headingIndicatorLayer.bounds = CGRectMake(0, 0, headingIndicatorSize, headingIndicatorSize);
             _headingIndicatorLayer.position = CGPointMake(super.bounds.size.width / 2.0, super.bounds.size.height / 2.0);
             _headingIndicatorLayer.contents = (__bridge id)[[self headingIndicatorTintedGradientImage] CGImage];
