@@ -1243,6 +1243,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     if (_mbglMap->getZoom() <= _mbglMap->getMinZoom() && pinch.scale < 1) return;
 
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
     
     CGPoint centerPoint = [self anchorPointForGesture:pinch];
 
@@ -1325,6 +1326,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     if ( ! self.isRotateEnabled) return;
 
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
     
     CGPoint centerPoint = [self anchorPointForGesture:rotate];
 
@@ -1443,6 +1445,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     if ( ! self.isZoomEnabled) return;
 
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
 
     if (doubleTap.state == UIGestureRecognizerStateEnded)
     {
@@ -1468,6 +1471,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     if (_mbglMap->getZoom() == _mbglMap->getMinZoom()) return;
 
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
 
     if (twoFingerTap.state == UIGestureRecognizerStateBegan)
     {
@@ -1494,6 +1498,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     if ( ! self.isZoomEnabled) return;
 
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
 
     if (quickZoom.state == UIGestureRecognizerStateBegan)
     {
@@ -1532,6 +1537,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     if ( ! self.isPitchEnabled) return;
 
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
 
     if (twoFingerDrag.state == UIGestureRecognizerStateBegan)
     {
@@ -2187,6 +2193,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 - (void)_setCenterCoordinate:(CLLocationCoordinate2D)centerCoordinate edgePadding:(UIEdgeInsets)insets zoomLevel:(double)zoomLevel direction:(CLLocationDirection)direction duration:(NSTimeInterval)duration animationTimingFunction:(nullable CAMediaTimingFunction *)function completionHandler:(nullable void (^)(void))completion
 {
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
     
     mbgl::CameraOptions cameraOptions;
     cameraOptions.center = MGLLatLngFromLocationCoordinate2D(centerCoordinate);
@@ -2236,6 +2243,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 {
     if (zoomLevel == self.zoomLevel) return;
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
     
     CGFloat duration = animated ? MGLAnimationDuration : 0;
     
@@ -2333,6 +2341,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 - (void)_setVisibleCoordinates:(CLLocationCoordinate2D *)coordinates count:(NSUInteger)count edgePadding:(UIEdgeInsets)insets direction:(CLLocationDirection)direction duration:(NSTimeInterval)duration animationTimingFunction:(nullable CAMediaTimingFunction *)function completionHandler:(nullable void (^)(void))completion
 {
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
     
     [self willChangeValueForKey:@"visibleCoordinateBounds"];
     mbgl::EdgeInsets padding = MGLEdgeInsetsFromNSEdgeInsets(insets);
@@ -2394,6 +2403,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 {
     if (direction == self.direction) return;
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
 
     CGFloat duration = animated ? MGLAnimationDuration : 0;
     
@@ -2451,6 +2461,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 {
     self.userTrackingMode = MGLUserTrackingModeNone;
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
     if ([self.camera isEqual:camera])
     {
         return;
@@ -2497,6 +2508,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 - (void)_flyToCamera:(MGLMapCamera *)camera edgePadding:(UIEdgeInsets)insets withDuration:(NSTimeInterval)duration peakAltitude:(CLLocationDistance)peakAltitude completionHandler:(nullable void (^)(void))completion
 {
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
     if ([self.camera isEqual:camera])
     {
         return;
@@ -4021,7 +4033,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     CLLocation *oldLocation = self.userLocation.location;
     CLLocation *newLocation = locations.lastObject;
 
-    if ( ! _showsUserLocation || ! newLocation || ! CLLocationCoordinate2DIsValid(newLocation.coordinate)) return;
+    if ( ! _showsUserLocation || ! newLocation || ! CLLocationCoordinate2DIsValid(newLocation.coordinate) || ([newLocation.timestamp compare:oldLocation.timestamp] == NSOrderedAscending)) return;
 
     if (! oldLocation || ! CLLocationCoordinate2DIsValid(oldLocation.coordinate) || [newLocation distanceFromLocation:oldLocation]
         || oldLocation.course != newLocation.course)
