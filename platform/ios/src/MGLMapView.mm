@@ -2512,7 +2512,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 - (void)_flyToCamera:(MGLMapCamera *)camera edgePadding:(UIEdgeInsets)insets withDuration:(NSTimeInterval)duration peakAltitude:(CLLocationDistance)peakAltitude completionHandler:(nullable void (^)(void))completion
 {
     _mbglMap->cancelTransitions();
-    [self.userLocationAnnotationView.layer removeAllAnimations];§
+    [self.userLocationAnnotationView.layer removeAllAnimations];
     if ([self.camera isEqual:camera])
     {
         return;
