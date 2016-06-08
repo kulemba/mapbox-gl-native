@@ -1197,7 +1197,6 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     if ( ! self.isScrollEnabled) return;
 
     _mbglMap->cancelTransitions();
-    [self.userLocationAnnotationView.layer removeAllAnimations];
 
     if (pan.state == UIGestureRecognizerStateBegan)
     {
