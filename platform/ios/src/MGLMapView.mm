@@ -3907,7 +3907,6 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
 - (void)locationManager:(CLLocationManager *)manager didUpdateLocations:(NSArray *)locations
 {
-    NSLog(@"new locations received: %@",locations);
     [self locationManager:manager didUpdateLocations:locations animated:YES];
 }
 
