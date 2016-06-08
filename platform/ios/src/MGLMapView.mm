@@ -1401,6 +1401,7 @@ public:
     if ( ! self.isZoomEnabled) return;
 
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
 
     CGPoint centerPoint = [self anchorPointForGesture:pinch];
     MGLMapCamera *oldCamera = self.camera;
@@ -1502,6 +1503,7 @@ public:
     if ( ! self.isRotateEnabled) return;
 
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
 
     CGPoint centerPoint = [self anchorPointForGesture:rotate];
     MGLMapCamera *oldCamera = self.camera;
@@ -1707,6 +1709,7 @@ public:
     if ( ! self.isZoomEnabled) return;
 
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
 
     if (doubleTap.state == UIGestureRecognizerStateEnded)
     {
@@ -1748,6 +1751,7 @@ public:
     if (_mbglMap->getZoom() == _mbglMap->getMinZoom()) return;
 
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonGestureZoomOut;
 
@@ -1790,6 +1794,8 @@ public:
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonGestureOneFingerZoom;
 
+    [self.userLocationAnnotationView.layer removeAllAnimations];
+    
     if (quickZoom.state == UIGestureRecognizerStateBegan)
     {
         [self trackGestureEvent:MMEEventGestureQuickZoom forRecognizer:quickZoom];
@@ -1832,6 +1838,7 @@ public:
     if ( ! self.isPitchEnabled) return;
 
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonGestureTilt;
 
@@ -2995,6 +3002,7 @@ public:
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonProgrammatic;
 
+    [self.userLocationAnnotationView.layer removeAllAnimations];
     _mbglMap->easeTo(cameraOptions, animationOptions);
 }
 
@@ -3017,6 +3025,7 @@ public:
 {
     if (zoomLevel == self.zoomLevel) return;
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonProgrammatic;
 
@@ -3163,6 +3172,7 @@ public:
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonProgrammatic;
 
+    [self.userLocationAnnotationView.layer removeAllAnimations];
     _mbglMap->easeTo(cameraOptions, animationOptions);
     [self didChangeValueForKey:@"visibleCoordinateBounds"];
 }
@@ -3193,6 +3203,7 @@ public:
 {
     if (direction == self.direction) return;
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
 
     CGFloat duration = animated ? MGLAnimationDuration : 0;
 
@@ -3285,6 +3296,7 @@ public:
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonProgrammatic;
 
+    [self.userLocationAnnotationView.layer removeAllAnimations];
     mbgl::CameraOptions cameraOptions = [self cameraOptionsObjectForAnimatingToCamera:camera edgePadding:edgePadding];
     _mbglMap->easeTo(cameraOptions, animationOptions);
     [self didChangeValueForKey:@"camera"];
@@ -3344,6 +3356,7 @@ public:
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonProgrammatic;
 
+    [self.userLocationAnnotationView.layer removeAllAnimations];
     mbgl::CameraOptions cameraOptions = [self cameraOptionsObjectForAnimatingToCamera:camera edgePadding:insets];
     _mbglMap->flyTo(cameraOptions, animationOptions);
     [self didChangeValueForKey:@"camera"];
@@ -4953,7 +4966,7 @@ public:
     CLLocation *newLocation = locations.lastObject;
     _distanceFromOldUserLocation = [newLocation distanceFromLocation:oldLocation];
 
-    if ( ! _showsUserLocation || ! newLocation || ! CLLocationCoordinate2DIsValid(newLocation.coordinate)) return;
+    if ( ! _showsUserLocation || ! newLocation || ! CLLocationCoordinate2DIsValid(newLocation.coordinate) || ([newLocation.timestamp compare:oldLocation.timestamp] == NSOrderedAscending)) return;
 
     if (! oldLocation || ! CLLocationCoordinate2DIsValid(oldLocation.coordinate) || [newLocation distanceFromLocation:oldLocation]
         || oldLocation.course != newLocation.course)
