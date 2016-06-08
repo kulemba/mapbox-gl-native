@@ -3907,6 +3907,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
 - (void)locationManager:(CLLocationManager *)manager didUpdateLocations:(NSArray *)locations
 {
+    NSLog(@"new locations received: %@",locations);
     [self locationManager:manager didUpdateLocations:locations animated:YES];
 }
 
@@ -3915,7 +3916,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     CLLocation *oldLocation = self.userLocation.location;
     CLLocation *newLocation = locations.lastObject;
 
-    if ( ! _showsUserLocation || ! newLocation || ! CLLocationCoordinate2DIsValid(newLocation.coordinate)) return;
+    if ( ! _showsUserLocation || ! newLocation || ! CLLocationCoordinate2DIsValid(newLocation.coordinate) || ([newLocation.timestamp compare:oldLocation.timestamp] == NSOrderedAscending)) return;
 
     if (! oldLocation || ! CLLocationCoordinate2DIsValid(oldLocation.coordinate) || [newLocation distanceFromLocation:oldLocation]
         || oldLocation.course != newLocation.course)
