@@ -3,8 +3,9 @@
 #include <mbgl/geometry/binpack.hpp>
 #include <mbgl/text/glyph_store.hpp>
 #include <mbgl/util/noncopyable.hpp>
+#include <mbgl/util/optional.hpp>
 #include <mbgl/gl/gl.hpp>
-#include <mbgl/gl/gl_object_store.hpp>
+#include <mbgl/gl/object_store.hpp>
 
 #include <string>
 #include <set>
@@ -27,11 +28,11 @@ public:
     void removeGlyphs(uintptr_t tileUID);
 
     // Binds the atlas texture to the GPU, and uploads data if it is out of date.
-    void bind(gl::GLObjectStore&);
+    void bind(gl::ObjectStore&);
 
     // Uploads the texture to the GPU to be available when we need it. This is a lazy operation;
     // the texture is only bound when the data is out of date (=dirty).
-    void upload(gl::GLObjectStore&);
+    void upload(gl::ObjectStore&);
 
     const GLsizei width;
     const GLsizei height;
@@ -53,7 +54,7 @@ private:
     std::unordered_map<FontStack, std::map<uint32_t, GlyphValue>, FontStackHash> index;
     const std::unique_ptr<uint8_t[]> data;
     std::atomic<bool> dirty;
-    gl::TextureHolder texture;
+    mbgl::optional<gl::UniqueTexture> texture;
 };
 
 } // namespace mbgl
