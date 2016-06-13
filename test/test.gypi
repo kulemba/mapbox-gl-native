@@ -48,12 +48,15 @@
 
         'geometry/binpack.cpp',
 
+        'gl/object.cpp',
+
         'map/map.cpp',
         'map/transform.cpp',
 
         'math/minmax.cpp',
         'math/clamp.cpp',
 
+        'tile/geometry_tile.cpp',
         'tile/tile_id.cpp',
 
         'storage/offline.cpp',
@@ -98,6 +101,7 @@
           '<@(geojsonvt_cflags)',
           '<@(rapidjson_cflags)',
           '<@(pixelmatch_cflags)',
+          '<@(earcut_cflags)',
         ],
         'ldflags': [
           '<@(gtest_ldflags)',

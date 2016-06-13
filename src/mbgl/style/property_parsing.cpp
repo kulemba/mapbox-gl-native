@@ -1,8 +1,11 @@
 #include <mbgl/style/property_parsing.hpp>
 
+#include <mbgl/platform/log.hpp>
+
 #include <csscolorparser/csscolorparser.hpp>
 
 namespace mbgl {
+namespace style {
 
 template <>
 optional<bool> parseConstant(const char* name, const JSValue& value) {
@@ -261,7 +264,7 @@ optional<std::vector<std::string>> parseConstant(const char* name, const JSValue
     return result;
 }
 
-optional<PropertyTransition> parsePropertyTransition(const char *, const JSValue& value) {
+optional<TransitionOptions> parseTransitionOptions(const char *, const JSValue& value) {
     if (!value.IsObject()) {
         return {};
     }
@@ -280,7 +283,8 @@ optional<PropertyTransition> parsePropertyTransition(const char *, const JSValue
         return {};
     }
 
-    return PropertyTransition(duration, delay);
+    return TransitionOptions(duration, delay);
 }
 
+} // namespace style
 } // namespace mbgl
