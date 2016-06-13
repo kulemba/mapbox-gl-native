@@ -1258,11 +1258,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     _mbglMap->cancelTransitions();
     [self.userLocationAnnotationView.layer removeAllAnimations];
     
-    CGPoint centerPoint = [pinch locationInView:pinch.view];
-    if (self.userTrackingMode != MGLUserTrackingModeNone)
-    {
-        centerPoint = self.userLocationAnnotationViewCenter;
-    }
+    CGPoint centerPoint = [self anchorPointForGesture:pinch];
 
     if (pinch.state == UIGestureRecognizerStateBegan)
     {
@@ -1334,7 +1330,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         [self unrotateIfNeededForGesture];
     }
     
-    _previousPinchCenterCoordinate = [self convertPoint:[pinch locationInView:pinch.view] toCoordinateFromView:self];
+    _previousPinchCenterCoordinate = [self convertPoint:centerPoint toCoordinateFromView:self];
     _previousPinchNumberOfTouches = pinch.numberOfTouches;
 }
 
@@ -1345,11 +1341,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     _mbglMap->cancelTransitions();
     [self.userLocationAnnotationView.layer removeAllAnimations];
     
-    CGPoint centerPoint = [rotate locationInView:rotate.view];
-    if (self.userTrackingMode != MGLUserTrackingModeNone)
-    {
-        centerPoint = self.userLocationAnnotationViewCenter;
-    }
+    CGPoint centerPoint = [self anchorPointForGesture:rotate];
 
     if (rotate.state == UIGestureRecognizerStateBegan)
     {
@@ -1484,11 +1476,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     if (doubleTap.state == UIGestureRecognizerStateEnded)
     {
         [self trackGestureEvent:MGLEventGestureDoubleTap forRecognizer:doubleTap];
-        CGPoint gesturePoint = [doubleTap locationInView:doubleTap.view];
-        if (self.userTrackingMode != MGLUserTrackingModeNone)
-        {
-            gesturePoint = self.userLocationAnnotationViewCenter;
-        }
+        CGPoint gesturePoint = [self anchorPointForGesture:doubleTap];
 
         mbgl::ScreenCoordinate center(gesturePoint.x, gesturePoint.y);
         _mbglMap->scaleBy(2, center, MGLDurationInSeconds(MGLAnimationDuration));
@@ -1517,11 +1505,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     }
     else if (twoFingerTap.state == UIGestureRecognizerStateEnded)
     {
-        CGPoint gesturePoint = [twoFingerTap locationInView:twoFingerTap.view];
-        if (self.userTrackingMode != MGLUserTrackingModeNone)
-        {
-            gesturePoint = self.userLocationAnnotationViewCenter;
-        }
+        CGPoint gesturePoint = [self anchorPointForGesture:twoFingerTap];
 
         mbgl::ScreenCoordinate center(gesturePoint.x, gesturePoint.y);
         _mbglMap->scaleBy(0.5, center, MGLDurationInSeconds(MGLAnimationDuration));
@@ -1560,11 +1544,8 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
         if (newZoom < _mbglMap->getMinZoom()) return;
         
-        CGPoint centerPoint = self.contentCenter;
-        if (self.userTrackingMode != MGLUserTrackingModeNone)
-        {
-            centerPoint = self.userLocationAnnotationViewCenter;
-        }
+        CGPoint centerPoint = [self anchorPointForGesture:quickZoom];
+
         _mbglMap->scaleBy(powf(2, newZoom) / _mbglMap->getScale(),
                           mbgl::ScreenCoordinate { centerPoint.x, centerPoint.y });
 
@@ -1597,11 +1578,8 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
         CGFloat pitchNew = currentPitch - (gestureDistance / slowdown);
         
-        CGPoint centerPoint = self.contentCenter;
-        if (self.userTrackingMode != MGLUserTrackingModeNone)
-        {
-            centerPoint = self.userLocationAnnotationViewCenter;
-        }
+        CGPoint centerPoint = [self anchorPointForGesture:twoFingerDrag];
+
         _mbglMap->setPitch(pitchNew, mbgl::ScreenCoordinate { centerPoint.x, centerPoint.y });
 
         [self notifyMapChange:mbgl::MapChangeRegionIsChanging];
@@ -1611,7 +1589,21 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         [self notifyGestureDidEndWithDrift:NO];
         [self unrotateIfNeededForGesture];
     }
+}
 
+- (CGPoint)anchorPointForGesture:(UIGestureRecognizer *)gesture {
+    if (self.userTrackingMode != MGLUserTrackingModeNone)
+    {
+        return self.userLocationAnnotationViewCenter;
+    }
+
+    // Special case for two-finger drag and quickzoom
+    if ([gesture isKindOfClass:[UIPanGestureRecognizer class]] || [gesture isKindOfClass:[UILongPressGestureRecognizer class]])
+    {
+        return self.contentCenter;
+    }
+  
+    return [gesture locationInView:gesture.view];
 }
 
 - (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer
@@ -1812,8 +1804,16 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         if (annotation == [self annotationWithTag:annotationTag])
         {
             const mbgl::Point<double> point = MGLPointFromLocationCoordinate2D(annotation.coordinate);
-            MGLAnnotationImage *annotationImage = [self imageOfAnnotationWithTag:annotationTag];
-            _mbglMap->updateAnnotation(annotationTag, mbgl::SymbolAnnotation { point, annotationImage.styleIconIdentifier.UTF8String ?: "" });
+            
+            MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag.at(annotationTag);
+            NSString *symbolName;
+            if (!annotationContext.annotationView)
+            {
+                MGLAnnotationImage *annotationImage = [self imageOfAnnotationWithTag:annotationTag];
+                symbolName = annotationImage.styleIconIdentifier;
+            }
+            
+            _mbglMap->updateAnnotation(annotationTag, mbgl::SymbolAnnotation { point, symbolName.UTF8String ?: "" });
             if (annotationTag == _selectedAnnotationTag)
             {
                 [self deselectAnnotation:annotation animated:YES];
@@ -2133,8 +2133,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     }
     
     std::sort(visibleAnnotations.begin(), visibleAnnotations.end());
-    auto foundElement = std::find(visibleAnnotations.begin(), visibleAnnotations.end(),
-                                  ((MGLAnnotationAccessibilityElement *)element).tag);
+    auto foundElement = std::find(visibleAnnotations.begin(), visibleAnnotations.end(), tag);
     if (foundElement == visibleAnnotations.end())
     {
         return NSNotFound;
@@ -2879,7 +2878,14 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
         if ([annotation isKindOfClass:[MGLMultiPoint class]])
         {
-            // The multipoint knows how to style itself (with the map view’s help).
+            // Actual multipoints aren’t supported as annotations.
+            if ([annotation isMemberOfClass:[MGLMultiPoint class]]
+                || [annotation isMemberOfClass:[MGLMultiPointFeature class]])
+            {
+                continue;
+            }
+            
+            // The polyline or polygon knows how to style itself (with the map view’s help).
             MGLMultiPoint *multiPoint = (MGLMultiPoint *)annotation;
             if (!multiPoint.pointCount) {
                 continue;
@@ -2890,13 +2896,9 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
             context.annotation = annotation;
             _annotationContextsByAnnotationTag[annotationTag] = context;
         }
-        else if ([annotation isKindOfClass:[MGLMultiPolyline class]]
-                 || [annotation isKindOfClass:[MGLMultiPolygon class]]
-                 || [annotation isKindOfClass:[MGLShapeCollection class]])
-        {
-            continue;
-        }
-        else
+        else if ( ! [annotation isKindOfClass:[MGLMultiPolyline class]]
+                 || ![annotation isKindOfClass:[MGLMultiPolygon class]]
+                 || ![annotation isKindOfClass:[MGLShapeCollection class]])
         {
             MGLAnnotationView *annotationView;
             NSString *symbolName;
@@ -3423,10 +3425,13 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     {
         MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag.at(annotationTag);
         
-        if (annotationContext.annotationView)
+        MGLAnnotationView *annotationView = annotationContext.annotationView;
+        if (annotationView)
         {
             // Annotations represented by views use the view frame as the positioning rect.
-            positioningRect = annotationContext.annotationView.frame;
+            positioningRect = annotationView.frame;
+            
+            [annotationView.superview bringSubviewToFront:annotationView];
         }
     }
     
@@ -3871,9 +3876,10 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
             [self.locationManager stopUpdatingHeading];
 
-            if (self.userLocationAnnotationView)
+            CLLocation *location = self.userLocation.location;
+            if (location && self.userLocationAnnotationView)
             {
-                [self locationManager:self.locationManager didUpdateLocations:@[self.userLocation.location] animated:animated];
+                [self locationManager:self.locationManager didUpdateLocations:@[location] animated:animated];
             }
 
             break;
@@ -3921,7 +3927,11 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     _userLocationVerticalAlignment = alignment;
     if (self.userTrackingMode != MGLUserTrackingModeNone)
     {
-        [self locationManager:self.locationManager didUpdateLocations:@[self.userLocation.location] animated:animated];
+        CLLocation *location = self.userLocation.location;
+        if (location)
+        {
+            [self locationManager:self.locationManager didUpdateLocations:@[location] animated:animated];
+        }
     }
 }
 

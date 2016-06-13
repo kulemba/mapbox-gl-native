@@ -2,9 +2,6 @@
 #include <mbgl/style/source_observer.hpp>
 #include <mbgl/map/transform.hpp>
 #include <mbgl/tile/tile.hpp>
-#include <mbgl/tile/vector_tile.hpp>
-#include <mbgl/annotation/annotation_tile.hpp>
-#include <mbgl/tile/geojson_tile.hpp>
 #include <mbgl/renderer/painter.hpp>
 #include <mbgl/util/exception.hpp>
 #include <mbgl/util/constants.hpp>
@@ -22,8 +19,10 @@
 #include <mbgl/util/string.hpp>
 #include <mbgl/util/tile_cover.hpp>
 
-#include <mbgl/tile/vector_tile_data.hpp>
 #include <mbgl/tile/raster_tile_data.hpp>
+#include <mbgl/tile/annotation_tile_data.hpp>
+#include <mbgl/tile/geojson_tile_data.hpp>
+#include <mbgl/tile/vector_tile_data.hpp>
 #include <mbgl/style/parser.hpp>
 #include <mbgl/gl/debugging.hpp>
 
@@ -189,38 +188,20 @@ const std::map<UnwrappedTileID, Tile>& Source::getTiles() const {
 
 std::unique_ptr<TileData> Source::createTile(const OverscaledTileID& overscaledTileID,
                                              const UpdateParameters& parameters) {
-    std::unique_ptr<TileData> data = cache.get(overscaledTileID);
-    if (data) {
-        return data;
-    }
-
-    auto callback = std::bind(&Source::tileLoadingCallback, this, overscaledTileID,
-                              std::placeholders::_1, true);
-
     // If we don't find working tile data, we're just going to load it.
     if (type == SourceType::Raster) {
-        data = std::make_unique<RasterTileData>(overscaledTileID, parameters.pixelRatio,
-                                                tileset->tiles.at(0), parameters.texturePool,
-                                                parameters.worker, parameters.fileSource, callback);
+        return std::make_unique<RasterTileData>(overscaledTileID, parameters, *tileset);
+    } else if (type == SourceType::Vector) {
+        return std::make_unique<VectorTileData>(overscaledTileID, id, parameters, *tileset);
+    } else if (type == SourceType::Annotations) {
+        return std::make_unique<AnnotationTileData>(overscaledTileID, id, parameters);
+    } else if (type == SourceType::GeoJSON) {
+        return std::make_unique<GeoJSONTileData>(overscaledTileID, id, parameters, geojsonvt.get());
     } else {
-        std::unique_ptr<GeometryTileMonitor> monitor;
-
-        if (type == SourceType::Vector) {
-            monitor = std::make_unique<VectorTileMonitor>(overscaledTileID, parameters.pixelRatio, tileset->tiles.at(0), parameters.fileSource);
-        } else if (type == SourceType::Annotations) {
-            monitor = std::make_unique<AnnotationTileMonitor>(overscaledTileID, parameters.annotationManager);
-        } else if (type == SourceType::GeoJSON) {
-            monitor = std::make_unique<GeoJSONTileMonitor>(geojsonvt.get(), overscaledTileID);
-        } else {
-            Log::Warning(Event::Style, "Source type '%s' is not implemented", SourceTypeClass(type).c_str());
-            return nullptr;
-        }
-
-        data = std::make_unique<VectorTileData>(overscaledTileID, std::move(monitor), id,
-                                                parameters.style, parameters.mode, callback);
+        Log::Warning(Event::Style, "Source type '%s' is not implemented",
+                     SourceTypeClass(type).c_str());
+        return nullptr;
     }
-
-    return data;
 }
 
 TileData* Source::getTileData(const OverscaledTileID& overscaledTileID) const {
@@ -261,14 +242,23 @@ bool Source::update(const UpdateParameters& parameters) {
     // we're actively using, e.g. as a replacement for tile that aren't loaded yet.
     std::set<OverscaledTileID> retain;
 
-    auto retainTileDataFn = [&retain](const TileData& tileData) -> void {
+    auto retainTileDataFn = [&retain](TileData& tileData, bool required) -> void {
         retain.emplace(tileData.id);
+        tileData.setNecessity(required ? TileData::Necessity::Required
+                                       : TileData::Necessity::Optional);
     };
     auto getTileDataFn = [this](const OverscaledTileID& dataTileID) -> TileData* {
         return getTileData(dataTileID);
     };
     auto createTileDataFn = [this, &parameters](const OverscaledTileID& dataTileID) -> TileData* {
-        if (auto data = createTile(dataTileID, parameters)) {
+        std::unique_ptr<TileData> data = cache.get(dataTileID);
+        if (!data) {
+            data = createTile(dataTileID, parameters);
+            if (data) {
+                data->setObserver(this);
+            }
+        }
+        if (data) {
             return tileDataMap.emplace(dataTileID, std::move(data)).first->second.get();
         } else {
             return nullptr;
@@ -298,6 +288,7 @@ bool Source::update(const UpdateParameters& parameters) {
     auto retainIt = retain.begin();
     while (dataIt != tileDataMap.end()) {
         if (retainIt == retain.end() || dataIt->first < *retainIt) {
+            dataIt->second->setNecessity(TileData::Necessity::Optional);
             cache.add(dataIt->first, std::move(dataIt->second));
             tileDataMap.erase(dataIt++);
         } else {
@@ -308,21 +299,17 @@ bool Source::update(const UpdateParameters& parameters) {
         }
     }
 
+    const PlacementConfig newConfig{ parameters.transformState.getAngle(),
+                                     parameters.transformState.getPitch(),
+                                     parameters.debugOptions & MapDebugOptions::Collision };
     for (auto& pair : tileDataMap) {
-        const auto& dataTileID = pair.first;
         auto tileData = pair.second.get();
         if (parameters.shouldReparsePartialTiles && tileData->isIncomplete()) {
-            auto callback = std::bind(&Source::tileLoadingCallback, this, dataTileID,
-                                      std::placeholders::_1, false);
-
-            if (!tileData->parsePending(callback)) {
+            if (!tileData->parsePending()) {
                 allTilesUpdated = false;
             }
         } else {
-            tileData->redoPlacement({ parameters.transformState.getAngle(),
-                                      parameters.transformState.getPitch(),
-                                      parameters.debugOptions & MapDebugOptions::Collision },
-                                    [this]() { observer->onPlacementRedone(); });
+            tileData->redoPlacement(newConfig);
         }
     }
 
@@ -391,28 +378,16 @@ void Source::setObserver(SourceObserver* observer_) {
     observer = observer_;
 }
 
-void Source::tileLoadingCallback(const OverscaledTileID& tileID,
-                                 std::exception_ptr error,
-                                 bool isNewTile) {
-    auto it = tileDataMap.find(tileID);
-    if (it == tileDataMap.end()) {
-        return;
-    }
+void Source::onTileLoaded(TileData& tileData, bool isNewTile) {
+    observer->onTileLoaded(*this, tileData.id, isNewTile);
+}
 
-    auto& tileData = it->second;
-    if (!tileData) {
-        return;
-    }
+void Source::onTileError(TileData& tileData, std::exception_ptr error) {
+    observer->onTileError(*this, tileData.id, error);
+}
 
-    if (error) {
-        observer->onTileError(*this, tileID, error);
-        return;
-    }
-
-    tileData->redoPlacement([this]() {
-        observer->onPlacementRedone();
-    });
-    observer->onTileLoaded(*this, tileID, isNewTile);
+void Source::onNeedsRepaint() {
+    observer->onNeedsRepaint();
 }
 
 void Source::dumpDebugLogs() const {
