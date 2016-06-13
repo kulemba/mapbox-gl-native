@@ -19,10 +19,10 @@ endif
 default: test-$(HOST_PLATFORM)
 
 ifneq (,$(wildcard .git/.))
-.mason:
+.mason/mason:
 	git submodule update --init
 else
-.mason: ;
+.mason/mason: ;
 endif
 
 node_modules: package.json
@@ -30,7 +30,7 @@ node_modules: package.json
 
 GYP = deps/run_gyp --depth=. -Goutput_dir=.
 
-CONFIG_DEPENDENCIES = .mason configure
+CONFIG_DEPENDENCIES = .mason/mason configure
 
 # Depend on gyp includes plus directories, so that projects are regenerated when
 # files are added or removed.
@@ -163,13 +163,15 @@ build/android-$1/Makefile: platform/android/platform.gyp build/android-$1/config
 android-lib-$1: build/android-$1/Makefile
 	$$(shell $(ANDROID_ENV) $1) $(MAKE) -j$(JOBS) -C build/android-$1 all
 
+android-$1: android-lib-$1
+	cd platform/android && ./gradlew --parallel --max-workers=$(JOBS) assemble$(BUILDTYPE)
+
 apackage: android-lib-$1
 endef
 
 $(foreach abi,$(ANDROID_ABIS),$(eval $(call ANDROID_RULES,$(abi))))
 
-android: android-lib-arm-v7
-	cd platform/android && ./gradlew --parallel --max-workers=$(JOBS) assemble$(BUILDTYPE)
+android: android-arm-v7
 
 test-android:
 	cd platform/android && ./gradlew testReleaseUnitTest --continue
@@ -293,6 +295,9 @@ tidy: compdb
 	scripts/clang-tidy.sh $(LINUX_OUTPUT_PATH)/$(BUILDTYPE)
 
 #### Miscellaneous targets #####################################################
+
+style-code:
+	node scripts/generate-style-code.js
 
 clean:
 	-find ./deps/gyp -name "*.pyc" -exec rm {} \;
