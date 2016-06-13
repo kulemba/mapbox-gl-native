@@ -2,6 +2,7 @@
 
 CXX11ABI=$(scripts/check-cxx11abi.sh)
 
+UNIQUE_RESOURCE_VERSION=dev
 PROTOZERO_VERSION=1.3.0
 BOOST_VERSION=1.60.0
 GEOMETRY_VERSION=0.5.0
@@ -15,6 +16,7 @@ SQLITE_VERSION=3.9.1
 VARIANT_VERSION=1.1.0
 ZLIB_VERSION=system
 WEBP_VERSION=0.5.0
+EARCUT_VERSION=0.11
 
 function print_default_flags {
     CONFIG+="    'cflags': $(quote_flags -fvisibility=hidden),"$LN
