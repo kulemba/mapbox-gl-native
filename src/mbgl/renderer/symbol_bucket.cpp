@@ -1,6 +1,6 @@
 #include <mbgl/renderer/symbol_bucket.hpp>
 #include <mbgl/style/filter_evaluator.hpp>
-#include <mbgl/layer/symbol_layer.hpp>
+#include <mbgl/style/layers/symbol_layer.hpp>
 #include <mbgl/tile/geometry_tile.hpp>
 #include <mbgl/sprite/sprite_image.hpp>
 #include <mbgl/sprite/sprite_store.hpp>
@@ -30,6 +30,8 @@
 #include <mbgl/math/minmax.hpp>
 
 namespace mbgl {
+
+using namespace style;
 
 SymbolInstance::SymbolInstance(Anchor& anchor, const GeometryCoordinates& line,
         const Shaping& shapedText, const PositionedIcon& shapedIcon,
@@ -71,21 +73,21 @@ SymbolBucket::~SymbolBucket() {
     // Do not remove. header file only contains forward definitions to unique pointers.
 }
 
-void SymbolBucket::upload(gl::GLObjectStore& glObjectStore) {
+void SymbolBucket::upload(gl::ObjectStore& store) {
     if (hasTextData()) {
-        renderData->text.vertices.upload(glObjectStore);
-        renderData->text.triangles.upload(glObjectStore);
+        renderData->text.vertices.upload(store);
+        renderData->text.triangles.upload(store);
     }
     if (hasIconData()) {
-        renderData->icon.vertices.upload(glObjectStore);
-        renderData->icon.triangles.upload(glObjectStore);
+        renderData->icon.vertices.upload(store);
+        renderData->icon.triangles.upload(store);
     }
 
     uploaded = true;
 }
 
 void SymbolBucket::render(Painter& painter,
-                          const StyleLayer& layer,
+                          const Layer& layer,
                           const UnwrappedTileID& tileID,
                           const mat4& matrix) {
     painter.renderSymbol(*this, *layer.as<SymbolLayer>(), tileID, matrix);
@@ -596,50 +598,50 @@ void SymbolBucket::swapRenderData() {
     }
 }
 
-void SymbolBucket::drawGlyphs(SDFShader& shader, gl::GLObjectStore& glObjectStore) {
+void SymbolBucket::drawGlyphs(SDFShader& shader, gl::ObjectStore& store) {
     GLbyte *vertex_index = BUFFER_OFFSET_0;
     GLbyte *elements_index = BUFFER_OFFSET_0;
     auto& text = renderData->text;
     for (auto &group : text.groups) {
         assert(group);
-        group->array[0].bind(shader, text.vertices, text.triangles, vertex_index, glObjectStore);
+        group->array[0].bind(shader, text.vertices, text.triangles, vertex_index, store);
         MBGL_CHECK_ERROR(glDrawElements(GL_TRIANGLES, group->elements_length * 3, GL_UNSIGNED_SHORT, elements_index));
         vertex_index += group->vertex_length * text.vertices.itemSize;
         elements_index += group->elements_length * text.triangles.itemSize;
     }
 }
 
-void SymbolBucket::drawIcons(SDFShader& shader, gl::GLObjectStore& glObjectStore) {
+void SymbolBucket::drawIcons(SDFShader& shader, gl::ObjectStore& store) {
     GLbyte *vertex_index = BUFFER_OFFSET_0;
     GLbyte *elements_index = BUFFER_OFFSET_0;
     auto& icon = renderData->icon;
     for (auto &group : icon.groups) {
         assert(group);
-        group->array[0].bind(shader, icon.vertices, icon.triangles, vertex_index, glObjectStore);
+        group->array[0].bind(shader, icon.vertices, icon.triangles, vertex_index, store);
         MBGL_CHECK_ERROR(glDrawElements(GL_TRIANGLES, group->elements_length * 3, GL_UNSIGNED_SHORT, elements_index));
         vertex_index += group->vertex_length * icon.vertices.itemSize;
         elements_index += group->elements_length * icon.triangles.itemSize;
     }
 }
 
-void SymbolBucket::drawIcons(IconShader& shader, gl::GLObjectStore& glObjectStore) {
+void SymbolBucket::drawIcons(IconShader& shader, gl::ObjectStore& store) {
     GLbyte *vertex_index = BUFFER_OFFSET_0;
     GLbyte *elements_index = BUFFER_OFFSET_0;
     auto& icon = renderData->icon;
     for (auto &group : icon.groups) {
         assert(group);
-        group->array[1].bind(shader, icon.vertices, icon.triangles, vertex_index, glObjectStore);
+        group->array[1].bind(shader, icon.vertices, icon.triangles, vertex_index, store);
         MBGL_CHECK_ERROR(glDrawElements(GL_TRIANGLES, group->elements_length * 3, GL_UNSIGNED_SHORT, elements_index));
         vertex_index += group->vertex_length * icon.vertices.itemSize;
         elements_index += group->elements_length * icon.triangles.itemSize;
     }
 }
 
-void SymbolBucket::drawCollisionBoxes(CollisionBoxShader& shader, gl::GLObjectStore& glObjectStore) {
+void SymbolBucket::drawCollisionBoxes(CollisionBoxShader& shader, gl::ObjectStore& store) {
     GLbyte *vertex_index = BUFFER_OFFSET_0;
     auto& collisionBox = renderData->collisionBox;
     for (auto &group : collisionBox.groups) {
-        group->array[0].bind(shader, collisionBox.vertices, vertex_index, glObjectStore);
+        group->array[0].bind(shader, collisionBox.vertices, vertex_index, store);
         MBGL_CHECK_ERROR(glDrawArrays(GL_LINES, 0, group->vertex_length));
     }
 }
