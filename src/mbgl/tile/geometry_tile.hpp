@@ -91,7 +91,14 @@ public:
 // classifies an array of rings into polygons with outer rings and holes
 std::vector<GeometryCollection> classifyRings(const GeometryCollection&);
 
+// Truncate polygon to the largest `maxHoles` inner rings by area.
+void limitHoles(GeometryCollection&, uint32_t maxHoles);
+
 // convert from GeometryTileFeature to Feature (eventually we should eliminate GeometryTileFeature)
 Feature convertFeature(const GeometryTileFeature&, const CanonicalTileID&);
+
+// Fix up possibly-non-V2-compliant polygon geometry using angus clipper.
+// The result is guaranteed to have correctly wound, strictly simple rings.
+GeometryCollection fixupPolygons(const GeometryCollection&);
 
 } // namespace mbgl

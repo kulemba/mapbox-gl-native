@@ -1,11 +1,12 @@
 #pragma once
 
 #include <mbgl/style/types.hpp>
-#include <mbgl/style/function.hpp>
-#include <mbgl/style/property_transition.hpp>
+#include <mbgl/style/property_value.hpp>
+#include <mbgl/style/transition_options.hpp>
 
 #include <mbgl/util/rapidjson.hpp>
 #include <mbgl/util/optional.hpp>
+#include <mbgl/util/color.hpp>
 
 #include <mbgl/platform/log.hpp>
 
@@ -14,6 +15,7 @@
 #include <vector>
 
 namespace mbgl {
+namespace style {
 
 template <typename T>
 optional<T> parseConstant(const char* name, const JSValue&);
@@ -36,7 +38,7 @@ template <> optional<std::vector<float>> parseConstant(const char*, const JSValu
 template <> optional<std::vector<std::string>> parseConstant(const char*, const JSValue&);
 
 template <typename T>
-optional<Function<T>> parseProperty(const char* name, const JSValue& value) {
+PropertyValue<T> parseProperty(const char* name, const JSValue& value) {
     if (!value.IsObject()) {
         auto constant = parseConstant<T>(name, value);
 
@@ -44,7 +46,7 @@ optional<Function<T>> parseProperty(const char* name, const JSValue& value) {
             return {};
         }
 
-        return { Function<T>(*constant) };
+        return *constant;
     }
 
     if (!value.HasMember("stops")) {
@@ -101,9 +103,10 @@ optional<Function<T>> parseProperty(const char* name, const JSValue& value) {
         stops.emplace_back(z.GetDouble(), *v);
     }
 
-    return { Function<T>(stops, base) };
+    return Function<T>(stops, base);
 }
 
-optional<PropertyTransition> parsePropertyTransition(const char * name, const JSValue&);
+optional<TransitionOptions> parseTransitionOptions(const char * name, const JSValue&);
 
+} // namespace style
 } // namespace mbgl
