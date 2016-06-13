@@ -106,15 +106,6 @@ public:
             } catch (...) {
             }
 
-            if (resource.necessity == Resource::Optional && !offlineResponse) {
-                // Ensure there's always a response that we can send, so the caller knows that
-                // there's no optional data available in the cache.
-                offlineResponse.emplace();
-                offlineResponse->noContent = true;
-                offlineResponse->error = std::make_unique<Response::Error>(
-                    Response::Error::Reason::NotFound, "Not found in offline database");
-            }
-
             if (! offlineResponse) {
                 auto supplementaryCachePathsOfKind = supplementaryCachePaths.find(resource.kind);
                 if (supplementaryCachePathsOfKind != supplementaryCachePaths.end()) {
@@ -140,6 +131,15 @@ public:
                 }
             }
             
+            if (resource.necessity == Resource::Optional && !offlineResponse) {
+                // Ensure there's always a response that we can send, so the caller knows that
+                // there's no optional data available in the cache.
+                offlineResponse.emplace();
+                offlineResponse->noContent = true;
+                offlineResponse->error = std::make_unique<Response::Error>(
+                    Response::Error::Reason::NotFound, "Not found in offline database");
+            }
+
             if (offlineResponse) {
                 revalidation.priorModified = offlineResponse->modified;
                 revalidation.priorExpires = offlineResponse->expires;
