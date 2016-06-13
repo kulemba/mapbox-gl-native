@@ -21,8 +21,8 @@ global.propertyType = function (property) {
   if (/-translate-anchor$/.test(property.name)) {
     return 'TranslateAnchorType';
   }
-  if (/-rotation-alignment$/.test(property.name)) {
-    return 'RotationAlignmentType';
+  if (/-(rotation|pitch)-alignment$/.test(property.name)) {
+    return 'AlignmentType';
   }
   switch (property.type) {
   case 'boolean':
@@ -46,13 +46,22 @@ global.propertyType = function (property) {
 }
 
 global.defaultValue = function (property) {
+  // https://github.com/mapbox/mapbox-gl-native/issues/5258
+  if (property.name === 'line-round-limit') {
+    return 1;
+  }
+
   switch (property.type) {
   case 'number':
     return property.default;
   case 'string':
     return JSON.stringify(property.default || "");
   case 'enum':
-    return `${propertyType(property)}::${camelize(property.default)}`;
+    if (property.default === undefined) {
+      return `${propertyType(property)}::Undefined`;
+    } else {
+      return `${propertyType(property)}::${camelize(property.default)}`;
+    }
   case 'color':
     return `{{ ${parseCSSColor(property.default).join(', ')} }}`
   case 'array':
