@@ -7,6 +7,7 @@ import android.graphics.RectF;
 import android.os.Build;
 import android.view.Surface;
 
+import com.mapbox.mapboxsdk.annotations.Icon;
 import com.mapbox.mapboxsdk.annotations.Marker;
 import com.mapbox.mapboxsdk.annotations.Polygon;
 import com.mapbox.mapboxsdk.annotations.Polyline;
@@ -370,7 +371,9 @@ final class NativeMapView {
     }
 
     public void updateMarker(Marker marker) {
-        nativeUpdateMarker(mNativeMapViewPtr, marker);
+        LatLng position = marker.getPosition();
+        Icon icon = marker.getIcon();
+        nativeUpdateMarker(mNativeMapViewPtr, marker.getId(), position.getLatitude(), position.getLongitude(), icon.getId());
     }
 
     public void removeAnnotation(long id) {
@@ -462,7 +465,7 @@ final class NativeMapView {
         nativeRemoveCustomLayer(mNativeMapViewPtr, id);
     }
 
-    public double[] getCameraValues(){
+    public double[] getCameraValues() {
         return nativeGetCameraValues(mNativeMapViewPtr);
     }
 
@@ -588,7 +591,7 @@ final class NativeMapView {
 
     private native void nativeResetNorth(long nativeMapViewPtr);
 
-    private native void nativeUpdateMarker(long nativeMapViewPtr, Marker marker);
+    private native void nativeUpdateMarker(long nativeMapViewPtr, long markerId, double lat, double lon, String iconId);
 
     private native long[] nativeAddMarkers(long nativeMapViewPtr, Marker[] markers);
 
