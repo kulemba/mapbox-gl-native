@@ -103,20 +103,9 @@ mbgl::Color MGLColorObjectFromCGColorRef(CGColorRef cgColor) {
     return MGLLatLngBoundsFromCoordinateBounds(_bounds).intersects(MGLLatLngBoundsFromCoordinateBounds(overlayBounds));
 }
 
-- (mbgl::AnnotationSegments)annotationSegments {
-    NSUInteger count = self.pointCount;
-    CLLocationCoordinate2D *coordinates = self.coordinates;
-    
-    mbgl::AnnotationSegment segment;
-    segment.reserve(count);
-    for (NSUInteger i = 0; i < count; i++) {
-        segment.push_back(MGLLatLngFromLocationCoordinate2D(coordinates[i]));
-    }
-    return { segment };
-}
-
-- (mbgl::ShapeAnnotation::Properties)shapeAnnotationPropertiesObjectWithDelegate:(__unused id <MGLMultiPointDelegate>)delegate {
-    return mbgl::ShapeAnnotation::Properties();
+- (mbgl::Annotation)annotationObjectWithDelegate:(__unused id <MGLMultiPointDelegate>)delegate {
+    NSAssert(NO, @"Cannot add an annotation from an instance of %@", NSStringFromClass([self class]));
+    return mbgl::SymbolAnnotation({mbgl::Point<double>()});
 }
 
 - (NSString *)description

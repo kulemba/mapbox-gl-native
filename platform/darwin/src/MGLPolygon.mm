@@ -24,26 +24,31 @@
     return self;
 }
 
-- (mbgl::AnnotationSegments)annotationSegments {
-    auto segments = super.annotationSegments;
-    for (MGLPolygon *polygon in self.interiorPolygons) {
-        auto interiorSegments = polygon.annotationSegments;
-        segments.push_back(interiorSegments.front());
+- (mbgl::LinearRing<double>)ring {
+    NSUInteger count = self.pointCount;
+    CLLocationCoordinate2D *coordinates = self.coordinates;
+
+    mbgl::LinearRing<double> result;
+    result.reserve(self.pointCount);
+    for (NSUInteger i = 0; i < count; i++) {
+        result.push_back(mbgl::Point<double>(coordinates[i].longitude, coordinates[i].latitude));
     }
-    return segments;
+    return result;
 }
 
-- (mbgl::ShapeAnnotation::Properties)shapeAnnotationPropertiesObjectWithDelegate:(id <MGLMultiPointDelegate>)delegate {
-    mbgl::ShapeAnnotation::Properties shapeProperties = [super shapeAnnotationPropertiesObjectWithDelegate:delegate];
-    
-    mbgl::FillAnnotationProperties fillProperties;
-    fillProperties.opacity = [delegate alphaForShapeAnnotation:self];
-    fillProperties.outlineColor = [delegate strokeColorForShapeAnnotation:self];
-    fillProperties.color = [delegate fillColorForPolygonAnnotation:self];
-    
-    shapeProperties.set<mbgl::FillAnnotationProperties>(fillProperties);
-    
-    return shapeProperties;
+- (mbgl::Annotation)annotationObjectWithDelegate:(id <MGLMultiPointDelegate>)delegate {
+    mbgl::Polygon<double> geometry;
+    geometry.push_back(self.ring);
+    for (MGLPolygon *polygon in self.interiorPolygons) {
+        geometry.push_back(polygon.ring);
+    }
+
+    mbgl::FillAnnotation annotation { geometry };
+    annotation.opacity = [delegate alphaForShapeAnnotation:self];
+    annotation.outlineColor = [delegate strokeColorForShapeAnnotation:self];
+    annotation.color = [delegate fillColorForPolygonAnnotation:self];
+
+    return annotation;
 }
 
 @end

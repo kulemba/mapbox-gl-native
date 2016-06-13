@@ -36,6 +36,7 @@ If you don’t have an Apple Developer account, change the destination to a simu
 
 You can customize the build output by passing the following arguments into the `make` invocation:
 
+* `BUILDTYPE=Release` will optimize for distribution. Defaults to `Debug`.
 * `BUILD_DEVICE=false` builds only for the iOS Simulator.
 * `FORMAT=dynamic` builds only a dynamic framework. `FORMAT=static` builds only a static framework, for compatibility with iOS 7.x.
 * `SYMBOLS=NO` strips the build output of any debug symbols, yielding much smaller binaries.
@@ -79,13 +80,6 @@ To add or update text that the user may see in the iOS SDK:
 ## Testing
 
 `make test-ios` builds and runs unit tests of cross-platform code as well as the SDK.
-
-Before you can run UI tests of the SDK, check out KIF and OHHTTPStubs via Git submodules:
-
-```bash
-git submodule init
-git submodule update
-```
 
 Before you can run unit tests of the cross-platform code on the command line, install ios-sim version 3.2.0 (not any other version):
 

@@ -7,8 +7,7 @@
 #import <OpenGLES/EAGL.h>
 
 #include <mbgl/mbgl.hpp>
-#include <mbgl/annotation/point_annotation.hpp>
-#include <mbgl/annotation/shape_annotation.hpp>
+#include <mbgl/annotation/annotation.hpp>
 #include <mbgl/sprite/sprite_image.hpp>
 #include <mbgl/map/camera.hpp>
 #include <mbgl/map/mode.hpp>
@@ -16,7 +15,8 @@
 #include <mbgl/platform/darwin/reachability.h>
 #include <mbgl/storage/default_file_source.hpp>
 #include <mbgl/storage/network_status.hpp>
-#include <mbgl/style/property_transition.hpp>
+#include <mbgl/style/transition_options.hpp>
+#include <mbgl/style/layers/custom_layer.hpp>
 #include <mbgl/math/wrap.hpp>
 #include <mbgl/util/geo.hpp>
 #include <mbgl/util/constants.hpp>
@@ -41,6 +41,7 @@
 #import "MGLAnnotationView_Private.h"
 #import "MGLMapboxEvents.h"
 #import "MGLCompactCalloutView.h"
+#import "MGLAnnotationContainerView.h"
 
 #import <algorithm>
 #import <cstdlib>
@@ -96,6 +97,8 @@ const CGFloat MGLAnnotationImagePaddingForHitTest = 5;
 
 /// Distance from the callout’s anchor point to the annotation it points to.
 const CGFloat MGLAnnotationImagePaddingForCallout = 1;
+
+const CGSize MGLAnnotationAccessibilityElementMinimumSize = CGSizeMake(10, 10);
 
 /// Unique identifier representing a single annotation in mbgl.
 typedef uint32_t MGLAnnotationTag;
@@ -233,6 +236,7 @@ public:
 @property (nonatomic, getter=isDormant) BOOL dormant;
 @property (nonatomic, readonly, getter=isRotationAllowed) BOOL rotationAllowed;
 @property (nonatomic) MGLMapViewProxyAccessibilityElement *mapViewProxyAccessibilityElement;
+@property (nonatomic) MGLAnnotationContainerView *annotationContainerView;
 
 @end
 
@@ -548,7 +552,6 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     _glView.delegate = self;
     [_glView bindDrawable];
     [self insertSubview:_glView atIndex:0];
-
     _glView.contentMode = UIViewContentModeCenter;
 
     // load extensions
@@ -1777,9 +1780,9 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         // but safely updated.
         if (annotation == [self annotationWithTag:annotationTag])
         {
-            const mbgl::LatLng latLng = MGLLatLngFromLocationCoordinate2D(annotation.coordinate);
+            const mbgl::Point<double> point = MGLPointFromLocationCoordinate2D(annotation.coordinate);
             MGLAnnotationImage *annotationImage = [self imageOfAnnotationWithTag:annotationTag];
-            _mbglMap->updatePointAnnotation(annotationTag, { latLng, annotationImage.styleIconIdentifier.UTF8String ?: "" });
+            _mbglMap->updateAnnotation(annotationTag, mbgl::SymbolAnnotation { point, annotationImage.styleIconIdentifier.UTF8String ?: "" });
             if (annotationTag == _selectedAnnotationTag)
             {
                 [self deselectAnnotation:annotation animated:YES];
@@ -2019,6 +2022,13 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag.at(annotationTag);
     id <MGLAnnotation> annotation = annotationContext.annotation;
     
+    // Let the annotation view serve as its own accessibility element.
+    MGLAnnotationView *annotationView = annotationContext.annotationView;
+    if (annotationView && annotationView.superview)
+    {
+        return annotationView;
+    }
+    
     // Lazily create an accessibility element for the found annotation.
     if ( ! annotationContext.accessibilityElement)
     {
@@ -2028,6 +2038,11 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     // Update the accessibility element.
     MGLAnnotationImage *annotationImage = [self imageOfAnnotationWithTag:annotationTag];
     CGRect annotationFrame = [self frameOfImage:annotationImage.image centeredAtCoordinate:annotation.coordinate];
+    CGPoint annotationFrameCenter = CGPointMake(CGRectGetMidX(annotationFrame), CGRectGetMidY(annotationFrame));
+    CGRect minimumFrame = CGRectInset({ annotationFrameCenter, CGSizeZero },
+                                      -MGLAnnotationAccessibilityElementMinimumSize.width / 2,
+                                      -MGLAnnotationAccessibilityElementMinimumSize.height / 2);
+    annotationFrame = CGRectUnion(annotationFrame, minimumFrame);
     CGRect screenRect = UIAccessibilityConvertFrameToScreenCoordinates(annotationFrame, self);
     annotationContext.accessibilityElement.accessibilityFrame = screenRect;
     annotationContext.accessibilityElement.accessibilityHint = NSLocalizedStringWithDefaultValue(@"ANNOTATION_A11Y_HINT", nil, nil, @"Shows more info", @"Accessibility hint");
@@ -2059,17 +2074,28 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     {
         return 1;
     }
-    if ( ! [element isKindOfClass:[MGLAnnotationAccessibilityElement class]] &&
-        element != self.attributionButton)
+    
+    std::vector<MGLAnnotationTag> visibleAnnotations = [self annotationTagsInRect:self.bounds];
+    
+    MGLAnnotationTag tag = MGLAnnotationTagNotFound;
+    if ([element isKindOfClass:[MGLAnnotationView class]])
+    {
+        id <MGLAnnotation> annotation = [(MGLAnnotationView *)element annotation];
+        tag = [self annotationTagForAnnotation:annotation];
+    }
+    else if ([element isKindOfClass:[MGLAnnotationAccessibilityElement class]])
+    {
+        tag = [(MGLAnnotationAccessibilityElement *)element tag];
+    }
+    else if (element == self.attributionButton)
+    {
+        return !!self.userLocationAnnotationView + visibleAnnotations.size();
+    }
+    else
     {
         return NSNotFound;
     }
     
-    std::vector<MGLAnnotationTag> visibleAnnotations = [self annotationTagsInRect:self.bounds];
-    if (element == self.attributionButton)
-    {
-        return !!self.userLocationAnnotationView + visibleAnnotations.size();
-    }
     std::sort(visibleAnnotations.begin(), visibleAnnotations.end());
     auto foundElement = std::find(visibleAnnotations.begin(), visibleAnnotations.end(),
                                   ((MGLAnnotationAccessibilityElement *)element).tag);
@@ -2310,14 +2336,14 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     [self willChangeValueForKey:@"visibleCoordinateBounds"];
     mbgl::EdgeInsets padding = MGLEdgeInsetsFromNSEdgeInsets(insets);
     padding += MGLEdgeInsetsFromNSEdgeInsets(self.contentInset);
-    mbgl::AnnotationSegment segment;
-    segment.reserve(count);
+    std::vector<mbgl::LatLng> latLngs;
+    latLngs.reserve(count);
     for (NSUInteger i = 0; i < count; i++)
     {
-        segment.push_back({coordinates[i].latitude, coordinates[i].longitude});
+        latLngs.push_back({coordinates[i].latitude, coordinates[i].longitude});
     }
     
-    mbgl::CameraOptions cameraOptions = _mbglMap->cameraForLatLngs(segment, padding);
+    mbgl::CameraOptions cameraOptions = _mbglMap->cameraForLatLngs(latLngs, padding);
     if (direction >= 0)
     {
         cameraOptions.angle = MGLRadiansFromDegrees(-direction);
@@ -2701,7 +2727,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         newAppliedClasses.insert(newAppliedClasses.end(), [appliedClass UTF8String]);
     }
 
-    mbgl::PropertyTransition transition { { MGLDurationInSeconds(transitionDuration) } };
+    mbgl::style::TransitionOptions transition { { MGLDurationInSeconds(transitionDuration) } };
     _mbglMap->setClasses(newAppliedClasses, transition);
 }
 
@@ -2797,16 +2823,13 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     if ( ! annotations) return;
     [self willChangeValueForKey:@"annotations"];
 
-    NSMutableArray *userPoints = [NSMutableArray array];
-    std::vector<mbgl::PointAnnotation> points;
-    NSMutableArray *userShapes = [NSMutableArray array];
-    std::vector<mbgl::ShapeAnnotation> shapes;
-    
     NSMutableDictionary *annotationImagesForAnnotation = [NSMutableDictionary dictionary];
     NSMutableDictionary *annotationViewsForAnnotation = [NSMutableDictionary dictionary];
 
     BOOL delegateImplementsViewForAnnotation = [self.delegate respondsToSelector:@selector(mapView:viewForAnnotation:)];
     BOOL delegateImplementsImageForPoint = [self.delegate respondsToSelector:@selector(mapView:imageForAnnotation:)];
+    
+    NSMutableArray *newAnnotationViews = [[NSMutableArray alloc] initWithCapacity:annotations.count];
 
     for (id <MGLAnnotation> annotation in annotations)
     {
@@ -2819,8 +2842,11 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
             if (!multiPoint.pointCount) {
                 continue;
             }
-            shapes.emplace_back(multiPoint.annotationSegments, [multiPoint shapeAnnotationPropertiesObjectWithDelegate:self]);
-            [userShapes addObject:annotation];
+
+            MGLAnnotationTag annotationTag = _mbglMap->addAnnotation([multiPoint annotationObjectWithDelegate:self]);
+            MGLAnnotationContext context;
+            context.annotation = annotation;
+            _annotationContextsByAnnotationTag[annotationTag] = context;
         }
         else if ([annotation isKindOfClass:[MGLMultiPolyline class]]
                  || [annotation isKindOfClass:[MGLMultiPolygon class]]
@@ -2841,7 +2867,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
                 {
                     annotationViewsForAnnotation[annotationValue] = annotationView;
                     annotationView.center = [self convertCoordinate:annotation.coordinate toPointToView:self];
-                    [self.glView addSubview:annotationView];
+                    [newAnnotationViews addObject:annotationView];
                 }
             }
             
@@ -2876,22 +2902,11 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
                 annotationImagesForAnnotation[annotationValue] = annotationImage;
             }
 
-            [userPoints addObject:annotation];
-            points.emplace_back(MGLLatLngFromLocationCoordinate2D(annotation.coordinate), symbolName.UTF8String ?: "");
-        }
-    }
+            MGLAnnotationTag annotationTag = _mbglMap->addAnnotation(mbgl::SymbolAnnotation {
+                MGLPointFromLocationCoordinate2D(annotation.coordinate),
+                symbolName.UTF8String ?: ""
+            });
 
-    if (points.size())
-    {
-        // refactor this to build contexts above and just associate with tags here
-        
-        std::vector<MGLAnnotationTag> annotationTags = _mbglMap->addPointAnnotations(points);
-        
-        for (size_t i = 0; i < annotationTags.size(); ++i)
-        {
-            id<MGLAnnotation> annotation = userPoints[i];
-            NSValue *annotationValue = [NSValue valueWithNonretainedObject:annotation];
-            
             MGLAnnotationContext context;
             context.annotation = annotation;
             MGLAnnotationImage *annotationImage = annotationImagesForAnnotation[annotationValue];
@@ -2899,13 +2914,11 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
             if (annotationImage) {
                 context.imageReuseIdentifier = annotationImage.reuseIdentifier;
             }
-            MGLAnnotationView *annotationView = annotationViewsForAnnotation[annotationValue];
             if (annotationView) {
                 context.annotationView = annotationView;
                 context.viewReuseIdentifier = annotationView.reuseIdentifier;
             }
             
-            MGLAnnotationTag annotationTag = annotationTags[i];
             _annotationContextsByAnnotationTag[annotationTag] = context;
             if ([annotation isKindOfClass:[NSObject class]]) {
                 NSAssert(![annotation isKindOfClass:[MGLMultiPoint class]], @"Point annotation should not be MGLMultiPoint.");
@@ -2914,23 +2927,32 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         }
     }
 
-    if (shapes.size())
-    {
-        std::vector<MGLAnnotationTag> annotationTags = _mbglMap->addShapeAnnotations(shapes);
-        
-        for (size_t i = 0; i < annotationTags.size(); ++i)
-        {
-            MGLAnnotationTag annotationTag = annotationTags[i];
-            id <MGLAnnotation> annotation = userShapes[i];
-            
-            MGLAnnotationContext context;
-            context.annotation = annotation;
-            _annotationContextsByAnnotationTag[annotationTag] = context;
-        }
-    }
+    [self updateAnnotationContainerViewWithAnnotationViews:newAnnotationViews];
     
     [self didChangeValueForKey:@"annotations"];
     UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
+}
+
+- (void)updateAnnotationContainerViewWithAnnotationViews:(NS_ARRAY_OF(MGLAnnotationView *) *)annotationViews
+{
+    if (annotationViews.count == 0) return;
+    
+    MGLAnnotationContainerView *newAnnotationContainerView;
+    if (self.annotationContainerView)
+    {
+        // reload any previously added views
+        newAnnotationContainerView = [MGLAnnotationContainerView annotationContainerViewWithAnnotationContainerView:self.annotationContainerView];
+        [self.annotationContainerView removeFromSuperview];
+    }
+    else
+    {
+        newAnnotationContainerView = [[MGLAnnotationContainerView alloc] initWithFrame:self.bounds];
+    }
+    newAnnotationContainerView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    newAnnotationContainerView.contentMode = UIViewContentModeCenter;
+    [newAnnotationContainerView addSubviews:annotationViews];
+    [_glView insertSubview:newAnnotationContainerView atIndex:0];
+    self.annotationContainerView = newAnnotationContainerView;
 }
 
 /// Initialize and return a default annotation image that depicts a round pin
@@ -3047,8 +3069,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 {
     if ( ! annotations) return;
 
-    std::vector<MGLAnnotationTag> annotationTagsToRemove;
-    annotationTagsToRemove.reserve(annotations.count);
+    [self willChangeValueForKey:@"annotations"];
 
     for (id <MGLAnnotation> annotation in annotations)
     {
@@ -3063,8 +3084,6 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag.at(annotationTag);
         MGLAnnotationView *annotationView = annotationContext.annotationView;
         [annotationView removeFromSuperview];
-        
-        annotationTagsToRemove.push_back(annotationTag);
 
         if (annotationTag == _selectedAnnotationTag)
         {
@@ -3077,15 +3096,12 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         {
             [(NSObject *)annotation removeObserver:self forKeyPath:@"coordinate" context:(void *)(NSUInteger)annotationTag];
         }
+
+        _mbglMap->removeAnnotation(annotationTag);
     }
 
-    if ( ! annotationTagsToRemove.empty())
-    {
-        [self willChangeValueForKey:@"annotations"];
-        _mbglMap->removeAnnotations(annotationTagsToRemove);
-        [self didChangeValueForKey:@"annotations"];
-        UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
-    }
+    [self didChangeValueForKey:@"annotations"];
+    UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
 }
 
 - (void)addOverlay:(id <MGLOverlay>)overlay
@@ -3645,8 +3661,8 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     {
         if ([pair.second.imageReuseIdentifier isEqualToString:reuseIdentifier])
         {
-            const mbgl::LatLng latLng = MGLLatLngFromLocationCoordinate2D(pair.second.annotation.coordinate);
-            _mbglMap->updatePointAnnotation(pair.first, { latLng, iconIdentifier.UTF8String ?: "" });
+            const mbgl::Point<double> point = MGLPointFromLocationCoordinate2D(pair.second.annotation.coordinate);
+            _mbglMap->updateAnnotation(pair.first, mbgl::SymbolAnnotation { point, iconIdentifier.UTF8String ?: "" });
         }
     }
 }
@@ -4984,7 +5000,7 @@ void MGLPrepareCustomStyleLayer(void *context)
     }
 }
 
-void MGLDrawCustomStyleLayer(void *context, const mbgl::CustomLayerRenderParameters &params)
+void MGLDrawCustomStyleLayer(void *context, const mbgl::style::CustomLayerRenderParameters &params)
 {
     CGSize size = CGSizeMake(params.width, params.height);
     CLLocationCoordinate2D centerCoordinate = CLLocationCoordinate2DMake(params.latitude, params.longitude);
@@ -5016,14 +5032,14 @@ void MGLFinishCustomStyleLayer(void *context)
 {
     NSAssert(identifier, @"Style layer needs an identifier");
     MGLCustomStyleLayerHandlers *context = new MGLCustomStyleLayerHandlers(preparation, drawing, completion);
-    _mbglMap->addCustomLayer(identifier.UTF8String, MGLPrepareCustomStyleLayer,
-                             MGLDrawCustomStyleLayer, MGLFinishCustomStyleLayer,
-                             context, otherIdentifier.UTF8String);
+    _mbglMap->addLayer(std::make_unique<mbgl::style::CustomLayer>(identifier.UTF8String, MGLPrepareCustomStyleLayer,
+                                                                  MGLDrawCustomStyleLayer, MGLFinishCustomStyleLayer, context),
+                       otherIdentifier ? mbgl::optional<std::string>(otherIdentifier.UTF8String) : mbgl::optional<std::string>());
 }
 
 - (void)removeCustomStyleLayerWithIdentifier:(NSString *)identifier
 {
-    _mbglMap->removeCustomLayer(identifier.UTF8String);
+    _mbglMap->removeLayer(identifier.UTF8String);
 }
 
 - (void)setCustomStyleLayersNeedDisplay

@@ -2,7 +2,7 @@
 
 #include <mbgl/util/noncopyable.hpp>
 #include <mbgl/gl/gl.hpp>
-#include <mbgl/gl/gl_object_store.hpp>
+#include <mbgl/gl/object_store.hpp>
 
 #include <algorithm>
 #include <memory>
@@ -13,22 +13,21 @@ namespace gl {
 
 class TexturePool : private util::noncopyable {
 public:
-    GLuint getTextureID(gl::GLObjectStore&);
-    void releaseTextureID(GLuint);
+    GLuint getTextureID(gl::ObjectStore&);
+    void releaseTextureID(GLuint&);
 
 private:
     class Impl : private util::noncopyable {
     public:
-        Impl(gl::GLObjectStore& glObjectStore) : ids(gl::TexturePoolHolder::TextureMax) {
-            pool.create(glObjectStore);
-            std::copy(pool.getIDs().begin(), pool.getIDs().end(), ids.begin());
+        Impl(gl::ObjectStore& store) : pool(store.createTexturePool()), availableIDs(gl::TextureMax) {
+            std::copy(pool.get().begin(), pool.get().end(), availableIDs.begin());
         }
 
-        Impl(Impl&& o) : pool(std::move(o.pool)), ids(std::move(o.ids)) {}
-        Impl& operator=(Impl&& o) { pool = std::move(o.pool); ids = std::move(o.ids); return *this; }
+        Impl(Impl&& o) : pool(std::move(o.pool)), availableIDs(std::move(o.availableIDs)) {}
+        Impl& operator=(Impl&& o) { pool = std::move(o.pool); availableIDs = std::move(o.availableIDs); return *this; }
 
-        gl::TexturePoolHolder pool;
-        std::vector<GLuint> ids;
+        gl::UniqueTexturePool pool;
+        std::vector<GLuint> availableIDs;
     };
 
     std::vector<Impl> pools;
