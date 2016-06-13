@@ -1,5 +1,5 @@
 #include <mbgl/tile/vector_tile.hpp>
-#include <mbgl/source/source.hpp>
+#include <mbgl/style/source.hpp>
 #include <mbgl/storage/resource.hpp>
 #include <mbgl/storage/response.hpp>
 #include <mbgl/storage/file_source.hpp>
@@ -152,7 +152,11 @@ GeometryCollection VectorTileFeature::getGeometries() const {
         }
     }
 
-    return lines;
+    if (layer.version >= 2 || type != FeatureType::Polygon) {
+        return lines;
+    }
+
+    return fixupPolygons(lines);
 }
 
 VectorTile::VectorTile(std::shared_ptr<const std::string> data_)
@@ -187,7 +191,10 @@ VectorTileLayer::VectorTileLayer(protozero::pbf_reader layer_pbf) {
             features.push_back(layer_pbf.get_message());
             break;
         case 3: // keys
-            keysMap.emplace(layer_pbf.get_string(), keysMap.size());
+            {
+                auto iter = keysMap.emplace(layer_pbf.get_string(), keysMap.size());
+                keys.emplace_back(std::reference_wrapper<const std::string>(iter.first->first));
+            }
             break;
         case 4: // values
             values.emplace_back(parseValue(layer_pbf.get_message()));
@@ -195,14 +202,13 @@ VectorTileLayer::VectorTileLayer(protozero::pbf_reader layer_pbf) {
         case 5: // extent
             extent = layer_pbf.get_uint32();
             break;
+        case 15: // version
+            version = layer_pbf.get_uint32();
+            break;
         default:
             layer_pbf.skip();
             break;
         }
-    }
-
-    for (auto &pair : keysMap) {
-        keys.emplace_back(std::reference_wrapper<const std::string>(pair.first));
     }
 }
 
