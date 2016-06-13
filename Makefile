@@ -25,6 +25,7 @@ else
 .mason/mason: ;
 endif
 
+.NOTPARALLEL: node_modules
 node_modules: package.json
 	npm update # Install dependencies but don't run our own install script.
 
@@ -34,7 +35,7 @@ CONFIG_DEPENDENCIES = .mason/mason configure
 
 # Depend on gyp includes plus directories, so that projects are regenerated when
 # files are added or removed.
-GYP_DEPENDENCIES = mbgl.gypi test/test.gypi bin/*.gypi $(shell find src include -type d) node_modules
+GYP_DEPENDENCIES = mbgl.gypi test/test.gypi benchmark/benchmark.gypi bin/*.gypi $(shell find src include -type d) node_modules
 
 #### OS X targets ##############################################################
 
@@ -239,6 +240,13 @@ run-qt-app: qt-app
 run-qt-qml-app: qt-qml-app
 	cd $(QT_OUTPUT_PATH)/$(BUILDTYPE) && ./qquickmapboxgl
 
+test-valgrind-qt: $(QT_MAKEFILE) node_modules
+	$(QT_ENV) $(MAKE) -j$(JOBS) -C $(QT_OUTPUT_PATH) test
+	./scripts/valgrind.sh $(QT_OUTPUT_PATH)/$(BUILDTYPE)/test --gtest_catch_exceptions=0 --gtest_filter=-*.Load
+
+run-valgrind-qt-app: qt-app
+	./scripts/valgrind.sh $(QT_OUTPUT_PATH)/$(BUILDTYPE)/qmapboxgl --test -platform offscreen
+
 #### Linux targets #####################################################
 
 LINUX_OUTPUT_PATH = build/linux-$(shell uname -m)
@@ -270,9 +278,6 @@ test: $(LINUX_MAKEFILE)
 run-glfw-app: glfw-app
 	cd $(LINUX_OUTPUT_PATH)/$(BUILDTYPE) && ./mapbox-glfw
 
-run-valgrind-glfw-app: glfw-app
-	cd $(LINUX_OUTPUT_PATH)/$(BUILDTYPE) && valgrind --leak-check=full --suppressions=../../../scripts/valgrind.sup ./mapbox-glfw
-
 ifneq (,$(shell which gdb))
   GDB = gdb -batch -return-child-result -ex 'set print thread-events off' -ex 'run' -ex 'thread apply all bt' --args
 endif
@@ -288,15 +293,29 @@ Makefile/%:
 	$(RUN) $@
 
 # Generates a compilation database with ninja for use in clang tooling
-compdb: platform/linux/platform.gyp $(LINUX_OUTPUT_PATH)/config.gypi
+compdb: compdb-$(HOST_PLATFORM)
+
+compdb-linux: platform/linux/platform.gyp $(LINUX_OUTPUT_PATH)/config.gypi
 	$(GYP) -f ninja -I $(LINUX_OUTPUT_PATH)/config.gypi \
 	  --generator-output=$(LINUX_OUTPUT_PATH) $<
 	deps/ninja/ninja-linux -C $(LINUX_OUTPUT_PATH)/$(BUILDTYPE) \
 		-t compdb cc cc_s cxx objc objcxx > $(LINUX_OUTPUT_PATH)/$(BUILDTYPE)/compile_commands.json
 
-tidy: compdb
-	deps/ninja/ninja-linux -C $(LINUX_OUTPUT_PATH)/$(BUILDTYPE) version shaders
+compdb-osx: platform/osx/platform.gyp $(OSX_OUTPUT_PATH)/config.gypi
+	$(GYP) -f ninja -I $(OSX_OUTPUT_PATH)/config.gypi \
+	  --generator-output=$(OSX_OUTPUT_PATH) $<
+	deps/ninja/ninja-osx -C $(OSX_OUTPUT_PATH)/$(BUILDTYPE) \
+		-t compdb cc cc_s cxx objc objcxx > $(OSX_OUTPUT_PATH)/$(BUILDTYPE)/compile_commands.json
+
+tidy: compdb tidy-$(HOST_PLATFORM)
+
+tidy-linux:
+	deps/ninja/ninja-linux -C $(LINUX_OUTPUT_PATH)/$(BUILDTYPE) platform-lib test
 	scripts/clang-tidy.sh $(LINUX_OUTPUT_PATH)/$(BUILDTYPE)
+
+tidy-osx:
+	deps/ninja/ninja-osx -C $(OSX_OUTPUT_PATH)/$(BUILDTYPE) platform-lib test
+	scripts/clang-tidy.sh $(OSX_OUTPUT_PATH)/$(BUILDTYPE)
 
 #### Miscellaneous targets #####################################################
 
