@@ -3,7 +3,7 @@
 #import "MGLGeometry.h"
 #import "MGLTypes.h"
 
-#import <mbgl/annotation/shape_annotation.hpp>
+#import <mbgl/annotation/annotation.hpp>
 #import <vector>
 
 #import <CoreGraphics/CoreGraphics.h>
@@ -21,11 +21,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithCoordinates:(CLLocationCoordinate2D *)coords count:(NSUInteger)count;
 - (BOOL)intersectsOverlayBounds:(MGLCoordinateBounds)overlayBounds;
 
-/** Returns the shape’s annotation segments. */
-- (mbgl::AnnotationSegments)annotationSegments;
-
-/** Constructs a shape annotation properties object by asking the delegate for style values. */
-- (mbgl::ShapeAnnotation::Properties)shapeAnnotationPropertiesObjectWithDelegate:(id <MGLMultiPointDelegate>)delegate;
+/** Constructs a shape annotation object, asking the delegate for style values. */
+- (mbgl::Annotation)annotationObjectWithDelegate:(id <MGLMultiPointDelegate>)delegate;
 
 @end
 

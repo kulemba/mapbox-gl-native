@@ -1,6 +1,7 @@
 #include <mbgl/renderer/painter.hpp>
 #include <mbgl/renderer/symbol_bucket.hpp>
-#include <mbgl/layer/symbol_layer.hpp>
+#include <mbgl/style/layers/symbol_layer.hpp>
+#include <mbgl/style/layers/symbol_layer_impl.hpp>
 #include <mbgl/geometry/glyph_atlas.hpp>
 #include <mbgl/sprite/sprite_atlas.hpp>
 #include <mbgl/shader/sdf_shader.hpp>
@@ -10,7 +11,9 @@
 
 #include <cmath>
 
-using namespace mbgl;
+namespace mbgl {
+
+using namespace style;
 
 void Painter::renderSDF(SymbolBucket &bucket,
                         const UnwrappedTileID &tileID,
@@ -18,7 +21,7 @@ void Painter::renderSDF(SymbolBucket &bucket,
                         float sdfFontSize,
                         std::array<float, 2> texsize,
                         SDFShader& sdfShader,
-                        void (SymbolBucket::*drawSDF)(SDFShader&, gl::GLObjectStore&),
+                        void (SymbolBucket::*drawSDF)(SDFShader&, gl::ObjectStore&),
 
                         // Layout
                         RotationAlignmentType rotationAlignment,
@@ -36,34 +39,28 @@ void Painter::renderSDF(SymbolBucket &bucket,
 {
     mat4 vtxMatrix = translatedMatrix(matrix, translate, tileID, translateAnchor);
 
-    bool skewed = rotationAlignment == RotationAlignmentType::Map;
-    mat4 exMatrix;
-    float s;
-    float gammaScale;
-
-    if (skewed) {
-        matrix::identity(exMatrix);
-        s = tileID.pixelsToTileUnits(1, state.getZoom());
-        gammaScale = 1.0f / std::cos(state.getPitch());
-    } else {
-        exMatrix = extrudeMatrix;
-        s = state.getAltitude();
-        gammaScale = 1.0f;
-        matrix::rotate_z(exMatrix, exMatrix, state.getNorthOrientationAngle());
-    }
-    const bool flippedY = !skewed && state.getViewportMode() == ViewportMode::FlippedY;
-    matrix::scale(exMatrix, exMatrix, s, flippedY ? -s : s, 1);
-
     // If layerStyle.size > bucket.info.fontSize then labels may collide
     float fontSize = paintSize;
     float fontScale = fontSize / sdfFontSize;
-    matrix::scale(exMatrix, exMatrix, fontScale, fontScale, 1.0f);
+
+    float scale = fontScale;
+    std::array<float, 2> exScale = extrudeScale;
+    bool alignedWithMap = rotationAlignment == RotationAlignmentType::Map;
+    float gammaScale = 1.0f;
+
+    if (alignedWithMap) {
+        scale *= tileID.pixelsToTileUnits(1, state.getZoom());
+        exScale.fill(scale);
+        gammaScale /= std::cos(state.getPitch());
+    } else {
+        exScale = {{ exScale[0] * scale, exScale[1] * scale }};
+    }
 
     config.program = sdfShader.getID();
     sdfShader.u_matrix = vtxMatrix;
-    sdfShader.u_exmatrix = exMatrix;
+    sdfShader.u_extrude_scale = exScale;
     sdfShader.u_texsize = texsize;
-    sdfShader.u_skewed = skewed;
+    sdfShader.u_skewed = alignedWithMap;
     sdfShader.u_texture = 0;
 
     // adjust min/max zooms for variable font sies
@@ -72,7 +69,7 @@ void Painter::renderSDF(SymbolBucket &bucket,
     sdfShader.u_zoom = (state.getZoom() - zoomAdjust) * 10; // current zoom level
 
     config.activeTexture = GL_TEXTURE1;
-    frameHistory.bind(glObjectStore);
+    frameHistory.bind(store);
     sdfShader.u_fadetexture = 1;
 
     // The default gamma value has to be adjust for the current pixelratio so that we're not
@@ -92,7 +89,7 @@ void Painter::renderSDF(SymbolBucket &bucket,
         sdfShader.u_buffer = (haloOffset - haloWidth / fontScale) / sdfPx;
 
         setDepthSublayer(0);
-        (bucket.*drawSDF)(sdfShader, glObjectStore);
+        (bucket.*drawSDF)(sdfShader, store);
     }
 
     // Then, we draw the text/icon over the halo
@@ -103,7 +100,7 @@ void Painter::renderSDF(SymbolBucket &bucket,
         sdfShader.u_buffer = (256.0f - 64.0f) / 256.0f;
 
         setDepthSublayer(1);
-        (bucket.*drawSDF)(sdfShader, glObjectStore);
+        (bucket.*drawSDF)(sdfShader, store);
     }
 }
 
@@ -116,7 +113,7 @@ void Painter::renderSymbol(SymbolBucket& bucket,
         return;
     }
 
-    const auto& paint = layer.paint;
+    const auto& paint = layer.impl->paint;
     const auto& layout = bucket.layout;
 
     config.depthMask = GL_FALSE;
@@ -152,14 +149,14 @@ void Painter::renderSymbol(SymbolBucket& bucket,
                 ? state.getAngle()
                 : 0;
 
-        const float fontSize = layer.iconSize;
+        const float fontSize = layer.impl->iconSize;
         const float fontScale = fontSize / 1.0f;
 
-        SpriteAtlas* activeSpriteAtlas = layer.spriteAtlas;
+        SpriteAtlas* activeSpriteAtlas = layer.impl->spriteAtlas;
         const bool iconScaled = fontScale != 1 || frame.pixelRatio != activeSpriteAtlas->getPixelRatio() || bucket.iconsNeedLinear;
         const bool iconTransformed = layout.iconRotationAlignment == RotationAlignmentType::Map || angleOffset != 0 || state.getPitch() != 0;
         config.activeTexture = GL_TEXTURE0;
-        activeSpriteAtlas->bind(sdf || state.isChanging() || iconScaled || iconTransformed, glObjectStore);
+        activeSpriteAtlas->bind(sdf || state.isChanging() || iconScaled || iconTransformed, store);
 
         if (sdf) {
             renderSDF(bucket,
@@ -178,40 +175,26 @@ void Painter::renderSymbol(SymbolBucket& bucket,
                       paint.iconHaloBlur,
                       paint.iconTranslate,
                       paint.iconTranslateAnchor,
-                      layer.iconSize);
+                      layer.impl->iconSize);
         } else {
             mat4 vtxMatrix =
                 translatedMatrix(matrix, paint.iconTranslate, tileID, paint.iconTranslateAnchor);
 
-            bool skewed = layout.iconRotationAlignment == RotationAlignmentType::Map;
-            mat4 exMatrix;
-            float s;
-
-            if (skewed) {
-                matrix::identity(exMatrix);
-                s = tileID.pixelsToTileUnits(1, state.getZoom());
+            float scale = fontScale;
+            std::array<float, 2> exScale = extrudeScale;
+            const bool alignedWithMap = layout.iconRotationAlignment == RotationAlignmentType::Map;
+            if (alignedWithMap) {
+                scale *= tileID.pixelsToTileUnits(1, state.getZoom());
+                exScale.fill(scale);
             } else {
-                exMatrix = extrudeMatrix;
-                matrix::rotate_z(exMatrix, exMatrix, state.getNorthOrientationAngle());
-                s = state.getAltitude();
+                exScale = {{ exScale[0] * scale, exScale[1] * scale }};
             }
-            const bool flippedY = !skewed && state.getViewportMode() == ViewportMode::FlippedY;
-            matrix::scale(exMatrix, exMatrix, s, flippedY ? -s : s, 1);
-
-            matrix::scale(exMatrix, exMatrix, fontScale, fontScale, 1.0f);
-
-            // calculate how much longer the real world distance is at the top of the screen
-            // than at the middle of the screen.
-            float topedgelength = std::sqrt(std::pow(state.getHeight(), 2) / 4.0f * (1.0f + std::pow(state.getAltitude(), 2)));
-            float x = state.getHeight() / 2.0f * std::tan(state.getPitch());
-            float extra = (topedgelength + x) / topedgelength - 1;
 
             config.program = iconShader->getID();
             iconShader->u_matrix = vtxMatrix;
-            iconShader->u_exmatrix = exMatrix;
+            iconShader->u_extrude_scale = exScale;
             iconShader->u_texsize = {{ float(activeSpriteAtlas->getWidth()) / 4.0f, float(activeSpriteAtlas->getHeight()) / 4.0f }};
-            iconShader->u_skewed = skewed;
-            iconShader->u_extra = extra;
+            iconShader->u_skewed = alignedWithMap;
             iconShader->u_texture = 0;
 
             // adjust min/max zooms for variable font sies
@@ -220,11 +203,11 @@ void Painter::renderSymbol(SymbolBucket& bucket,
             iconShader->u_opacity = paint.iconOpacity;
 
             config.activeTexture = GL_TEXTURE1;
-            frameHistory.bind(glObjectStore);
+            frameHistory.bind(store);
             iconShader->u_fadetexture = 1;
 
             setDepthSublayer(0);
-            bucket.drawIcons(*iconShader, glObjectStore);
+            bucket.drawIcons(*iconShader, store);
         }
     }
 
@@ -237,7 +220,7 @@ void Painter::renderSymbol(SymbolBucket& bucket,
         }
 
         config.activeTexture = GL_TEXTURE0;
-        glyphAtlas->bind(glObjectStore);
+        glyphAtlas->bind(store);
 
         renderSDF(bucket,
                   tileID,
@@ -255,7 +238,7 @@ void Painter::renderSymbol(SymbolBucket& bucket,
                   paint.textHaloBlur,
                   paint.textTranslate,
                   paint.textTranslateAnchor,
-                  layer.textSize);
+                  layer.impl->textSize);
     }
 
     if (bucket.hasCollisionBoxData()) {
@@ -271,9 +254,11 @@ void Painter::renderSymbol(SymbolBucket& bucket,
         config.lineWidth = 1.0f;
 
         setDepthSublayer(0);
-        bucket.drawCollisionBoxes(*collisionBoxShader, glObjectStore);
+        bucket.drawCollisionBoxes(*collisionBoxShader, store);
 
     }
 
     config.activeTexture = GL_TEXTURE0;
+}
+
 }
