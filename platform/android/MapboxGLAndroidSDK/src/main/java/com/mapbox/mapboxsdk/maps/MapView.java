@@ -1,8 +1,6 @@
 package com.mapbox.mapboxsdk.maps;
 
 import android.Manifest;
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Dialog;
@@ -26,7 +24,6 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.SystemClock;
 import android.support.annotation.CallSuper;
 import android.support.annotation.FloatRange;
 import android.support.annotation.IntDef;
@@ -36,7 +33,6 @@ import android.support.annotation.UiThread;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GestureDetectorCompat;
 import android.support.v4.view.ScaleGestureDetectorCompat;
-import android.support.v4.view.animation.FastOutSlowInInterpolator;
 import android.support.v7.app.AlertDialog;
 import android.text.TextUtils;
 import android.util.AttributeSet;
@@ -99,7 +95,6 @@ import java.util.Collections;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
@@ -158,7 +153,6 @@ public class MapView extends FrameLayout {
     private StyleInitializer mStyleInitializer;
 
     private List<OnMapReadyCallback> mOnMapReadyCallbackList;
-    private long mViewMarkerBoundsUpdateTime;
 
     @UiThread
     public MapView(@NonNull Context context) {
@@ -452,12 +446,8 @@ public class MapView extends FrameLayout {
                             iterator.remove();
                         }
                     }
-                } else if (change == REGION_IS_CHANGING || change == REGION_DID_CHANGE) {
-                    if (!mMapboxMap.getMarkerViewAdapters().isEmpty()) {
-                        invalidateViewMarkers();
-                    }
-                }else if(change== DID_FINISH_LOADING_MAP){
-                    invalidateViewMarkers();
+                } else if (change == REGION_IS_CHANGING || change == REGION_DID_CHANGE || change == DID_FINISH_LOADING_MAP) {
+                    mMapboxMap.getMarkerViewManager().scheduleViewMarkerInvalidation();
                 }
             }
         });
@@ -469,15 +459,6 @@ public class MapView extends FrameLayout {
             evt.put(MapboxEvent.ATTRIBUTE_CREATED, MapboxEventManager.generateCreateDate());
             MapboxEventManager.getMapboxEventManager().pushEvent(evt);
         }
-    }
-
-    void invalidateViewMarkers() {
-        long currentTime = SystemClock.elapsedRealtime();
-        if (currentTime < mViewMarkerBoundsUpdateTime) {
-            return;
-        }
-        mMapboxMap.invalidateViewMarkersInBounds();
-        mViewMarkerBoundsUpdateTime = currentTime + 250;
     }
 
     /**
@@ -691,6 +672,14 @@ public class MapView extends FrameLayout {
         return mContentPaddingBottom;
     }
 
+    int getContentWidth(){
+        return getWidth() - mContentPaddingLeft - mContentPaddingRight;
+    }
+
+    int getContentHeight(){
+        return getHeight() - mContentPaddingBottom - mContentPaddingTop;
+    }
+
     //
     // Zoom
     //
@@ -888,7 +877,7 @@ public class MapView extends FrameLayout {
      * <p/>
      * Returns the current Mapbox access token used to load map styles and tiles.
      * </p>
-     * 
+     *
      * @return The current Mapbox access token.
      * @deprecated As of release 4.1.0, replaced by {@link MapboxAccountManager#getAccessToken()}
      */
@@ -1032,6 +1021,9 @@ public class MapView extends FrameLayout {
     }
 
     long addMarker(@NonNull Marker marker) {
+        if(mDestroyed){
+            return 0l;
+        }
         return mNativeMapView.addMarker(marker);
     }
 
@@ -1110,7 +1102,7 @@ public class MapView extends FrameLayout {
         return new ArrayList<>(annotations);
     }
 
-    List<MarkerView> getMarkerViewsInBounds(@NonNull LatLngBounds bbox) {
+    public List<MarkerView> getMarkerViewsInBounds(@NonNull LatLngBounds bbox) {
         if (mDestroyed || bbox == null) {
             return new ArrayList<>();
         }
@@ -1193,7 +1185,7 @@ public class MapView extends FrameLayout {
         mNativeMapView.jumpTo(bearing, center, pitch, zoom);
     }
 
-    void easeTo(double bearing, LatLng center, long duration, double pitch, double zoom, @Nullable final MapboxMap.CancelableCallback cancelableCallback) {
+    void easeTo(double bearing, LatLng center, long duration, double pitch, double zoom, boolean easingInterpolator, @Nullable final MapboxMap.CancelableCallback cancelableCallback) {
         if (mDestroyed) {
             return;
         }
@@ -1214,7 +1206,7 @@ public class MapView extends FrameLayout {
             });
         }
 
-        mNativeMapView.easeTo(bearing, center, duration, pitch, zoom);
+        mNativeMapView.easeTo(bearing, center, duration, pitch, zoom, easingInterpolator);
     }
 
     void flyTo(double bearing, LatLng center, long duration, double pitch, double zoom, @Nullable final MapboxMap.CancelableCallback cancelableCallback) {
@@ -1377,33 +1369,7 @@ public class MapView extends FrameLayout {
 
             mCompassView.update(getDirection());
             mMyLocationView.update();
-
-            Map<MarkerView, View> viewMarkers = mMapboxMap.getMarkerViewMap();
-            for (Marker marker : viewMarkers.keySet()) {
-                mViewHolder = viewMarkers.get(marker);
-                if (mViewHolder != null) {
-                    PointF point = mMapboxMap.getProjection().toScreenLocation(marker.getPosition());
-                    mViewHolder.setX(point.x - (mViewHolder.getMeasuredWidth() / 2));
-                    mViewHolder.setY(point.y - (mViewHolder.getMeasuredHeight() / 2));
-
-                    if (mViewHolder.getVisibility() == GONE) {
-                        mViewHolder.animate().cancel();
-                        mViewHolder.setAlpha(0);
-                        mViewHolder.animate()
-                                .alpha(1)
-                                .setDuration(MapboxConstants.ANIMATION_DURATION_SHORT)
-                                .setInterpolator(new FastOutSlowInInterpolator())
-                                .setListener(new AnimatorListenerAdapter() {
-                                    @Override
-                                    public void onAnimationStart(Animator animation) {
-                                        super.onAnimationStart(animation);
-                                        mViewHolder.setVisibility(VISIBLE);
-                                    }
-                                })
-                                .start();
-                    }
-                }
-            }
+            mMapboxMap.getMarkerViewManager().update();
 
             for (InfoWindow infoWindow : mMapboxMap.getInfoWindows()) {
                 infoWindow.update();
@@ -1698,7 +1664,7 @@ public class MapView extends FrameLayout {
                         if (annotation.getId() == newSelectedMarkerId) {
                             if (selectedMarkers.isEmpty() || !selectedMarkers.contains(annotation)) {
                                 // only handle click if no marker view is available
-                                if (mMapboxMap.getMarkerViewMap().get(annotation) == null) {
+                                if (!(annotation instanceof MarkerView)) {
                                     mMapboxMap.selectMarker((Marker) annotation);
                                 }
                             }

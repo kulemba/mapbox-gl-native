@@ -9,10 +9,12 @@
 #include <mbgl/storage/network_status.hpp>
 #include <mbgl/util/constants.hpp>
 #include <mbgl/util/geo.hpp>
+#include <mbgl/util/run_loop.hpp>
 #include <mbgl/util/traits.hpp>
 
 #if QT_VERSION >= 0x050000
 #include <QGuiApplication>
+#include <QWindow>
 #else
 #include <QCoreApplication>
 #endif
@@ -22,6 +24,7 @@
 #include <QMargins>
 #include <QString>
 #include <QStringList>
+#include <QThreadStorage>
 
 #include <memory>
 
@@ -65,6 +68,12 @@ static_assert(mbgl::underlying_type(QMapboxGL::MapChangeDidFinishRenderingFrameF
 static_assert(mbgl::underlying_type(QMapboxGL::MapChangeWillStartRenderingMap) == mbgl::underlying_type(mbgl::MapChangeWillStartRenderingMap), "error");
 static_assert(mbgl::underlying_type(QMapboxGL::MapChangeDidFinishRenderingMap) == mbgl::underlying_type(mbgl::MapChangeDidFinishRenderingMap), "error");
 static_assert(mbgl::underlying_type(QMapboxGL::MapChangeDidFinishRenderingMapFullyRendered) == mbgl::underlying_type(mbgl::MapChangeDidFinishRenderingMapFullyRendered), "error");
+
+namespace {
+
+QThreadStorage<std::shared_ptr<mbgl::util::RunLoop>> loop;
+
+}
 
 QMapboxGLSettings::QMapboxGLSettings()
     : m_mapMode(QMapboxGLSettings::ContinuousMap)
@@ -158,8 +167,14 @@ void QMapboxGLSettings::setAccessToken(const QString &token)
 
 QMapboxGL::QMapboxGL(QObject *parent_, const QMapboxGLSettings &settings)
     : QObject(parent_)
-    , d_ptr(new QMapboxGLPrivate(this, settings))
 {
+    // Multiple QMapboxGL running on the same thread
+    // will share the same mbgl::util::RunLoop
+    if (!loop.hasLocalData()) {
+        loop.setLocalData(std::make_shared<mbgl::util::RunLoop>());
+    }
+
+    d_ptr = new QMapboxGLPrivate(this, settings);
 }
 
 QMapboxGL::~QMapboxGL()
@@ -493,9 +508,12 @@ void QMapboxGL::rotateBy(const QPointF &first, const QPointF &second)
 
 void QMapboxGL::resize(const QSize& size)
 {
-    if (d_ptr->size == size) return;
+    QSize converted = size / d_ptr->getPixelRatio();
+    if (d_ptr->size == converted) return;
 
-    d_ptr->size = size;
+    glViewport(0, 0, size.width(), size.height());
+
+    d_ptr->size = converted;
     d_ptr->mapObj->update(mbgl::Update::Dimensions);
 }
 
@@ -642,11 +660,16 @@ QMapboxGLPrivate::~QMapboxGLPrivate()
 float QMapboxGLPrivate::getPixelRatio() const
 {
 #if QT_VERSION >= 0x050000
-    return qApp->devicePixelRatio();
+    // QWindow is the most reliable pixel ratio because QGuiApplication returns
+    // the maximum pixel ratio of all available QScreen objects - this is not
+    // valid for cases e.g. where two or more QScreen objects with different
+    // pixel ratios are present and the window shows on the screen with lower
+    // pixel ratio.
+    static const float pixelRatio = QGuiApplication::allWindows().first()->devicePixelRatio();
 #else
-    // FIXME: Should handle pixel ratio.
-    return 1.0;
+    static const float pixelRatio = 1.0;
 #endif
+    return pixelRatio;
 }
 
 std::array<uint16_t, 2> QMapboxGLPrivate::getSize() const
@@ -656,7 +679,8 @@ std::array<uint16_t, 2> QMapboxGLPrivate::getSize() const
 
 std::array<uint16_t, 2> QMapboxGLPrivate::getFramebufferSize() const
 {
-    return getSize();
+    return {{ static_cast<uint16_t>(size.width() * getPixelRatio()),
+              static_cast<uint16_t>(size.height() * getPixelRatio()) }};
 }
 
 void QMapboxGLPrivate::invalidate()

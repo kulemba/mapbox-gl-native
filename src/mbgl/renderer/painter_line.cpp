@@ -30,27 +30,16 @@ void Painter::renderLine(LineBucket& bucket,
     // Retina devices need a smaller distance to avoid aliasing.
     float antialiasing = 1.0 / frame.pixelRatio;
 
+    bool wireframe = frame.debugOptions & MapDebugOptions::Wireframe;
+
     float blur = properties.lineBlur + antialiasing;
-    float edgeWidth = properties.lineWidth / 2.0;
-    float inset = -1;
-    float offset = 0;
-    float shift = 0;
 
-    if (properties.lineGapWidth != 0) {
-        inset = properties.lineGapWidth / 2.0 + antialiasing * 0.5;
-        edgeWidth = properties.lineWidth;
-
-        // shift outer lines half a pixel towards the middle to eliminate the crack
-        offset = inset - antialiasing / 2.0;
+    Color color = {{ 1.0f, 1.0f, 1.0f, 1.0f }};
+    float opacity = 1.0f;
+    if (!wireframe) {
+        color = properties.lineColor;
+        opacity = properties.lineOpacity;
     }
-
-    float outset = offset + edgeWidth + antialiasing / 2.0 + shift;
-
-    Color color = properties.lineColor;
-    color[0] *= properties.lineOpacity;
-    color[1] *= properties.lineOpacity;
-    color[2] *= properties.lineOpacity;
-    color[3] *= properties.lineOpacity;
 
     const float ratio = 1.0 / tileID.pixelsToTileUnits(1.0, state.getZoom());
 
@@ -75,11 +64,13 @@ void Painter::renderLine(LineBucket& bucket,
         config.program = linesdfShader->getID();
 
         linesdfShader->u_matrix = vtxMatrix;
-        linesdfShader->u_exmatrix = extrudeMatrix;
-        linesdfShader->u_linewidth = {{ outset, inset }};
+        linesdfShader->u_linewidth = properties.lineWidth / 2;
+        linesdfShader->u_gapwidth = properties.lineGapWidth / 2;
+        linesdfShader->u_antialiasing = antialiasing / 2;
         linesdfShader->u_ratio = ratio;
         linesdfShader->u_blur = blur;
         linesdfShader->u_color = color;
+        linesdfShader->u_opacity = opacity;
 
         LinePatternPos posA = lineAtlas->getDashPosition(properties.lineDasharray.value.from, layout.lineCap == LineCapType::Round, glObjectStore);
         LinePatternPos posB = lineAtlas->getDashPosition(properties.lineDasharray.value.to, layout.lineCap == LineCapType::Round, glObjectStore);
@@ -118,8 +109,9 @@ void Painter::renderLine(LineBucket& bucket,
         config.program = linepatternShader->getID();
 
         linepatternShader->u_matrix = vtxMatrix;
-        linepatternShader->u_exmatrix = extrudeMatrix;
-        linepatternShader->u_linewidth = {{ outset, inset }};
+        linepatternShader->u_linewidth = properties.lineWidth / 2;
+        linepatternShader->u_gapwidth = properties.lineGapWidth / 2;
+        linepatternShader->u_antialiasing = antialiasing / 2;
         linepatternShader->u_ratio = ratio;
         linepatternShader->u_blur = blur;
 
@@ -153,8 +145,9 @@ void Painter::renderLine(LineBucket& bucket,
         config.program = lineShader->getID();
 
         lineShader->u_matrix = vtxMatrix;
-        lineShader->u_exmatrix = extrudeMatrix;
-        lineShader->u_linewidth = {{ outset, inset }};
+        lineShader->u_linewidth = properties.lineWidth / 2;
+        lineShader->u_gapwidth = properties.lineGapWidth / 2;
+        lineShader->u_antialiasing = antialiasing / 2;
         lineShader->u_ratio = ratio;
         lineShader->u_blur = blur;
         lineShader->u_extra = extra;
@@ -162,6 +155,7 @@ void Painter::renderLine(LineBucket& bucket,
         lineShader->u_antialiasingmatrix = antialiasingMatrix;
 
         lineShader->u_color = color;
+        lineShader->u_opacity = opacity;
 
         bucket.drawLines(*lineShader, glObjectStore);
     }

@@ -14,6 +14,27 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
     { .latitude = -13.15589555, .longitude = -74.2178961777998 },
 };
 
+NS_ARRAY_OF(id <MGLAnnotation>) *MBXFlattenedShapes(NS_ARRAY_OF(id <MGLAnnotation>) *shapes) {
+    NSMutableArray *flattenedShapes = [NSMutableArray arrayWithCapacity:shapes.count];
+    for (id <MGLAnnotation> shape in shapes) {
+        NSArray *subshapes;
+        if ([shape isKindOfClass:[MGLMultiPolyline class]]) {
+            subshapes = [(MGLMultiPolyline *)shape polylines];
+        } else if ([shape isKindOfClass:[MGLMultiPolygon class]]) {
+            subshapes = [(MGLMultiPolygon *)shape polygons];
+        } else if ([shape isKindOfClass:[MGLShapeCollection class]]) {
+            subshapes = MBXFlattenedShapes([(MGLShapeCollection *)shape shapes]);
+        }
+        
+        if (subshapes) {
+            [flattenedShapes addObjectsFromArray:subshapes];
+        } else {
+            [flattenedShapes addObject:shape];
+        }
+    }
+    return flattenedShapes;
+}
+
 @interface MapDocument () <NSWindowDelegate, NSSharingServicePickerDelegate, NSMenuDelegate, MGLMapViewDelegate>
 
 @property (weak) IBOutlet NSMenu *mapViewContextMenu;
@@ -244,6 +265,18 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
     self.mapView.debugMask ^= MGLMapDebugCollisionBoxesMask;
 }
 
+- (IBAction)toggleWireframes:(id)sender {
+    self.mapView.debugMask ^= MGLMapDebugWireframesMask;
+}
+
+- (IBAction)showColorBuffer:(id)sender {
+    self.mapView.debugMask &= ~MGLMapDebugStencilBufferMask;
+}
+
+- (IBAction)showStencilBuffer:(id)sender {
+    self.mapView.debugMask |= MGLMapDebugStencilBufferMask;
+}
+
 - (IBAction)toggleShowsToolTipsOnDroppedPins:(id)sender {
     _showsToolTipsOnDroppedPins = !_showsToolTipsOnDroppedPins;
 }
@@ -424,9 +457,17 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
 }
 
 - (DroppedPinAnnotation *)pinAtPoint:(NSPoint)point {
+    NSArray *features = [self.mapView visibleFeaturesAtPoint:point];
+    NSString *title;
+    for (id <MGLFeature> feature in features) {
+        if (!title) {
+            title = [feature attributeForKey:@"name_en"] ?: [feature attributeForKey:@"name"];
+        }
+    }
+    
     DroppedPinAnnotation *annotation = [[DroppedPinAnnotation alloc] init];
     annotation.coordinate = [self.mapView convertPoint:point toCoordinateFromView:self.mapView];
-    annotation.title = @"Dropped Pin";
+    annotation.title = title ?: @"Dropped Pin";
     _spellOutNumberFormatter.numberStyle = NSNumberFormatterSpellOutStyle;
     if (_showsToolTipsOnDroppedPins) {
         NSString *formattedNumber = [_spellOutNumberFormatter stringFromNumber:@(++_droppedPinCounter)];
@@ -441,6 +482,16 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
 
 - (void)removePinAtPoint:(NSPoint)point {
     [self.mapView removeAnnotation:[self.mapView annotationAtPoint:point]];
+}
+
+- (IBAction)selectFeatures:(id)sender {
+    [self selectFeaturesAtPoint:_mouseLocationForMapViewContextMenu];
+}
+
+- (void)selectFeaturesAtPoint:(NSPoint)point {
+    NSArray *features = [self.mapView visibleFeaturesAtPoint:point];
+    NSArray *flattenedFeatures = MBXFlattenedShapes(features);
+    [self.mapView addAnnotations:flattenedFeatures];
 }
 
 #pragma mark User interface validation
@@ -500,6 +551,9 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
         menuItem.hidden = annotationUnderCursor == nil;
         return YES;
     }
+    if (menuItem.action == @selector(selectFeatures:)) {
+        return YES;
+    }
     if (menuItem.action == @selector(toggleTileBoundaries:)) {
         BOOL isShown = self.mapView.debugMask & MGLMapDebugTileBoundariesMask;
         menuItem.title = isShown ? @"Hide Tile Boundaries" : @"Show Tile Boundaries";
@@ -518,6 +572,21 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
     if (menuItem.action == @selector(toggleCollisionBoxes:)) {
         BOOL isShown = self.mapView.debugMask & MGLMapDebugCollisionBoxesMask;
         menuItem.title = isShown ? @"Hide Collision Boxes" : @"Show Collision Boxes";
+        return YES;
+    }
+    if (menuItem.action == @selector(toggleWireframes:)) {
+        BOOL isShown = self.mapView.debugMask & MGLMapDebugWireframesMask;
+        menuItem.title = isShown ? @"Hide Wireframes" : @"Show Wireframes";
+        return YES;
+    }
+    if (menuItem.action == @selector(showColorBuffer:)) {
+        BOOL enabled = self.mapView.debugMask & MGLMapDebugStencilBufferMask;
+        menuItem.state = enabled ? NSOffState : NSOnState;
+        return YES;
+    }
+    if (menuItem.action == @selector(showStencilBuffer:)) {
+        BOOL enabled = self.mapView.debugMask & MGLMapDebugStencilBufferMask;
+        menuItem.state = enabled ? NSOnState : NSOffState;
         return YES;
     }
     if (menuItem.action == @selector(toggleShowsToolTipsOnDroppedPins:)) {
@@ -677,6 +746,10 @@ static const CLLocationCoordinate2D WorldTourDestinations[] = {
         DroppedPinAnnotation *droppedPin = annotation;
         [droppedPin pause];
     }
+}
+
+- (CGFloat)mapView:(MGLMapView *)mapView alphaForShapeAnnotation:(MGLShape *)annotation {
+    return 0.8;
 }
 
 @end

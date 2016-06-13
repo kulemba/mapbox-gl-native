@@ -3,12 +3,12 @@ package com.mapbox.mapboxsdk.testapp.activity.annotation;
 import android.content.Context;
 import android.graphics.Point;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
@@ -19,8 +19,8 @@ import android.widget.Toast;
 
 import com.mapbox.mapboxsdk.annotations.Marker;
 import com.mapbox.mapboxsdk.annotations.MarkerView;
+import com.mapbox.mapboxsdk.annotations.MarkerViewManager;
 import com.mapbox.mapboxsdk.annotations.MarkerViewOptions;
-import com.mapbox.mapboxsdk.constants.MapboxConstants;
 import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.maps.MapView;
 import com.mapbox.mapboxsdk.maps.MapboxMap;
@@ -30,7 +30,7 @@ import com.mapbox.mapboxsdk.testapp.model.annotations.CountryMarkerOptions;
 import com.mapbox.mapboxsdk.testapp.model.annotations.CountryMarkerView;
 import com.mapbox.mapboxsdk.testapp.model.annotations.CountryMarkerViewOptions;
 
-public class ViewMarkerAdapterActivity extends AppCompatActivity {
+public class MarkerViewActivity extends AppCompatActivity {
 
     private MapboxMap mMapboxMap;
     private MapView mMapView;
@@ -70,10 +70,9 @@ public class ViewMarkerAdapterActivity extends AppCompatActivity {
 
                 // add text markers
                 for (int i = 0; i < LAT_LNGS.length; i++) {
-                    mMapboxMap.addMarkerView(new MarkerViewOptions()
+                    mMapboxMap.addMarker(new MarkerViewOptions()
                             .position(LAT_LNGS[i])
                             .title(String.valueOf(i))
-                            .infoWindowOffset(new Point(0, 86))
                             .selectAnimatorResource(R.animator.scale_up)
                             .deselectAnimatorResource(R.animator.scale_down)
                     );
@@ -87,10 +86,8 @@ public class ViewMarkerAdapterActivity extends AppCompatActivity {
                 options.position(new LatLng(38.899774, -77.023237));
                 options.selectAnimatorResource(R.animator.rotate_360);
                 options.deselectAnimatorResource(R.animator.rotate_360);
-                options.infoWindowOffset(new Point(0, 64));
                 options.flat(true);
-
-                mapboxMap.addMarkerView(options);
+                mapboxMap.addMarker(options);
 
                 // default GL marker
                 mMapboxMap.addMarker(new CountryMarkerOptions()
@@ -99,24 +96,25 @@ public class ViewMarkerAdapterActivity extends AppCompatActivity {
                 );
 
                 // set adapters
-                mMapboxMap.addMarkerViewAdapter(new TextAdapter(ViewMarkerAdapterActivity.this));
-                mMapboxMap.addMarkerViewAdapter(new CountryAdapter(ViewMarkerAdapterActivity.this));
+                final MarkerViewManager markerViewManager = mapboxMap.getMarkerViewManager();
+                markerViewManager.addMarkerViewAdapter(new TextAdapter(MarkerViewActivity.this));
+                markerViewManager.addMarkerViewAdapter(new CountryAdapter(MarkerViewActivity.this));
 
                 mMapView.addOnMapChangedListener(new MapView.OnMapChangedListener() {
                     @Override
                     public void onMapChanged(@MapView.MapChange int change) {
                         if (change == MapView.REGION_IS_CHANGING || change == MapView.REGION_DID_CHANGE) {
-                            if (!mMapboxMap.getMarkerViewAdapters().isEmpty() && viewCountView != null) {
+                            if (!markerViewManager.getMarkerViewAdapters().isEmpty() && viewCountView != null) {
                                 viewCountView.setText("ViewCache size " + (mMapView.getChildCount() - 5));
                             }
                         }
                     }
                 });
 
-                mMapboxMap.setOnMarkerViewClickListener(new MapboxMap.OnMarkerViewClickListener() {
+                mMapboxMap.getMarkerViewManager().setOnMarkerViewClickListener(new MapboxMap.OnMarkerViewClickListener() {
                     @Override
                     public boolean onMarkerClick(@NonNull Marker marker, @NonNull View view, @NonNull MapboxMap.MarkerViewAdapter adapter) {
-                        Toast.makeText(ViewMarkerAdapterActivity.this, "Hello " + marker.getId(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(MarkerViewActivity.this, "Hello " + marker.getId(), Toast.LENGTH_SHORT).show();
                         return false;
                     }
                 });
