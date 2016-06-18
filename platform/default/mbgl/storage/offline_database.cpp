@@ -18,7 +18,7 @@ OfflineDatabase::Statement::~Statement() {
     stmt.clearBindings();
 }
 
-OfflineDatabase::OfflineDatabase(const std::string& path_, uint64_t maximumCacheSize_)
+OfflineDatabase::OfflineDatabase(std::string path_, uint64_t maximumCacheSize_)
     : path(path_),
       maximumCacheSize(maximumCacheSize_),
       nonIndexedURLTemplates(false) {
