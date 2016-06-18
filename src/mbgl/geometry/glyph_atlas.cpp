@@ -19,8 +19,7 @@ GlyphAtlas::GlyphAtlas(uint16_t width_, uint16_t height_)
       dirty(true) {
 }
 
-GlyphAtlas::~GlyphAtlas() {
-}
+GlyphAtlas::~GlyphAtlas() = default;
 
 void GlyphAtlas::addGlyphs(uintptr_t tileUID,
                            const std::u32string& text,
@@ -53,7 +52,7 @@ Rect<uint16_t> GlyphAtlas::addGlyph(uintptr_t tileUID,
     const uint8_t buffer = 3;
 
     std::map<uint32_t, GlyphValue>& face = index[fontStack];
-    std::map<uint32_t, GlyphValue>::iterator it = face.find(glyph.id);
+    auto it = face.find(glyph.id);
 
     // The glyph is already in this texture.
     if (it != face.end()) {
@@ -197,4 +196,4 @@ void GlyphAtlas::bind(gl::ObjectStore& store) {
     } else {
         MBGL_CHECK_ERROR(glBindTexture(GL_TEXTURE_2D, *texture));
     }
-};
+}

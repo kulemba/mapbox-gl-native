@@ -1,7 +1,7 @@
 #pragma once
 
 #include <mbgl/renderer/bucket.hpp>
-#include <mbgl/tile/geometry_tile.hpp>
+#include <mbgl/tile/geometry_tile_data.hpp>
 #include <mbgl/map/mode.hpp>
 #include <mbgl/geometry/vao.hpp>
 #include <mbgl/geometry/elements_buffer.hpp>
@@ -66,7 +66,7 @@ class SymbolBucket : public Bucket {
     typedef ElementGroup<1> CollisionBoxElementGroup;
 
 public:
-    SymbolBucket(uint32_t overscaling, float zoom, const MapMode, const std::string& bucketName_, const std::string& sourceLayerName_);
+    SymbolBucket(uint32_t overscaling, float zoom, const MapMode, std::string bucketName_, std::string sourceLayerName_);
     ~SymbolBucket() override;
 
     void upload(gl::ObjectStore&) override;

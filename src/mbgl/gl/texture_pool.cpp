@@ -2,6 +2,7 @@
 #include <mbgl/gl/object_store.hpp>
 
 #include <algorithm>
+#include <cassert>
 #include <vector>
 
 namespace mbgl {
@@ -64,8 +65,7 @@ void TextureReleaser::operator()(GLuint id) const {
 TexturePool::TexturePool() : impl(std::make_unique<Impl>()) {
 }
 
-TexturePool::~TexturePool() {
-}
+TexturePool::~TexturePool() = default;
 
 PooledTexture TexturePool::acquireTexture(gl::ObjectStore& store) {
     return PooledTexture { impl->acquireTexture(store) , { this } };

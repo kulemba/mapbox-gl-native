@@ -32,6 +32,7 @@
         'util/timer.cpp',
         'util/token.cpp',
         'util/work_queue.cpp',
+        'util/projection.cpp',
 
         'algorithm/covered_by_children.cpp',
         'algorithm/generate_clip_ids.cpp',
@@ -55,7 +56,9 @@
         'math/minmax.cpp',
         'math/clamp.cpp',
 
-        'tile/geometry_tile.cpp',
+        'text/quads.cpp',
+
+        'tile/geometry_tile_data.cpp',
         'tile/tile_id.cpp',
 
         'storage/offline.cpp',
@@ -72,6 +75,7 @@
         'style/source.cpp',
         'style/style.cpp',
         'style/style_layer.cpp',
+        'style/tile_source.cpp',
         'style/filter.cpp',
         'style/functions.cpp',
         'style/style_parser.cpp',
