@@ -1,7 +1,7 @@
 export BUILDTYPE ?= Debug
 
 ifeq ($(shell uname -s), Darwin)
-  HOST_PLATFORM = osx
+  HOST_PLATFORM = macos
   export JOBS ?= $(shell sysctl -n hw.ncpu)
 else ifeq ($(shell uname -s), Linux)
   HOST_PLATFORM = linux
@@ -37,54 +37,54 @@ CONFIG_DEPENDENCIES = .mason/mason configure
 # files are added or removed.
 GYP_DEPENDENCIES = mbgl.gypi test/test.gypi benchmark/benchmark.gypi bin/*.gypi $(shell find src include -type d) node_modules
 
-#### OS X targets ##############################################################
+#### macOS targets ##############################################################
 
-OSX_OUTPUT_PATH = build/osx
-OSX_PROJ_PATH = $(OSX_OUTPUT_PATH)/platform/osx/platform.xcodeproj
-OSX_WORK_PATH = platform/osx/osx.xcworkspace
-OSX_USER_DATA_PATH = $(OSX_WORK_PATH)/xcuserdata/$(USER).xcuserdatad
+MACOS_OUTPUT_PATH = build/macos
+MACOS_PROJ_PATH = $(MACOS_OUTPUT_PATH)/platform/macos/platform.xcodeproj
+MACOS_WORK_PATH = platform/macos/macos.xcworkspace
+MACOS_USER_DATA_PATH = $(MACOS_WORK_PATH)/xcuserdata/$(USER).xcuserdatad
 
-$(OSX_OUTPUT_PATH)/config.gypi: platform/osx/scripts/configure.sh $(CONFIG_DEPENDENCIES)
-	./configure $< $@ osx
+$(MACOS_OUTPUT_PATH)/config.gypi: platform/macos/scripts/configure.sh $(CONFIG_DEPENDENCIES)
+	./configure $< $@ macos
 
-$(OSX_OUTPUT_PATH)/mbgl.xcconfig: $(OSX_OUTPUT_PATH)/config.gypi
+$(MACOS_OUTPUT_PATH)/mbgl.xcconfig: $(MACOS_OUTPUT_PATH)/config.gypi
 	./scripts/export-xcconfig.py $< $@
 
-$(OSX_PROJ_PATH): platform/osx/platform.gyp $(OSX_OUTPUT_PATH)/config.gypi $(OSX_OUTPUT_PATH)/mbgl.xcconfig $(GYP_DEPENDENCIES)
-	$(GYP) -f xcode --generator-output=$(OSX_OUTPUT_PATH) $<
+$(MACOS_PROJ_PATH): platform/macos/platform.gyp $(MACOS_OUTPUT_PATH)/config.gypi $(MACOS_OUTPUT_PATH)/mbgl.xcconfig $(GYP_DEPENDENCIES)
+	$(GYP) -f xcode --generator-output=$(MACOS_OUTPUT_PATH) $<
 
-osx: $(OSX_PROJ_PATH)
+macos: $(MACOS_PROJ_PATH)
 	set -o pipefail && xcodebuild \
-	  -derivedDataPath $(OSX_OUTPUT_PATH) \
+	  -derivedDataPath $(MACOS_OUTPUT_PATH) \
 	  -configuration $(BUILDTYPE) \
-	  -workspace $(OSX_WORK_PATH) -scheme CI build $(XCPRETTY)
+	  -workspace $(MACOS_WORK_PATH) -scheme CI build $(XCPRETTY)
 
-xproj: $(OSX_PROJ_PATH) $(OSX_WORK_PATH)
-	mkdir -p "$(OSX_USER_DATA_PATH)"
-	cp platform/osx/WorkspaceSettings.xcsettings "$(OSX_USER_DATA_PATH)/WorkspaceSettings.xcsettings"
-	open $(OSX_WORK_PATH)
+xproj: $(MACOS_PROJ_PATH) $(MACOS_WORK_PATH)
+	mkdir -p "$(MACOS_USER_DATA_PATH)"
+	cp platform/macos/WorkspaceSettings.xcsettings "$(MACOS_USER_DATA_PATH)/WorkspaceSettings.xcsettings"
+	open $(MACOS_WORK_PATH)
 
-test-osx: osx node_modules
-	ulimit -c unlimited && ($(OSX_OUTPUT_PATH)/Build/Products/$(BUILDTYPE)/test & pid=$$! && wait $$pid \
+test-macos: macos node_modules
+	ulimit -c unlimited && ($(MACOS_OUTPUT_PATH)/Build/Products/$(BUILDTYPE)/test & pid=$$! && wait $$pid \
 	  || (lldb -c /cores/core.$$pid --batch --one-line 'thread backtrace all' --one-line 'quit' && exit 1))
 	set -o pipefail && xcodebuild \
-	  -derivedDataPath $(OSX_OUTPUT_PATH) \
+	  -derivedDataPath $(MACOS_OUTPUT_PATH) \
 	  -configuration $(BUILDTYPE) \
-	  -workspace $(OSX_WORK_PATH) -scheme CI test $(XCPRETTY)
+	  -workspace $(MACOS_WORK_PATH) -scheme CI test $(XCPRETTY)
 
-xpackage: $(OSX_PROJ_PATH)
-	SYMBOLS=$(SYMBOLS) ./platform/osx/scripts/package.sh
+xpackage: $(MACOS_PROJ_PATH)
+	SYMBOLS=$(SYMBOLS) ./platform/macos/scripts/package.sh
 
 xdocument:
-	OUTPUT=$(OUTPUT) ./platform/osx/scripts/document.sh
+	OUTPUT=$(OUTPUT) ./platform/macos/scripts/document.sh
 
 genstrings:
-	genstrings -u -o platform/osx/sdk/Base.lproj platform/darwin/src/*.{m,mm}
-	genstrings -u -o platform/osx/sdk/Base.lproj platform/osx/src/*.{m,mm}
+	genstrings -u -o platform/macos/sdk/Base.lproj platform/darwin/src/*.{m,mm}
+	genstrings -u -o platform/macos/sdk/Base.lproj platform/macos/src/*.{m,mm}
 	genstrings -u -o platform/ios/resources/Base.lproj platform/ios/src/*.{m,mm}
-	-find platform/ios/resources platform/osx/sdk -path '*/Base.lproj/*.strings' -exec \
+	-find platform/ios/resources platform/macos/sdk -path '*/Base.lproj/*.strings' -exec \
 		textutil -convert txt -extension strings -inputencoding UTF-16 -encoding UTF-8 {} \;
-	mv platform/osx/sdk/Base.lproj/Foundation.strings platform/darwin/resources/Base.lproj/
+	mv platform/macos/sdk/Base.lproj/Foundation.strings platform/darwin/resources/Base.lproj/
 
 #### iOS targets ##############################################################
 
@@ -242,9 +242,11 @@ run-qt-qml-app: qt-qml-app
 
 test-valgrind-qt: $(QT_MAKEFILE) node_modules
 	$(QT_ENV) $(MAKE) -j$(JOBS) -C $(QT_OUTPUT_PATH) test
+	.mason/mason install valgrind latest
 	./scripts/valgrind.sh $(QT_OUTPUT_PATH)/$(BUILDTYPE)/test --gtest_catch_exceptions=0 --gtest_filter=-*.Load
 
 run-valgrind-qt-app: qt-app
+	.mason/mason install valgrind latest
 	./scripts/valgrind.sh $(QT_OUTPUT_PATH)/$(BUILDTYPE)/qmapboxgl --test -platform offscreen
 
 #### Linux targets #####################################################
@@ -289,7 +291,7 @@ check: test
 	scripts/collect-coverage.sh $(LINUX_OUTPUT_PATH)/$(BUILDTYPE)
 
 # Generates a compilation database with ninja for use in clang tooling
-compdb: compdb-$(HOST_PLATFORM)
+compdb: node_modules compdb-$(HOST_PLATFORM)
 
 compdb-linux: platform/linux/platform.gyp $(LINUX_OUTPUT_PATH)/config.gypi
 	$(GYP) -f ninja -I $(LINUX_OUTPUT_PATH)/config.gypi \
@@ -297,21 +299,23 @@ compdb-linux: platform/linux/platform.gyp $(LINUX_OUTPUT_PATH)/config.gypi
 	deps/ninja/ninja-linux -C $(LINUX_OUTPUT_PATH)/$(BUILDTYPE) \
 		-t compdb cc cc_s cxx objc objcxx > $(LINUX_OUTPUT_PATH)/$(BUILDTYPE)/compile_commands.json
 
-compdb-osx: platform/osx/platform.gyp $(OSX_OUTPUT_PATH)/config.gypi
-	$(GYP) -f ninja -I $(OSX_OUTPUT_PATH)/config.gypi \
-	  --generator-output=$(OSX_OUTPUT_PATH) $<
-	deps/ninja/ninja-osx -C $(OSX_OUTPUT_PATH)/$(BUILDTYPE) \
-		-t compdb cc cc_s cxx objc objcxx > $(OSX_OUTPUT_PATH)/$(BUILDTYPE)/compile_commands.json
+compdb-macos: platform/macos/platform.gyp $(MACOS_OUTPUT_PATH)/config.gypi
+	$(GYP) -f ninja -I $(MACOS_OUTPUT_PATH)/config.gypi \
+	  --generator-output=$(MACOS_OUTPUT_PATH) $<
+	deps/ninja/ninja-macos -C $(MACOS_OUTPUT_PATH)/$(BUILDTYPE) \
+		-t compdb cc cc_s cxx objc objcxx > $(MACOS_OUTPUT_PATH)/$(BUILDTYPE)/compile_commands.json
 
 tidy: compdb tidy-$(HOST_PLATFORM)
 
 tidy-linux:
-	deps/ninja/ninja-linux -C $(LINUX_OUTPUT_PATH)/$(BUILDTYPE) platform-lib test
+	if test -z $(CLANG_TIDY); then .mason/mason install clang-tidy 3.8.0; fi
+	deps/ninja/ninja-linux -C $(LINUX_OUTPUT_PATH)/$(BUILDTYPE) headers
 	scripts/clang-tidy.sh $(LINUX_OUTPUT_PATH)/$(BUILDTYPE)
 
-tidy-osx:
-	deps/ninja/ninja-osx -C $(OSX_OUTPUT_PATH)/$(BUILDTYPE) platform-lib test
-	scripts/clang-tidy.sh $(OSX_OUTPUT_PATH)/$(BUILDTYPE)
+tidy-macos:
+	if test -z $(CLANG_TIDY); then .mason/mason install clang-tidy 3.8.0; fi
+	deps/ninja/ninja-macos -C $(MACOS_OUTPUT_PATH)/$(BUILDTYPE) headers
+	scripts/clang-tidy.sh $(MACOS_OUTPUT_PATH)/$(BUILDTYPE)
 
 #### Miscellaneous targets #####################################################
 
