@@ -1,8 +1,27 @@
 #pragma once
 
 #include <mbgl/tile/geometry_tile.hpp>
+#include <mbgl/tile/geometry_tile_data.hpp>
 
 namespace mbgl {
+
+class AnnotationManager;
+
+namespace style {
+class UpdateParameters;
+} // namespace style
+
+class AnnotationTile : public GeometryTile {
+public:
+    AnnotationTile(const OverscaledTileID&,
+                   const style::UpdateParameters&);
+    ~AnnotationTile() override;
+
+    void setNecessity(Necessity) final;
+
+private:
+    AnnotationManager& annotationManager;
+};
 
 class AnnotationTileFeature : public GeometryTileFeature {
 public:
@@ -20,7 +39,7 @@ public:
 
 class AnnotationTileLayer : public GeometryTileLayer {
 public:
-    AnnotationTileLayer(const std::string&);
+    AnnotationTileLayer(std::string);
 
     std::size_t featureCount() const override { return features.size(); }
     util::ptr<const GeometryTileFeature> getFeature(std::size_t i) const override { return features[i]; }
@@ -32,7 +51,7 @@ private:
     std::string name;
 };
 
-class AnnotationTile : public GeometryTile {
+class AnnotationTileData : public GeometryTileData {
 public:
     util::ptr<GeometryTileLayer> getLayer(const std::string&) const override;
 

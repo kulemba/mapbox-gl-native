@@ -1,7 +1,8 @@
 #include <mbgl/renderer/painter.hpp>
+#include <mbgl/renderer/render_tile.hpp>
 
 #include <mbgl/style/source.hpp>
-#include <mbgl/tile/tile.hpp>
+#include <mbgl/style/source_impl.hpp>
 
 #include <mbgl/platform/log.hpp>
 #include <mbgl/gl/debugging.hpp>
@@ -144,9 +145,9 @@ void Painter::render(const Style& style, const FrameData& frame_, SpriteAtlas& a
         config.depthMask = GL_TRUE;
         config.colorMask = { GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE };
         if (frame.debugOptions & MapDebugOptions::Wireframe) {
-            config.clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+            config.clearColor = Color::black();
         } else {
-            config.clearColor = { background[0], background[1], background[2], background[3] };
+            config.clearColor = background;
         }
         config.clearStencil = 0;
         config.clearDepth = 1;
@@ -161,11 +162,7 @@ void Painter::render(const Style& style, const FrameData& frame_, SpriteAtlas& a
         // Update all clipping IDs.
         algorithm::ClipIDGenerator generator;
         for (const auto& source : sources) {
-            if (source->type == SourceType::Vector || source->type == SourceType::GeoJSON ||
-                source->type == SourceType::Annotations) {
-                source->updateClipIDs(generator);
-            }
-            source->updateMatrices(projMatrix, state);
+            source->baseImpl->startRender(generator, projMatrix, state);
         }
 
         drawClippingMasks(generator.getStencils());
@@ -206,7 +203,7 @@ void Painter::render(const Style& style, const FrameData& frame_, SpriteAtlas& a
         // When only rendering layers via the stylesheet, it's possible that we don't
         // ever visit a tile during rendering.
         for (const auto& source : sources) {
-            source->finishRender(*this);
+            source->baseImpl->finishRender(*this);
         }
     }
 
@@ -310,4 +307,4 @@ void Painter::setDepthSublayer(int n) {
     config.depthRange = { nearDepth, farDepth };
 }
 
-}
+} // namespace mbgl
