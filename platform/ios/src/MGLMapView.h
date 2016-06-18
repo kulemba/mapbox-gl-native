@@ -969,7 +969,7 @@ IB_DESIGNABLE
  @return An annotation image object with the given identifier, or `nil` if no
     such object exists in the reuse queue.
  */
-- (nullable MGLAnnotationImage *)dequeueReusableAnnotationImageWithIdentifier:(NSString *)identifier;
+- (nullable __kindof MGLAnnotationImage *)dequeueReusableAnnotationImageWithIdentifier:(NSString *)identifier;
 
 /**
  Returns a reusable annotation view object associated with its identifier.
@@ -985,7 +985,7 @@ IB_DESIGNABLE
  @return An annotation view object with the given identifier, or `nil` if no
     such object exists in the reuse queue.
  */
-- (nullable MGLAnnotationView *)dequeueReusableAnnotationViewWithIdentifier:(NSString *)identifier;
+- (nullable __kindof MGLAnnotationView *)dequeueReusableAnnotationViewWithIdentifier:(NSString *)identifier;
 
 #pragma mark Managing Annotation Selections
 

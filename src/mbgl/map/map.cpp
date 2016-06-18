@@ -5,6 +5,7 @@
 #include <mbgl/map/transform_state.hpp>
 #include <mbgl/annotation/annotation_manager.hpp>
 #include <mbgl/style/style.hpp>
+#include <mbgl/style/source.hpp>
 #include <mbgl/style/layer.hpp>
 #include <mbgl/style/observer.hpp>
 #include <mbgl/style/transition_options.hpp>
@@ -210,9 +211,13 @@ void Map::Impl::update() {
     // - Hint style sources to notify when all its tiles are loaded;
     timePoint = Clock::now();
 
-    if (style->loaded && updateFlags & Update::Annotations) {
+    if (style->loaded && updateFlags & Update::AnnotationStyle) {
         annotationManager->updateStyle(*style);
         updateFlags |= Update::Classes;
+    }
+
+    if (updateFlags & Update::AnnotationData) {
+        annotationManager->updateData();
     }
 
     if (updateFlags & Update::Classes) {
@@ -337,7 +342,7 @@ void Map::Impl::loadStyleJSON(const std::string& json, uint8_t maxZoomLimit) {
     // force style cascade, causing all pending transitions to complete.
     style->cascade(Clock::now(), mode);
 
-    updateFlags |= Update::Classes | Update::RecalculateStyle | Update::Annotations;
+    updateFlags |= Update::Classes | Update::RecalculateStyle | Update::AnnotationStyle;
     asyncUpdate.send();
 }
 
@@ -688,18 +693,17 @@ double Map::getTopOffsetPixelsForAnnotationIcon(const std::string& name) {
 
 AnnotationID Map::addAnnotation(const Annotation& annotation) {
     auto result = impl->annotationManager->addAnnotation(annotation, getMaxZoom());
-    update(Update::Annotations);
+    update(Update::AnnotationStyle | Update::AnnotationData);
     return result;
 }
 
 void Map::updateAnnotation(AnnotationID id, const Annotation& annotation) {
-    impl->annotationManager->updateAnnotation(id, annotation, getMaxZoom());
-    update(Update::Annotations);
+    update(impl->annotationManager->updateAnnotation(id, annotation, getMaxZoom()));
 }
 
 void Map::removeAnnotation(AnnotationID annotation) {
     impl->annotationManager->removeAnnotation(annotation);
-    update(Update::Annotations);
+    update(Update::AnnotationStyle | Update::AnnotationData);
 }
 
 AnnotationIDs Map::getPointAnnotationsInBounds(const LatLngBounds& bounds) {
@@ -735,6 +739,22 @@ std::vector<Feature> Map::queryRenderedFeatures(const ScreenBox& box, const opti
 }
 
 #pragma mark - Style API
+
+style::Source* Map::getSource(const std::string& sourceID) {
+    return impl->style ? impl->style->getSource(sourceID) : nullptr;
+}
+
+void Map::addSource(std::unique_ptr<style::Source> source) {
+    impl->style->addSource(std::move(source));
+}
+
+void Map::removeSource(const std::string& sourceID) {
+    impl->style->removeSource(sourceID);
+}
+
+style::Layer* Map::getLayer(const std::string& layerID) {
+    return impl->style ? impl->style->getLayer(layerID) : nullptr;
+}
 
 void Map::addLayer(std::unique_ptr<Layer> layer, const optional<std::string>& before) {
     impl->view.activate();
