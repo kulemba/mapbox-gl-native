@@ -18,8 +18,7 @@ LineAtlas::LineAtlas(GLsizei w, GLsizei h)
       dirty(true) {
 }
 
-LineAtlas::~LineAtlas() {
-}
+LineAtlas::~LineAtlas() = default;
 
 LinePatternPos LineAtlas::getDashPosition(const std::vector<float> &dasharray, bool round, gl::ObjectStore& store) {
     size_t key = round ? std::numeric_limits<size_t>::min() : std::numeric_limits<size_t>::max();
@@ -119,7 +118,7 @@ LinePatternPos LineAtlas::addDash(const std::vector<float> &dasharray, bool roun
     bind(store);
 
     return position;
-};
+}
 
 void LineAtlas::upload(gl::ObjectStore& store) {
     if (dirty) {
@@ -171,4 +170,4 @@ void LineAtlas::bind(gl::ObjectStore& store) {
 
         dirty = false;
     }
-};
+}

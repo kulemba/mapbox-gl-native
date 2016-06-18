@@ -1,7 +1,7 @@
 #include <mbgl/renderer/symbol_bucket.hpp>
 #include <mbgl/style/filter_evaluator.hpp>
 #include <mbgl/style/layers/symbol_layer.hpp>
-#include <mbgl/tile/geometry_tile.hpp>
+#include <mbgl/tile/geometry_tile_data.hpp>
 #include <mbgl/sprite/sprite_image.hpp>
 #include <mbgl/sprite/sprite_store.hpp>
 #include <mbgl/sprite/sprite_atlas.hpp>
@@ -51,23 +51,23 @@ SymbolInstance::SymbolInstance(Anchor& anchor, const GeometryCoordinates& line,
 
     // Create the quad used for rendering the icon.
     iconQuads(addToBuffers && shapedIcon ?
-            getIconQuads(anchor, shapedIcon, line, layout, iconAlongLine) :
+            getIconQuads(anchor, shapedIcon, line, layout, iconAlongLine, shapedText) :
             SymbolQuads()),
 
     // Create the collision features that will be used to check whether this symbol instance can be placed
     textCollisionFeature(line, anchor, shapedText, textBoxScale, textPadding, textAlongLine, indexedFeature),
     iconCollisionFeature(line, anchor, shapedIcon, iconBoxScale, iconPadding, iconAlongLine, indexedFeature)
-    {};
+    {}
 
 
-SymbolBucket::SymbolBucket(uint32_t overscaling_, float zoom_, const MapMode mode_, const std::string& bucketName_, const std::string& sourceLayerName_)
+SymbolBucket::SymbolBucket(uint32_t overscaling_, float zoom_, const MapMode mode_, std::string bucketName_, std::string sourceLayerName_)
     : overscaling(overscaling_),
       zoom(zoom_),
       tileSize(util::tileSize * overscaling_),
       tilePixelRatio(float(util::EXTENT) / tileSize),
       mode(mode_),
-      bucketName(bucketName_),
-      sourceLayerName(sourceLayerName_) {}
+      bucketName(std::move(bucketName_)),
+      sourceLayerName(std::move(sourceLayerName_)) {}
 
 SymbolBucket::~SymbolBucket() {
     // Do not remove. header file only contains forward definitions to unique pointers.
@@ -119,9 +119,7 @@ void SymbolBucket::parseFeatures(const GeometryTileLayer& layer, const Filter& f
     const GLsizei featureCount = static_cast<GLsizei>(layer.featureCount());
     for (GLsizei i = 0; i < featureCount; i++) {
         auto feature = layer.getFeature(i);
-
-        FilterEvaluator evaluator(*feature);
-        if (!Filter::visit(filter, evaluator))
+        if (!filter(feature->getType(), [&] (const auto& key) { return feature->getValue(key); }))
             continue;
 
         SymbolFeature ft;
@@ -283,6 +281,8 @@ void SymbolBucket::addFeatures(uintptr_t tileUID,
                     sdfIcons = true;
                 }
                 if ((*image).relativePixelRatio != 1.0f) {
+                    iconsNeedLinear = true;
+                } else if (layout.iconRotate != 0) {
                     iconsNeedLinear = true;
                 }
             }
