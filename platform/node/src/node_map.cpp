@@ -1,9 +1,12 @@
 #include "node_map.hpp"
 #include "node_request.hpp"
 #include "node_feature.hpp"
+#include "node_style_properties.hpp"
 
 #include <mbgl/platform/default/headless_display.hpp>
 #include <mbgl/util/exception.hpp>
+#include <mbgl/style/layer.hpp>
+#include <mbgl/style/layers/fill_layer.hpp>
 
 #include <unistd.h>
 
@@ -48,8 +51,13 @@ NAN_MODULE_INIT(NodeMap::Init) {
     tpl->SetClassName(Nan::New("Map").ToLocalChecked());
 
     Nan::SetPrototypeMethod(tpl, "load", Load);
+    Nan::SetPrototypeMethod(tpl, "loaded", Loaded);
     Nan::SetPrototypeMethod(tpl, "render", Render);
     Nan::SetPrototypeMethod(tpl, "release", Release);
+
+    Nan::SetPrototypeMethod(tpl, "addClass", AddClass);
+    Nan::SetPrototypeMethod(tpl, "setPaintProperty", SetPaintProperty);
+
     Nan::SetPrototypeMethod(tpl, "dumpDebugLogs", DumpDebugLogs);
     Nan::SetPrototypeMethod(tpl, "queryRenderedFeatures", QueryRenderedFeatures);
 
@@ -166,8 +174,7 @@ std::string StringifyStyle(v8::Local<v8::Value> styleHandle) {
  */
 NAN_METHOD(NodeMap::Load) {
     auto nodeMap = Nan::ObjectWrap::Unwrap<NodeMap>(info.Holder());
-
-    if (!nodeMap->isValid()) return Nan::ThrowError(releasedMessage());
+    if (!nodeMap->map) return Nan::ThrowError(releasedMessage());
 
     // Reset the flag as this could be the second time
     // we are calling this (being the previous successful).
@@ -196,6 +203,21 @@ NAN_METHOD(NodeMap::Load) {
     nodeMap->loaded = true;
 
     info.GetReturnValue().SetUndefined();
+}
+
+NAN_METHOD(NodeMap::Loaded) {
+    auto nodeMap = Nan::ObjectWrap::Unwrap<NodeMap>(info.Holder());
+    if (!nodeMap->map) return Nan::ThrowError(releasedMessage());
+
+    bool loaded = false;
+
+    try {
+        loaded = nodeMap->map->isFullyLoaded();
+    } catch (const std::exception &ex) {
+        return Nan::ThrowError(ex.what());
+    }
+
+    info.GetReturnValue().Set(Nan::New(loaded));
 }
 
 NodeMap::RenderOptions NodeMap::ParseOptions(v8::Local<v8::Object> obj) {
@@ -286,8 +308,7 @@ NodeMap::RenderOptions NodeMap::ParseOptions(v8::Local<v8::Object> obj) {
  */
 NAN_METHOD(NodeMap::Render) {
     auto nodeMap = Nan::ObjectWrap::Unwrap<NodeMap>(info.Holder());
-
-    if (!nodeMap->isValid()) return Nan::ThrowError(releasedMessage());
+    if (!nodeMap->map) return Nan::ThrowError(releasedMessage());
 
     if (info.Length() <= 0 || !info[0]->IsObject()) {
         return Nan::ThrowTypeError("First argument must be an options object");
@@ -297,7 +318,7 @@ NAN_METHOD(NodeMap::Render) {
         return Nan::ThrowTypeError("Second argument must be a callback function");
     }
 
-    if (!nodeMap->isLoaded()) {
+    if (!nodeMap->loaded) {
         return Nan::ThrowTypeError("Style is not loaded");
     }
 
@@ -417,8 +438,7 @@ void NodeMap::renderFinished() {
  */
 NAN_METHOD(NodeMap::Release) {
     auto nodeMap = Nan::ObjectWrap::Unwrap<NodeMap>(info.Holder());
-
-    if (!nodeMap->isValid()) return Nan::ThrowError(releasedMessage());
+    if (!nodeMap->map) return Nan::ThrowError(releasedMessage());
 
     try {
         nodeMap->release();
@@ -430,21 +450,71 @@ NAN_METHOD(NodeMap::Release) {
 }
 
 void NodeMap::release() {
-    if (!isValid()) throw mbgl::util::Exception(releasedMessage());
-
-    valid = false;
+    if (!map) throw mbgl::util::Exception(releasedMessage());
 
     uv_close(reinterpret_cast<uv_handle_t *>(async), [] (uv_handle_t *h) {
         delete reinterpret_cast<uv_async_t *>(h);
     });
 
-    map.reset(nullptr);
+    map.reset();
+}
+
+NAN_METHOD(NodeMap::AddClass) {
+    auto nodeMap = Nan::ObjectWrap::Unwrap<NodeMap>(info.Holder());
+    if (!nodeMap->map) return Nan::ThrowError(releasedMessage());
+
+    if (info.Length() <= 0 || !info[0]->IsString()) {
+        return Nan::ThrowTypeError("First argument must be a string");
+    }
+
+    try {
+        nodeMap->map->addClass(*Nan::Utf8String(info[0]));
+    } catch (const std::exception &ex) {
+        return Nan::ThrowError(ex.what());
+    }
+
+    info.GetReturnValue().SetUndefined();
+}
+
+NAN_METHOD(NodeMap::SetPaintProperty) {
+    auto nodeMap = Nan::ObjectWrap::Unwrap<NodeMap>(info.Holder());
+    if (!nodeMap->map) return Nan::ThrowError(releasedMessage());
+
+    if (info.Length() < 3) {
+        return Nan::ThrowTypeError("Three arguments required");
+    }
+
+    if (!info[0]->IsString()) {
+        return Nan::ThrowTypeError("First argument must be a string");
+    }
+
+    mbgl::style::Layer* layer = nodeMap->map->getLayer(*Nan::Utf8String(info[0]));
+    if (!layer) {
+        return Nan::ThrowTypeError("layer not found");
+    }
+
+    if (!info[1]->IsString()) {
+        return Nan::ThrowTypeError("Second argument must be a string");
+    }
+
+    static const PropertySetters setters = makePaintPropertySetters();
+
+    auto it = setters.find(*Nan::Utf8String(info[1]));
+    if (it == setters.end()) {
+        return Nan::ThrowTypeError("property not found");
+    }
+
+    if (!it->second(*layer, info[2])) {
+        return;
+    }
+
+    nodeMap->map->update(mbgl::Update::RecalculateStyle);
+    info.GetReturnValue().SetUndefined();
 }
 
 NAN_METHOD(NodeMap::DumpDebugLogs) {
     auto nodeMap = Nan::ObjectWrap::Unwrap<NodeMap>(info.Holder());
-
-    if (!nodeMap->isValid()) return Nan::ThrowError(releasedMessage());
+    if (!nodeMap->map) return Nan::ThrowError(releasedMessage());
 
     nodeMap->map->dumpDebugLogs();
     info.GetReturnValue().SetUndefined();
@@ -452,9 +522,7 @@ NAN_METHOD(NodeMap::DumpDebugLogs) {
 
 NAN_METHOD(NodeMap::QueryRenderedFeatures) {
     auto nodeMap = Nan::ObjectWrap::Unwrap<NodeMap>(info.Holder());
-    Nan::HandleScope scope;
-
-    if (!nodeMap->isValid()) return Nan::ThrowError(releasedMessage());
+    if (!nodeMap->map) return Nan::ThrowError(releasedMessage());
 
     if (info.Length() <= 0 || !info[0]->IsArray()) {
         return Nan::ThrowTypeError("First argument must be an array");
@@ -521,7 +589,7 @@ NodeMap::NodeMap(v8::Local<v8::Object> options) :
 }
 
 NodeMap::~NodeMap() {
-    if (valid) release();
+    if (map) release();
 }
 
 std::unique_ptr<mbgl::AsyncRequest> NodeMap::request(const mbgl::Resource& resource, Callback callback_) {
