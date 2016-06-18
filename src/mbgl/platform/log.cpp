@@ -1,4 +1,5 @@
 #include <mbgl/platform/log.hpp>
+#include <mbgl/util/enum.hpp>
 
 #include <cstdio>
 #include <cstdarg>
@@ -48,13 +49,19 @@ void Log::record(EventSeverity severity, Event event, int64_t code, const std::s
 
     std::stringstream logStream;
 
-    #if !defined(__ANDROID__) && (defined( __APPLE__) || defined(__linux__))
+#if defined(__APPLE__)
     char name[32];
     pthread_getname_np(pthread_self(), name, sizeof(name));
     logStream << "{" << name << "}";
-    #endif
+#elif defined(__GLIBC__) && defined(__GLIBC_PREREQ)
+#if __GLIBC_PREREQ(2, 12)
+    char name[32];
+    pthread_getname_np(pthread_self(), name, sizeof(name));
+    logStream << "{" << name << "}";
+#endif
+#endif
 
-    logStream << "[" << event << "]";
+    logStream << "[" << Enum<Event>::toString(event) << "]";
 
     if (code >= 0) {
         logStream << "(" << code << ")";
