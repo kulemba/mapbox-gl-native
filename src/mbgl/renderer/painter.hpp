@@ -27,12 +27,12 @@
 
 namespace mbgl {
 
-class Tile;
+class RenderTile;
 class SpriteAtlas;
 class GlyphAtlas;
 class LineAtlas;
 struct FrameData;
-class TileData;
+class Tile;
 
 class DebugBucket;
 class FillBucket;
@@ -61,7 +61,7 @@ struct ClipID;
 
 namespace util {
 class ObjectStore;
-}
+} // namespace util
 
 namespace style {
 class Style;
@@ -72,7 +72,7 @@ class CircleLayer;
 class SymbolLayer;
 class RasterLayer;
 class BackgroundLayer;
-}
+} // namespace style
 
 struct FrameData {
     std::array<uint16_t, 2> framebufferSize;
@@ -93,14 +93,14 @@ public:
                 SpriteAtlas& annotationSpriteAtlas);
 
     // Renders debug information for a tile.
-    void renderTileDebug(const Tile& tile);
+    void renderTileDebug(const RenderTile&);
 
     // Renders the red debug frame around a tile, visualizing its perimeter.
     void renderDebugFrame(const mat4 &matrix);
 
     void renderClipMasks();
 
-    void renderDebugText(TileData&, const mat4&);
+    void renderDebugText(Tile&, const mat4&);
     void renderFill(FillBucket&, const style::FillLayer&, const UnwrappedTileID&, const mat4&);
     void renderLine(LineBucket&, const style::LineLayer&, const UnwrappedTileID&, const mat4&);
     void renderCircle(CircleBucket&, const style::CircleLayer&, const UnwrappedTileID&, const mat4&);

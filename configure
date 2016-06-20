@@ -7,6 +7,10 @@ OUTPUT_FILE=$2
 export MASON_PLATFORM=$3
 export MASON_PLATFORM_VERSION=${4:-}
 
+if [ "${MASON_PLATFORM}" = "macos" ]; then
+    export MASON_PLATFORM=osx
+fi
+
 if [ -z ${INPUT_FILE} ]; then
     abort 'You need to specify an input path for the configure.sh file'
 fi
@@ -123,7 +127,6 @@ print_flags webp static_libs cflags ldflags
 print_flags jni.hpp cflags
 print_flags earcut cflags
 print_flags benchmark static_libs cflags ldflags
-print_flags valgrind
 
 CONFIG+="  }
 }
