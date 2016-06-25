@@ -141,6 +141,8 @@ Layer* Style::getLayer(const std::string& id) const {
 }
 
 void Style::addLayer(std::unique_ptr<Layer> layer, optional<std::string> before) {
+    // TODO: verify source
+
     if (SymbolLayer* symbolLayer = layer->as<SymbolLayer>()) {
         if (!symbolLayer->impl->spriteAtlas) {
             symbolLayer->impl->spriteAtlas = spriteAtlas.get();
@@ -180,7 +182,7 @@ void Style::update(const UpdateParameters& parameters) {
 void Style::cascade(const TimePoint& timePoint, MapMode mode) {
     // When in continuous mode, we can either have user- or style-defined
     // transitions. Still mode is always immediate.
-    static const TransitionOptions immediateTransition;
+    static const TransitionOptions immediateTransition {};
 
     std::vector<ClassID> classIDs;
     for (const auto& className : classes) {
@@ -258,7 +260,7 @@ bool Style::isLoaded() const {
     return true;
 }
 
-RenderData Style::getRenderData() const {
+RenderData Style::getRenderData(MapDebugOptions debugOptions) const {
     RenderData result;
 
     for (const auto& source : sources) {
@@ -272,6 +274,11 @@ RenderData Style::getRenderData() const {
             continue;
 
         if (const BackgroundLayer* background = layer->as<BackgroundLayer>()) {
+            if (debugOptions & MapDebugOptions::Overdraw) {
+                // We want to skip glClear optimization in overdraw mode.
+                result.order.emplace_back(*layer);
+                continue;
+            }
             const BackgroundPaintProperties& paint = background->impl->paint;
             if (layer.get() == layers[0].get() && paint.backgroundPattern.value.from.empty()) {
                 // This is a solid background. We can use glClear().

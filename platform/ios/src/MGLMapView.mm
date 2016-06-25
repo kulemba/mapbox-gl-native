@@ -1829,9 +1829,9 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     {
         mask |= MGLMapDebugCollisionBoxesMask;
     }
-    if (options & mbgl::MapDebugOptions::Wireframe)
+    if (options & mbgl::MapDebugOptions::Overdraw)
     {
-        mask |= MGLMapDebugWireframesMask;
+        mask |= MGLMapDebugOverdrawVisualizationMask;
     }
     return mask;
 }
@@ -1855,9 +1855,9 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     {
         options |= mbgl::MapDebugOptions::Collision;
     }
-    if (debugMask & MGLMapDebugWireframesMask)
+    if (debugMask & MGLMapDebugOverdrawVisualizationMask)
     {
-        options |= mbgl::MapDebugOptions::Wireframe;
+        options |= mbgl::MapDebugOptions::Overdraw;
     }
     _mbglMap->setDebug(options);
 }
@@ -2196,8 +2196,8 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     mbgl::AnimationOptions animationOptions;
     if (duration)
     {
-        animationOptions.duration = MGLDurationInSeconds(duration);
-        animationOptions.easing = MGLUnitBezierForMediaTimingFunction(function);
+        animationOptions.duration.emplace(MGLDurationInSeconds(duration));
+        animationOptions.easing.emplace(MGLUnitBezierForMediaTimingFunction(function));
     }
     if (completion)
     {
@@ -2349,8 +2349,8 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     mbgl::AnimationOptions animationOptions;
     if (duration > 0)
     {
-        animationOptions.duration = MGLDurationInSeconds(duration);
-        animationOptions.easing = MGLUnitBezierForMediaTimingFunction(function);
+        animationOptions.duration.emplace(MGLDurationInSeconds(duration));
+        animationOptions.easing.emplace(MGLUnitBezierForMediaTimingFunction(function));
     }
     if (completion)
     {
@@ -2456,8 +2456,8 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     mbgl::AnimationOptions animationOptions;
     if (duration > 0)
     {
-        animationOptions.duration = MGLDurationInSeconds(duration);
-        animationOptions.easing = MGLUnitBezierForMediaTimingFunction(function);
+        animationOptions.duration.emplace(MGLDurationInSeconds(duration));
+        animationOptions.easing.emplace(MGLUnitBezierForMediaTimingFunction(function));
     }
     if (completion)
     {
