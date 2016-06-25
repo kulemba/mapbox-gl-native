@@ -10,8 +10,6 @@
 #include <nan.h>
 #pragma GCC diagnostic pop
 
-#include <queue>
-
 namespace node_mbgl {
 
 class NodeMap : public Nan::ObjectWrap,
@@ -28,7 +26,11 @@ public:
     static NAN_METHOD(Render);
     static NAN_METHOD(Release);
     static NAN_METHOD(AddClass);
+    static NAN_METHOD(AddSource);
+    static NAN_METHOD(AddLayer);
+    static NAN_METHOD(SetLayoutProperty);
     static NAN_METHOD(SetPaintProperty);
+    static NAN_METHOD(SetFilter);
     static NAN_METHOD(DumpDebugLogs);
     static NAN_METHOD(QueryRenderedFeatures);
 
