@@ -1037,8 +1037,8 @@ public:
     mbgl::CameraOptions cameraOptions = [self cameraOptionsObjectForAnimatingToCamera:camera];
     mbgl::AnimationOptions animationOptions;
     if (duration > 0) {
-        animationOptions.duration = MGLDurationInSeconds(duration);
-        animationOptions.easing = MGLUnitBezierForMediaTimingFunction(function);
+        animationOptions.duration.emplace(MGLDurationInSeconds(duration));
+        animationOptions.easing.emplace(MGLUnitBezierForMediaTimingFunction(function));
     }
     if (completion) {
         animationOptions.transitionFinishFn = [completion]() {
@@ -2398,8 +2398,8 @@ public:
     if (options & mbgl::MapDebugOptions::Collision) {
         mask |= MGLMapDebugCollisionBoxesMask;
     }
-    if (options & mbgl::MapDebugOptions::Wireframe) {
-        mask |= MGLMapDebugWireframesMask;
+    if (options & mbgl::MapDebugOptions::Overdraw) {
+        mask |= MGLMapDebugOverdrawVisualizationMask;
     }
     if (options & mbgl::MapDebugOptions::StencilClip) {
         mask |= MGLMapDebugStencilBufferMask;
@@ -2421,8 +2421,8 @@ public:
     if (debugMask & MGLMapDebugCollisionBoxesMask) {
         options |= mbgl::MapDebugOptions::Collision;
     }
-    if (debugMask & MGLMapDebugWireframesMask) {
-        options |= mbgl::MapDebugOptions::Wireframe;
+    if (debugMask & MGLMapDebugOverdrawVisualizationMask) {
+        options |= mbgl::MapDebugOptions::Overdraw;
     }
     if (debugMask & MGLMapDebugStencilBufferMask) {
         options |= mbgl::MapDebugOptions::StencilClip;
