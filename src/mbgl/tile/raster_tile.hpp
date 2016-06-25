@@ -9,8 +9,6 @@ namespace mbgl {
 class AsyncRequest;
 class Tileset;
 
-namespace gl { class TexturePool; }
-
 namespace style {
 class Layer;
 class UpdateParameters;
@@ -35,7 +33,6 @@ public:
     Bucket* getBucket(const style::Layer&) override;
 
 private:
-    gl::TexturePool& texturePool;
     Worker& worker;
 
     TileLoader<RasterTile> loader;
