@@ -18,7 +18,7 @@ void Painter::renderRaster(RasterBucket& bucket,
     const RasterPaintProperties& properties = layer.impl->paint;
 
     if (bucket.hasData()) {
-        config.program = rasterShader->getID();
+        config.program = isOverdraw() ? rasterShader->getOverdrawID() : rasterShader->getID();
         rasterShader->u_matrix = matrix;
         rasterShader->u_buffer = 0;
         rasterShader->u_opacity = properties.rasterOpacity;
@@ -37,7 +37,7 @@ void Painter::renderRaster(RasterBucket& bucket,
         config.depthTest = GL_TRUE;
         config.depthMask = GL_FALSE;
         setDepthSublayer(0);
-        bucket.drawRaster(*rasterShader, tileStencilBuffer, coveringRasterArray, store);
+        bucket.drawRaster(*rasterShader, tileStencilBuffer, coveringRasterArray, texturePool, store);
     }
 }
 

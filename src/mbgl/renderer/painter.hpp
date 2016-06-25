@@ -60,6 +60,7 @@ class CollisionBoxShader;
 struct ClipID;
 
 namespace util {
+class TexturePool;
 class ObjectStore;
 } // namespace util
 
@@ -85,7 +86,7 @@ struct FrameData {
 
 class Painter : private util::noncopyable {
 public:
-    Painter(const TransformState&, gl::ObjectStore&);
+    Painter(const TransformState&, gl::TexturePool&, gl::ObjectStore&);
     ~Painter();
 
     void render(const style::Style&,
@@ -156,6 +157,8 @@ private:
 
     void setDepthSublayer(int n);
 
+    bool isOverdraw() const { return frame.debugOptions & MapDebugOptions::Overdraw; }
+
     mat4 projMatrix;
     mat4 nativeMatrix;
 
@@ -176,6 +179,7 @@ private:
     }();
 
     const TransformState& state;
+    gl::TexturePool& texturePool;
     gl::ObjectStore& store;
 
     FrameData frame;
