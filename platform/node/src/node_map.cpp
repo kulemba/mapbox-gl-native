@@ -1,12 +1,14 @@
 #include "node_map.hpp"
 #include "node_request.hpp"
 #include "node_feature.hpp"
-#include "node_style_properties.hpp"
+#include "node_conversion.hpp"
+#include "node_geojson.hpp"
 
 #include <mbgl/platform/default/headless_display.hpp>
 #include <mbgl/util/exception.hpp>
-#include <mbgl/style/layer.hpp>
-#include <mbgl/style/layers/fill_layer.hpp>
+#include <mbgl/style/conversion/source.hpp>
+#include <mbgl/style/conversion/layer.hpp>
+#include <mbgl/style/conversion/filter.hpp>
 
 #include <unistd.h>
 
@@ -56,7 +58,11 @@ NAN_MODULE_INIT(NodeMap::Init) {
     Nan::SetPrototypeMethod(tpl, "release", Release);
 
     Nan::SetPrototypeMethod(tpl, "addClass", AddClass);
+    Nan::SetPrototypeMethod(tpl, "addSource", AddSource);
+    Nan::SetPrototypeMethod(tpl, "addLayer", AddLayer);
+    Nan::SetPrototypeMethod(tpl, "setLayoutProperty", SetLayoutProperty);
     Nan::SetPrototypeMethod(tpl, "setPaintProperty", SetPaintProperty);
+    Nan::SetPrototypeMethod(tpl, "setFilter", SetFilter);
 
     Nan::SetPrototypeMethod(tpl, "dumpDebugLogs", DumpDebugLogs);
     Nan::SetPrototypeMethod(tpl, "queryRenderedFeatures", QueryRenderedFeatures);
@@ -285,6 +291,11 @@ NodeMap::RenderOptions NodeMap::ParseOptions(v8::Local<v8::Object> obj) {
                 options.debugOptions = options.debugOptions | mbgl::MapDebugOptions::Collision;
             }
         }
+        if (Nan::Has(debug, Nan::New("overdraw").ToLocalChecked()).FromJust()) {
+            if (Nan::Get(debug, Nan::New("overdraw").ToLocalChecked()).ToLocalChecked()->BooleanValue()) {
+                options.debugOptions = mbgl::MapDebugOptions::Overdraw;
+            }
+        }
     }
 
     return options;
@@ -476,7 +487,54 @@ NAN_METHOD(NodeMap::AddClass) {
     info.GetReturnValue().SetUndefined();
 }
 
-NAN_METHOD(NodeMap::SetPaintProperty) {
+NAN_METHOD(NodeMap::AddSource) {
+    using namespace mbgl::style;
+    using namespace mbgl::style::conversion;
+
+    auto nodeMap = Nan::ObjectWrap::Unwrap<NodeMap>(info.Holder());
+    if (!nodeMap->map) return Nan::ThrowError(releasedMessage());
+
+    if (info.Length() != 2) {
+        return Nan::ThrowTypeError("Two argument required");
+    }
+
+    if (!info[0]->IsString()) {
+        return Nan::ThrowTypeError("First argument must be a string");
+    }
+
+    Result<std::unique_ptr<Source>> source = convert<std::unique_ptr<Source>>(info[1], *Nan::Utf8String(info[0]));
+    if (!source) {
+        Nan::ThrowTypeError(source.error().message);
+        return;
+    }
+
+    nodeMap->map->addSource(std::move(*source));
+}
+
+NAN_METHOD(NodeMap::AddLayer) {
+    using namespace mbgl::style;
+    using namespace mbgl::style::conversion;
+
+    auto nodeMap = Nan::ObjectWrap::Unwrap<NodeMap>(info.Holder());
+    if (!nodeMap->map) return Nan::ThrowError(releasedMessage());
+
+    if (info.Length() != 1) {
+        return Nan::ThrowTypeError("One argument required");
+    }
+
+    Result<std::unique_ptr<Layer>> layer = convert<std::unique_ptr<Layer>>(info[0]);
+    if (!layer) {
+        Nan::ThrowTypeError(layer.error().message);
+        return;
+    }
+
+    nodeMap->map->addLayer(std::move(*layer));
+}
+
+NAN_METHOD(NodeMap::SetLayoutProperty) {
+    using namespace mbgl::style;
+    using namespace mbgl::style::conversion;
+
     auto nodeMap = Nan::ObjectWrap::Unwrap<NodeMap>(info.Holder());
     if (!nodeMap->map) return Nan::ThrowError(releasedMessage());
 
@@ -497,19 +555,106 @@ NAN_METHOD(NodeMap::SetPaintProperty) {
         return Nan::ThrowTypeError("Second argument must be a string");
     }
 
-    static const PropertySetters setters = makePaintPropertySetters();
-
-    auto it = setters.find(*Nan::Utf8String(info[1]));
-    if (it == setters.end()) {
-        return Nan::ThrowTypeError("property not found");
-    }
-
-    if (!it->second(*layer, info[2])) {
-        return;
+    mbgl::optional<Error> error = setLayoutProperty(*layer, *Nan::Utf8String(info[1]), info[2]);
+    if (error) {
+        return Nan::ThrowTypeError(error->message);
     }
 
     nodeMap->map->update(mbgl::Update::RecalculateStyle);
     info.GetReturnValue().SetUndefined();
+}
+
+NAN_METHOD(NodeMap::SetPaintProperty) {
+    using namespace mbgl::style;
+    using namespace mbgl::style::conversion;
+
+    auto nodeMap = Nan::ObjectWrap::Unwrap<NodeMap>(info.Holder());
+    if (!nodeMap->map) return Nan::ThrowError(releasedMessage());
+
+    if (info.Length() < 3) {
+        return Nan::ThrowTypeError("Three arguments required");
+    }
+
+    if (!info[0]->IsString()) {
+        return Nan::ThrowTypeError("First argument must be a string");
+    }
+
+    mbgl::style::Layer* layer = nodeMap->map->getLayer(*Nan::Utf8String(info[0]));
+    if (!layer) {
+        return Nan::ThrowTypeError("layer not found");
+    }
+
+    if (!info[1]->IsString()) {
+        return Nan::ThrowTypeError("Second argument must be a string");
+    }
+
+    mbgl::optional<std::string> klass;
+    if (info.Length() == 4 && info[3]->IsString()) {
+        klass = std::string(*Nan::Utf8String(info[3]));
+    }
+
+    mbgl::optional<Error> error = setPaintProperty(*layer, *Nan::Utf8String(info[1]), info[2], klass);
+    if (error) {
+        return Nan::ThrowTypeError(error->message);
+    }
+
+    nodeMap->map->update(mbgl::Update::RecalculateStyle);
+    info.GetReturnValue().SetUndefined();
+}
+
+NAN_METHOD(NodeMap::SetFilter) {
+    using namespace mbgl::style;
+    using namespace mbgl::style::conversion;
+
+    auto nodeMap = Nan::ObjectWrap::Unwrap<NodeMap>(info.Holder());
+    if (!nodeMap->map) return Nan::ThrowError(releasedMessage());
+
+    if (info.Length() < 2) {
+        return Nan::ThrowTypeError("Two arguments required");
+    }
+
+    if (!info[0]->IsString()) {
+        return Nan::ThrowTypeError("First argument must be a string");
+    }
+
+    mbgl::style::Layer* layer = nodeMap->map->getLayer(*Nan::Utf8String(info[0]));
+    if (!layer) {
+        return Nan::ThrowTypeError("layer not found");
+    }
+
+    Filter filter;
+
+    if (!info[1]->IsNull() && !info[1]->IsUndefined()) {
+        Result<Filter> converted = convert<Filter>(info[1]);
+        if (!converted) {
+            Nan::ThrowTypeError(converted.error().message);
+            return;
+        }
+        filter = std::move(*converted);
+    }
+
+    if (layer->is<FillLayer>()) {
+        layer->as<FillLayer>()->setFilter(filter);
+        info.GetReturnValue().SetUndefined();
+        return;
+    }
+    if (layer->is<LineLayer>()) {
+        layer->as<LineLayer>()->setFilter(filter);
+        info.GetReturnValue().SetUndefined();
+        return;
+    }
+    if (layer->is<SymbolLayer>()) {
+        layer->as<SymbolLayer>()->setFilter(filter);
+        info.GetReturnValue().SetUndefined();
+        return;
+    }
+    if (layer->is<CircleLayer>()) {
+        layer->as<CircleLayer>()->setFilter(filter);
+        info.GetReturnValue().SetUndefined();
+        return;
+    }
+
+    Nan::ThrowTypeError("layer doesn't support filters");
 }
 
 NAN_METHOD(NodeMap::DumpDebugLogs) {
