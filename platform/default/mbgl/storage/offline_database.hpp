@@ -107,7 +107,7 @@ private:
 
     bool evict(uint64_t neededFreeSize);
     
-    bool indexURLTemplates();
+    void checkURLTemplateIndexing();
     
     bool nonIndexedURLTemplates;
 };

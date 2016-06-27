@@ -127,7 +127,7 @@ OfflineRegionStatus OfflineDownload::getStatus() const {
 
         case SourceType::GeoJSON: {
             style::GeoJSONSource::Impl* geojsonSource = static_cast<style::GeoJSONSource::Impl*>(source->baseImpl.get());
-            const variant<std::string, style::GeoJSONSource::Impl::GeoJSON>& urlOrGeoJSON = geojsonSource->getURLOrGeoJSON();
+            const variant<std::string, GeoJSON>& urlOrGeoJSON = geojsonSource->getURLOrGeoJSON();
 
             if (urlOrGeoJSON.is<std::string>()) {
                 result.requiredResourceCount += 1;
@@ -190,7 +190,7 @@ void OfflineDownload::activateDownload() {
 
             case SourceType::GeoJSON: {
                 style::GeoJSONSource::Impl* geojsonSource = static_cast<style::GeoJSONSource::Impl*>(source->baseImpl.get());
-                const variant<std::string, style::GeoJSONSource::Impl::GeoJSON>& urlOrGeoJSON = geojsonSource->getURLOrGeoJSON();
+                const variant<std::string, GeoJSON>& urlOrGeoJSON = geojsonSource->getURLOrGeoJSON();
 
                 if (urlOrGeoJSON.is<std::string>()) {
                     ensureResource(Resource::source(urlOrGeoJSON.get<std::string>()));
@@ -240,6 +240,7 @@ void OfflineDownload::ensureResource(const Resource& resource, std::function<voi
             status.completedResourceCount++;
             status.completedResourceSize += offlineResponse->second;
             if (resource.kind == Resource::Kind::Tile) {
+                status.completedTileCount += 1;
                 status.completedTileSize += offlineResponse->second;
             }
             
@@ -273,6 +274,7 @@ void OfflineDownload::ensureResource(const Resource& resource, std::function<voi
             uint64_t resourceSize = offlineDatabase.putRegionResource(id, resource, onlineResponse);
             status.completedResourceSize += resourceSize;
             if (resource.kind == Resource::Kind::Tile) {
+                status.completedTileCount += 1;
                 status.completedTileSize += resourceSize;
             }
 
