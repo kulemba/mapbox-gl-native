@@ -10,7 +10,7 @@
 #include <mbgl/gl/gl_helper.hpp>
 #include <mbgl/util/color.hpp>
 
-using namespace mbgl;
+namespace mbgl {
 
 void Painter::renderTileDebug(const RenderTile& tile) {
     MBGL_DEBUG_GROUP(std::string { "debug " } + util::toString(tile.id));
@@ -42,6 +42,7 @@ void Painter::renderDebugText(Tile& tile, const mat4 &matrix) {
 
     config.program = plainShader->getID();
     plainShader->u_matrix = matrix;
+    plainShader->u_opacity = 1.0f;
 
     // Draw white outline
     plainShader->u_color = Color::white();
@@ -75,6 +76,7 @@ void Painter::renderDebugFrame(const mat4 &matrix) {
 
     config.program = plainShader->getID();
     plainShader->u_matrix = matrix;
+    plainShader->u_opacity = 1.0f;
 
     // draw tile outline
     tileBorderArray.bind(*plainShader, tileBorderBuffer, BUFFER_OFFSET_0, store);
@@ -118,3 +120,5 @@ void Painter::renderClipMasks() {
     MBGL_CHECK_ERROR(glDrawPixels(fbSize[0], fbSize[1], GL_LUMINANCE, GL_UNSIGNED_BYTE, pixels.get()));
 #endif // GL_ES_VERSION_2_0
 }
+
+} // namespace mbgl
