@@ -51,9 +51,8 @@ namespace mbgl {
 using namespace style;
 
 Painter::Painter(const TransformState& state_,
-                 gl::TexturePool& texturePool_,
                  gl::ObjectStore& store_)
-    : state(state_), texturePool(texturePool_), store(store_) {
+    : state(state_), store(store_) {
     gl::debugging::enable();
 
     plainShader = std::make_unique<PlainShader>(store);
@@ -65,10 +64,24 @@ Painter::Painter(const TransformState& state_,
     patternShader = std::make_unique<PatternShader>(store);
     iconShader = std::make_unique<IconShader>(store);
     rasterShader = std::make_unique<RasterShader>(store);
-    sdfGlyphShader = std::make_unique<SDFGlyphShader>(store);
-    sdfIconShader = std::make_unique<SDFIconShader>(store);
+    sdfGlyphShader = std::make_unique<SDFShader>(store);
+    sdfIconShader = std::make_unique<SDFShader>(store);
     collisionBoxShader = std::make_unique<CollisionBoxShader>(store);
     circleShader = std::make_unique<CircleShader>(store);
+
+    bool overdraw = true;
+    plainOverdrawShader = std::make_unique<PlainShader>(store, overdraw);
+    outlineOverdrawShader = std::make_unique<OutlineShader>(store, overdraw);
+    outlinePatternOverdrawShader = std::make_unique<OutlinePatternShader>(store, overdraw);
+    lineOverdrawShader = std::make_unique<LineShader>(store, overdraw);
+    linesdfOverdrawShader = std::make_unique<LineSDFShader>(store, overdraw);
+    linepatternOverdrawShader = std::make_unique<LinepatternShader>(store, overdraw);
+    patternOverdrawShader = std::make_unique<PatternShader>(store, overdraw);
+    iconOverdrawShader = std::make_unique<IconShader>(store, overdraw);
+    rasterOverdrawShader = std::make_unique<RasterShader>(store, overdraw);
+    sdfGlyphOverdrawShader = std::make_unique<SDFShader>(store, overdraw);
+    sdfIconOverdrawShader = std::make_unique<SDFShader>(store, overdraw);
+    circleOverdrawShader = std::make_unique<CircleShader>(store, overdraw);
 
     // Reset GL values
     config.reset();
@@ -120,6 +133,7 @@ void Painter::render(const Style& style, const FrameData& frame_, SpriteAtlas& a
         MBGL_DEBUG_GROUP("upload");
 
         tileStencilBuffer.upload(store);
+        rasterBoundsBuffer.upload(store);
         tileBorderBuffer.upload(store);
         spriteAtlas->upload(store);
         lineAtlas->upload(store);
@@ -129,7 +143,7 @@ void Painter::render(const Style& style, const FrameData& frame_, SpriteAtlas& a
 
         for (const auto& item : order) {
             if (item.bucket && item.bucket->needsUpload()) {
-                item.bucket->upload(texturePool, store);
+                item.bucket->upload(store);
             }
         }
     }

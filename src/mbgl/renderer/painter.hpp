@@ -53,14 +53,11 @@ class CircleShader;
 class PatternShader;
 class IconShader;
 class RasterShader;
-class SDFGlyphShader;
-class SDFIconShader;
 class CollisionBoxShader;
 
 struct ClipID;
 
 namespace util {
-class TexturePool;
 class ObjectStore;
 } // namespace util
 
@@ -86,7 +83,7 @@ struct FrameData {
 
 class Painter : private util::noncopyable {
 public:
-    Painter(const TransformState&, gl::TexturePool&, gl::ObjectStore&);
+    Painter(const TransformState&, gl::ObjectStore&);
     ~Painter();
 
     void render(const style::Style&,
@@ -138,7 +135,7 @@ private:
                    float scaleDivisor,
                    std::array<float, 2> texsize,
                    SDFShader& sdfShader,
-                   void (SymbolBucket::*drawSDF)(SDFShader&, gl::ObjectStore&),
+                   void (SymbolBucket::*drawSDF)(SDFShader&, gl::ObjectStore&, bool),
 
                    // Layout
                    style::AlignmentType rotationAlignment,
@@ -179,7 +176,6 @@ private:
     }();
 
     const TransformState& state;
-    gl::TexturePool& texturePool;
     gl::ObjectStore& store;
 
     FrameData frame;
@@ -210,22 +206,42 @@ private:
     std::unique_ptr<PatternShader> patternShader;
     std::unique_ptr<IconShader> iconShader;
     std::unique_ptr<RasterShader> rasterShader;
-    std::unique_ptr<SDFGlyphShader> sdfGlyphShader;
-    std::unique_ptr<SDFIconShader> sdfIconShader;
+    std::unique_ptr<SDFShader> sdfGlyphShader;
+    std::unique_ptr<SDFShader> sdfIconShader;
     std::unique_ptr<CollisionBoxShader> collisionBoxShader;
     std::unique_ptr<CircleShader> circleShader;
 
+    std::unique_ptr<PlainShader> plainOverdrawShader;
+    std::unique_ptr<OutlineShader> outlineOverdrawShader;
+    std::unique_ptr<OutlinePatternShader> outlinePatternOverdrawShader;
+    std::unique_ptr<LineShader> lineOverdrawShader;
+    std::unique_ptr<LineSDFShader> linesdfOverdrawShader;
+    std::unique_ptr<LinepatternShader> linepatternOverdrawShader;
+    std::unique_ptr<PatternShader> patternOverdrawShader;
+    std::unique_ptr<IconShader> iconOverdrawShader;
+    std::unique_ptr<RasterShader> rasterOverdrawShader;
+    std::unique_ptr<SDFShader> sdfGlyphOverdrawShader;
+    std::unique_ptr<SDFShader> sdfIconOverdrawShader;
+    std::unique_ptr<CircleShader> circleOverdrawShader;
+
     // Set up the stencil quad we're using to generate the stencil mask.
-    StaticVertexBuffer tileStencilBuffer = {
+    StaticVertexBuffer tileStencilBuffer {
         // top left triangle
-        { 0, 0 },
-        { util::EXTENT, 0 },
-        { 0, util::EXTENT },
+        {{ 0, 0 }},
+        {{ util::EXTENT, 0 }},
+        {{ 0, util::EXTENT }},
 
         // bottom right triangle
-        { util::EXTENT, 0 },
-        { 0, util::EXTENT },
-        { util::EXTENT, util::EXTENT },
+        {{ util::EXTENT, 0 }},
+        {{ 0, util::EXTENT }},
+        {{ util::EXTENT, util::EXTENT }},
+    };
+
+    StaticRasterVertexBuffer rasterBoundsBuffer {
+        {{ 0, 0, 0, 0 }},
+        {{ util::EXTENT, 0, 32767, 0 }},
+        {{ 0, util::EXTENT, 0, 32767 }},
+        {{ util::EXTENT, util::EXTENT, 32767, 32767 }},
     };
 
     VertexArrayObject coveringPlainArray;
@@ -233,13 +249,18 @@ private:
     VertexArrayObject backgroundPatternArray;
     VertexArrayObject backgroundArray;
 
+    VertexArrayObject coveringPlaingOverdrawArray;
+    VertexArrayObject coveringRasterOverdrawArray;
+    VertexArrayObject backgroundPatternOverdrawArray;
+    VertexArrayObject backgroundOverdrawArray;
+
     // Set up the tile boundary lines we're using to draw the tile outlines.
-    StaticVertexBuffer tileBorderBuffer = {
-        { 0, 0 },
-        { util::EXTENT, 0 },
-        { util::EXTENT, util::EXTENT },
-        { 0, util::EXTENT },
-        { 0, 0 },
+    StaticVertexBuffer tileBorderBuffer {
+        {{ 0, 0 }},
+        {{ util::EXTENT, 0 }},
+        {{ util::EXTENT, util::EXTENT }},
+        {{ 0, util::EXTENT }},
+        {{ 0, 0 }},
     };
 
     VertexArrayObject tileBorderArray;
