@@ -55,35 +55,35 @@ Painter::Painter(const TransformState& state_,
     : state(state_), store(store_) {
     gl::debugging::enable();
 
-    plainShader = std::make_unique<PlainShader>(store);
-    outlineShader = std::make_unique<OutlineShader>(store);
-    outlinePatternShader = std::make_unique<OutlinePatternShader>(store);
-    lineShader = std::make_unique<LineShader>(store);
-    linesdfShader = std::make_unique<LineSDFShader>(store);
-    linepatternShader = std::make_unique<LinepatternShader>(store);
-    patternShader = std::make_unique<PatternShader>(store);
-    iconShader = std::make_unique<IconShader>(store);
-    rasterShader = std::make_unique<RasterShader>(store);
-    sdfGlyphShader = std::make_unique<SDFShader>(store);
-    sdfIconShader = std::make_unique<SDFShader>(store);
-    collisionBoxShader = std::make_unique<CollisionBoxShader>(store);
-    circleShader = std::make_unique<CircleShader>(store);
+    shader.plain = std::make_unique<PlainShader>(store);
+    shader.outline = std::make_unique<OutlineShader>(store);
+    shader.outlinePattern = std::make_unique<OutlinePatternShader>(store);
+    shader.line = std::make_unique<LineShader>(store);
+    shader.linesdf = std::make_unique<LineSDFShader>(store);
+    shader.linepattern = std::make_unique<LinepatternShader>(store);
+    shader.pattern = std::make_unique<PatternShader>(store);
+    shader.icon = std::make_unique<IconShader>(store);
+    shader.raster = std::make_unique<RasterShader>(store);
+    shader.sdfGlyph = std::make_unique<SDFShader>(store);
+    shader.sdfIcon = std::make_unique<SDFShader>(store);
+    shader.collisionBox = std::make_unique<CollisionBoxShader>(store);
+    shader.circle = std::make_unique<CircleShader>(store);
 
-    bool overdraw = true;
-    plainOverdrawShader = std::make_unique<PlainShader>(store, overdraw);
-    outlineOverdrawShader = std::make_unique<OutlineShader>(store, overdraw);
-    outlinePatternOverdrawShader = std::make_unique<OutlinePatternShader>(store, overdraw);
-    lineOverdrawShader = std::make_unique<LineShader>(store, overdraw);
-    linesdfOverdrawShader = std::make_unique<LineSDFShader>(store, overdraw);
-    linepatternOverdrawShader = std::make_unique<LinepatternShader>(store, overdraw);
-    patternOverdrawShader = std::make_unique<PatternShader>(store, overdraw);
-    iconOverdrawShader = std::make_unique<IconShader>(store, overdraw);
-    rasterOverdrawShader = std::make_unique<RasterShader>(store, overdraw);
-    sdfGlyphOverdrawShader = std::make_unique<SDFShader>(store, overdraw);
-    sdfIconOverdrawShader = std::make_unique<SDFShader>(store, overdraw);
-    circleOverdrawShader = std::make_unique<CircleShader>(store, overdraw);
+    overdrawShader.plain = std::make_unique<PlainShader>(store, Shader::Overdraw);
+    overdrawShader.outline = std::make_unique<OutlineShader>(store, Shader::Overdraw);
+    overdrawShader.outlinePattern = std::make_unique<OutlinePatternShader>(store, Shader::Overdraw);
+    overdrawShader.line = std::make_unique<LineShader>(store, Shader::Overdraw);
+    overdrawShader.linesdf = std::make_unique<LineSDFShader>(store, Shader::Overdraw);
+    overdrawShader.linepattern = std::make_unique<LinepatternShader>(store, Shader::Overdraw);
+    overdrawShader.pattern = std::make_unique<PatternShader>(store, Shader::Overdraw);
+    overdrawShader.icon = std::make_unique<IconShader>(store, Shader::Overdraw);
+    overdrawShader.raster = std::make_unique<RasterShader>(store, Shader::Overdraw);
+    overdrawShader.sdfGlyph = std::make_unique<SDFShader>(store, Shader::Overdraw);
+    overdrawShader.sdfIcon = std::make_unique<SDFShader>(store, Shader::Overdraw);
+    overdrawShader.circle = std::make_unique<CircleShader>(store, Shader::Overdraw);
 
     // Reset GL values
+    config.setDirty();
     config.reset();
 }
 
@@ -114,10 +114,10 @@ void Painter::render(const Style& style, const FrameData& frame_, SpriteAtlas& a
     // Update the default matrices to the current viewport dimensions.
     state.getProjMatrix(projMatrix);
 
-    // The extrusion scale.
-    const float flippedY = state.getViewportMode() == ViewportMode::FlippedY;
-    extrudeScale = {{ 2.0f / state.getWidth() * state.getAltitude(),
-                      (flippedY ? 2.0f : -2.0f) / state.getHeight() * state.getAltitude() }};
+    pixelsToGLUnits = {{ 2.0f  / state.getWidth(), -2.0f / state.getHeight() }};
+    if (state.getViewportMode() == ViewportMode::FlippedY) {
+        pixelsToGLUnits[1] *= -1;
+    }
 
     // The native matrix is a 1:1 matrix that paints the coordinates at the
     // same screen position as the vertex specifies.
@@ -135,15 +135,15 @@ void Painter::render(const Style& style, const FrameData& frame_, SpriteAtlas& a
         tileStencilBuffer.upload(store);
         rasterBoundsBuffer.upload(store);
         tileBorderBuffer.upload(store);
-        spriteAtlas->upload(store);
-        lineAtlas->upload(store);
-        glyphAtlas->upload(store);
-        frameHistory.upload(store);
-        annotationSpriteAtlas.upload(store);
+        spriteAtlas->upload(store, config, 0);
+        lineAtlas->upload(store, config, 0);
+        glyphAtlas->upload(store, config, 0);
+        frameHistory.upload(store, config, 0);
+        annotationSpriteAtlas.upload(store, config, 0);
 
         for (const auto& item : order) {
             if (item.bucket && item.bucket->needsUpload()) {
-                item.bucket->upload(store);
+                item.bucket->upload(store, config);
             }
         }
     }
@@ -232,7 +232,11 @@ void Painter::render(const Style& style, const FrameData& frame_, SpriteAtlas& a
     {
         MBGL_DEBUG_GROUP("cleanup");
 
-        MBGL_CHECK_ERROR(glBindTexture(GL_TEXTURE_2D, 0));
+        config.activeTexture = 1;
+        config.texture[1] = 0;
+        config.activeTexture = 0;
+        config.texture[0] = 0;
+
         MBGL_CHECK_ERROR(VertexArrayObject::Unbind());
     }
 
