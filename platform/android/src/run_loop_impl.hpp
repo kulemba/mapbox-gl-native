@@ -5,6 +5,7 @@
 #include <mbgl/util/atomic.hpp>
 #include <mbgl/util/chrono.hpp>
 #include <mbgl/util/run_loop.hpp>
+#include <mbgl/util/thread.hpp>
 
 #include <list>
 #include <memory>
@@ -14,6 +15,8 @@ struct ALooper;
 
 namespace mbgl {
 namespace util {
+
+class Alarm;
 
 class RunLoop::Impl {
 public:
@@ -38,6 +41,10 @@ public:
 
     Milliseconds processRunnables();
 
+    ALooper* loop = nullptr;
+    RunLoop* runLoop = nullptr;
+    util::Atomic<bool> running;
+
 private:
     friend RunLoop;
 
@@ -46,11 +53,11 @@ private:
     JNIEnv *env = nullptr;
     bool detach = false;
 
-    ALooper* loop = nullptr;
-    util::Atomic<bool> running;
+    std::unique_ptr<Thread<Alarm>> alarm;
 
     std::recursive_mutex mtx;
     std::list<Runnable*> runnables;
+    std::list<Runnable*>::iterator nextRunnable;
 };
 
 } // namespace util
