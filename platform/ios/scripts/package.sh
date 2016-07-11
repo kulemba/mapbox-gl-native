@@ -119,7 +119,7 @@ if [[ "${BUILD_FOR_DEVICE}" == true ]]; then
             -o ${OUTPUT}/static/${NAME}.framework/${NAME} \
             ${LIBS[@]/#/${PRODUCTS}/${BUILDTYPE}-iphoneos/lib} \
             ${LIBS[@]/#/${PRODUCTS}/${BUILDTYPE}-iphonesimulator/lib} \
-            `find mason_packages/ios-${IOS_SDK_VERSION} -type f -name libgeojsonvt.a`
+            `find mason_packages/ios-${IOS_SDK_VERSION} -type f -name libgeojson.a`
         
         cp -rv ${PRODUCTS}/${BUILDTYPE}-iphoneos/${NAME}.bundle ${STATIC_BUNDLE_DIR}
     fi
@@ -149,7 +149,7 @@ else
         libtool -static -no_warning_for_no_symbols \
             -o ${OUTPUT}/static/${NAME}.framework/${NAME} \
             ${LIBS[@]/#/${PRODUCTS}/${BUILDTYPE}-iphonesimulator/lib} \
-            `find mason_packages/ios-${IOS_SDK_VERSION} -type f -name libgeojsonvt.a`
+            `find mason_packages/ios-${IOS_SDK_VERSION} -type f -name libgeojson.a`
         
         cp -rv ${PRODUCTS}/${BUILDTYPE}-iphonesimulator/${NAME}.bundle ${STATIC_BUNDLE_DIR}
     fi
@@ -178,11 +178,24 @@ if [[ "${GCC_GENERATE_DEBUGGING_SYMBOLS}" == false ]]; then
     fi
 fi
 
+function create_local_podspec {
+    step "Creating local podspec"
+    POD_SOURCE_PATH='    :path => ".",'
+    POD_FRAMEWORKS="  m.vendored_frameworks = '"${NAME}".framework'"
+    [[ $SYMBOLS = YES ]] && POD_SUFFIX="-symbols" || POD_SUFFIX=""
+    POD_LOCALSPEC=${OUTPUT}/$1/${NAME}-iOS-SDK${POD_SUFFIX}.podspec
+    sed "s/.*:http.*/${POD_SOURCE_PATH}/" platform/ios/${NAME}-iOS-SDK${POD_SUFFIX}.podspec > ${POD_LOCALSPEC}
+    sed -i.bak "s/.*vendored_frameworks.*/${POD_FRAMEWORKS}/" ${POD_LOCALSPEC}
+    rm -rf ${POD_LOCALSPEC}.bak
+    cp -pv LICENSE.md ${OUTPUT}/$1/
+}
+
 if [[ ${BUILD_STATIC} == true ]]; then
     stat "${OUTPUT}/static/${NAME}.framework"
 fi
 if [[ ${BUILD_DYNAMIC} == true ]]; then
     stat "${OUTPUT}/dynamic/${NAME}.framework"
+    create_local_podspec "dynamic"
 fi
 
 if [[ ${BUILD_STATIC} == true ]]; then
