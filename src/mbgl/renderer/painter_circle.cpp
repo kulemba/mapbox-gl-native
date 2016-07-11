@@ -27,19 +27,30 @@ void Painter::renderCircle(CircleBucket& bucket,
     mat4 vtxMatrix = translatedMatrix(matrix, properties.circleTranslate, tileID,
                                       properties.circleTranslateAnchor);
 
-    const auto& shader = isOverdraw() ? circleOverdrawShader : circleShader;
+    auto& circleShader = isOverdraw() ? *overdrawShader.circle : *shader.circle;
 
-    config.program = shader->getID();
+    config.program = circleShader.getID();
 
-    shader->u_matrix = vtxMatrix;
-    shader->u_extrude_scale = extrudeScale;
-    shader->u_devicepixelratio = frame.pixelRatio;
-    shader->u_color = properties.circleColor;
-    shader->u_radius = properties.circleRadius;
-    shader->u_blur = properties.circleBlur;
-    shader->u_opacity = properties.circleOpacity;
+    circleShader.u_matrix = vtxMatrix;
 
-    bucket.drawCircles(*shader, store);
+    if (properties.circlePitchScale == CirclePitchScaleType::Map) {
+        circleShader.u_extrude_scale = {{
+            pixelsToGLUnits[0] * state.getAltitude(),
+            pixelsToGLUnits[1] * state.getAltitude()
+        }};
+        circleShader.u_scale_with_map = true;
+    } else {
+        circleShader.u_extrude_scale = pixelsToGLUnits;
+        circleShader.u_scale_with_map = false;
+    }
+
+    circleShader.u_devicepixelratio = frame.pixelRatio;
+    circleShader.u_color = properties.circleColor;
+    circleShader.u_radius = properties.circleRadius;
+    circleShader.u_blur = properties.circleBlur;
+    circleShader.u_opacity = properties.circleOpacity;
+
+    bucket.drawCircles(circleShader, store);
 }
 
 } // namespace mbgl
