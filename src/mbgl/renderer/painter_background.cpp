@@ -1,9 +1,9 @@
 #include <mbgl/renderer/painter.hpp>
+#include <mbgl/renderer/paint_parameters.hpp>
 
 #include <mbgl/style/layers/background_layer.hpp>
 #include <mbgl/style/layers/background_layer_impl.hpp>
-#include <mbgl/shader/pattern_shader.hpp>
-#include <mbgl/shader/plain_shader.hpp>
+#include <mbgl/shader/shaders.hpp>
 #include <mbgl/sprite/sprite_atlas.hpp>
 #include <mbgl/util/mat4.hpp>
 #include <mbgl/util/tile_cover.hpp>
@@ -12,7 +12,7 @@ namespace mbgl {
 
 using namespace style;
 
-void Painter::renderBackground(const BackgroundLayer& layer) {
+void Painter::renderBackground(PaintParameters& parameters, const BackgroundLayer& layer) {
     // Note that for bottommost layers without a pattern, the background color is drawn with
     // glClear rather than this method.
     const BackgroundPaintProperties& properties = layer.impl->paint;
@@ -21,11 +21,10 @@ void Painter::renderBackground(const BackgroundLayer& layer) {
     optional<SpriteAtlasPosition> imagePosA;
     optional<SpriteAtlasPosition> imagePosB;
 
-    const bool overdraw = isOverdraw();
-    auto& patternShader = overdraw ? *overdrawShader.pattern : *shader.pattern;
-    auto& plainShader = overdraw ? *overdrawShader.plain : *shader.plain;
-    auto& arrayBackgroundPattern = overdraw ? backgroundPatternOverdrawArray : backgroundPatternArray;
-    auto& arrayBackground = overdraw ? backgroundOverdrawArray : backgroundArray;
+    auto& patternShader = parameters.shaders.pattern;
+    auto& plainShader = parameters.shaders.plain;
+    auto& arrayBackgroundPattern = parameters.shaders.backgroundPatternArray;
+    auto& arrayBackground = parameters.shaders.backgroundArray;
 
     if (isPatterned) {
         imagePosA = spriteAtlas->getPosition(properties.backgroundPattern.value.from, true);
