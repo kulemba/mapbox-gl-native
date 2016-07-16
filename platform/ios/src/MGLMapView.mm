@@ -3473,8 +3473,8 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
             positioningRect = annotationView.frame;
             
             [annotationView.superview bringSubviewToFront:annotationView];
-            
-            annotationView.selected = YES;
+
+            [annotationView setSelected:YES animated:animated];
         }
     }
     
@@ -4596,8 +4596,8 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
                     [self.glView addSubview:annotationView];
                 }
                 
-                annotationView.center = [self convertCoordinate:annotationContext.annotation.coordinate toPointToView:self];
                 annotationView.mapView = self;
+                annotationView.center = [self convertCoordinate:annotationContext.annotation.coordinate toPointToView:self];
                 annotationContext.annotationView = annotationView;
             }
         }
