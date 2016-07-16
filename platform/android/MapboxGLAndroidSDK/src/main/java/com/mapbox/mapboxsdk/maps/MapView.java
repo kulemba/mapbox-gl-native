@@ -196,7 +196,7 @@ public class MapView extends FrameLayout {
 
         // Reference the TextureView
         SurfaceView surfaceView = (SurfaceView) view.findViewById(R.id.surfaceView);
-        
+
         // Check if we are in Android Studio UI editor to avoid error in layout preview
         if (isInEditMode()) {
             return;
@@ -262,13 +262,7 @@ public class MapView extends FrameLayout {
         }
 
         // access token
-        String accessToken;
-        if (MapboxAccountManager.getInstance() != null) {
-            accessToken = MapboxAccountManager.getInstance().getAccessToken();
-        } else {
-            accessToken = options.getAccessToken();
-        }
-
+        String accessToken = options.getAccessToken();
         if (!TextUtils.isEmpty(accessToken)) {
             mMapboxMap.setAccessToken(accessToken);
         }
@@ -364,8 +358,17 @@ public class MapView extends FrameLayout {
      */
     @UiThread
     public void onCreate(@Nullable Bundle savedInstanceState) {
+        String accessToken = mMapboxMap.getAccessToken();
+        if (TextUtils.isEmpty(accessToken)) {
+            accessToken = MapboxAccountManager.getInstance().getAccessToken();
+            mMapboxMap.setAccessToken(accessToken);
+        } else {
+            // user provided access token through xml attributes, need to start MapboxAccountManager
+            MapboxAccountManager.start(getContext(), accessToken);
+        }
+
         // Force a check for an access token
-        MapboxAccountManager.validateAccessToken(getAccessToken());
+        MapboxAccountManager.validateAccessToken(accessToken);
 
         if (savedInstanceState != null && savedInstanceState.getBoolean(MapboxConstants.STATE_HAS_SAVED_STATE)) {
 
@@ -457,7 +460,7 @@ public class MapView extends FrameLayout {
                 } else if (change == REGION_IS_CHANGING || change == REGION_DID_CHANGE || change == DID_FINISH_LOADING_MAP) {
                     mMapboxMap.getMarkerViewManager().scheduleViewMarkerInvalidation();
 
-                    mCompassView.update(getDirection());
+                    mCompassView.update(getBearing());
                     mMyLocationView.update();
                     mMapboxMap.getMarkerViewManager().update();
 
@@ -634,49 +637,11 @@ public class MapView extends FrameLayout {
         mNativeMapView.setPitch(pitch, 0);
     }
 
-
-    //
-    // Direction
-    //
-
-    double getDirection() {
-        if (mDestroyed) {
-            return 0;
-        }
-
-        double direction = -mNativeMapView.getBearing();
-
-        while (direction > 360) {
-            direction -= 360;
-        }
-        while (direction < 0) {
-            direction += 360;
-        }
-
-        return direction;
-    }
-
-    void setDirection(@FloatRange(from = MapboxConstants.MINIMUM_DIRECTION, to = MapboxConstants.MAXIMUM_DIRECTION) double direction) {
-        if (mDestroyed) {
-            return;
-        }
-        setDirection(direction, false);
-    }
-
-    void setDirection(@FloatRange(from = MapboxConstants.MINIMUM_DIRECTION, to = MapboxConstants.MAXIMUM_DIRECTION) double direction, boolean animated) {
-        if (mDestroyed) {
-            return;
-        }
-        long duration = animated ? MapboxConstants.ANIMATION_DURATION : 0;
-        mNativeMapView.cancelTransitions();
-        // Out of range directions are normalised in setBearing
-        mNativeMapView.setBearing(-direction, duration);
-    }
-
     void resetNorth() {
         if (mDestroyed) {
             return;
         }
+        mMyLocationView.setBearing(0);
         mNativeMapView.cancelTransitions();
         mNativeMapView.resetNorth();
     }
@@ -1385,33 +1350,37 @@ public class MapView extends FrameLayout {
         }
     }
 
-    // Used by UserLocationView
-    void update() {
-        if (mDestroyed) {
-            return;
-        }
-
-        mNativeMapView.update();
-    }
-
     CameraPosition invalidateCameraPosition() {
         if (mDestroyed) {
             return new CameraPosition.Builder().build();
         }
-        return new CameraPosition.Builder(mNativeMapView.getCameraValues()).build();
+        CameraPosition position = new CameraPosition.Builder(mNativeMapView.getCameraValues()).build();
+        mMyLocationView.setCameraPosition(position);
+        return position;
     }
 
     double getBearing() {
         if (mDestroyed) {
             return 0;
         }
-        return mNativeMapView.getBearing();
+
+        double direction = -mNativeMapView.getBearing();
+
+        while (direction > 360) {
+            direction -= 360;
+        }
+        while (direction < 0) {
+            direction += 360;
+        }
+
+        return direction;
     }
 
     void setBearing(float bearing) {
         if (mDestroyed) {
             return;
         }
+        mMyLocationView.setBearing(bearing);
         mNativeMapView.setBearing(bearing);
     }
 
@@ -1419,7 +1388,16 @@ public class MapView extends FrameLayout {
         if (mDestroyed) {
             return;
         }
+        mMyLocationView.setBearing(bearing);
         mNativeMapView.setBearing(bearing, duration);
+    }
+
+    void setBearing(double bearing, float focalX, float focalY) {
+        if (mDestroyed) {
+            return;
+        }
+        mMyLocationView.setBearing(bearing);
+        mNativeMapView.setBearing(bearing, focalX, focalY);
     }
 
     //
@@ -1463,6 +1441,17 @@ public class MapView extends FrameLayout {
     private void trackGestureEvent(@NonNull String gestureId, @NonNull float xCoordinate, @NonNull float yCoordinate) {
         LatLng tapLatLng = fromScreenLocation(new PointF(xCoordinate, yCoordinate));
 
+        // NaN and Infinite checks to prevent JSON errors at send to server time
+        if (Double.isNaN(tapLatLng.getLatitude()) ||  Double.isNaN(tapLatLng.getLongitude())) {
+            Log.d(MapView.class.getSimpleName(), "trackGestureEvent() has a NaN lat or lon.  Returning.");
+            return;
+        }
+
+        if (Double.isInfinite(tapLatLng.getLatitude()) ||  Double.isInfinite(tapLatLng.getLongitude())) {
+            Log.d(MapView.class.getSimpleName(), "trackGestureEvent() has an Infinite lat or lon.  Returning.");
+            return;
+        }
+
         Hashtable<String, Object> evt = new Hashtable<>();
         evt.put(MapboxEvent.ATTRIBUTE_EVENT, MapboxEvent.TYPE_MAP_CLICK);
         evt.put(MapboxEvent.ATTRIBUTE_CREATED, MapboxEventManager.generateCreateDate());
@@ -1483,6 +1472,17 @@ public class MapView extends FrameLayout {
      */
     private void trackGestureDragEndEvent(@NonNull float xCoordinate, @NonNull float yCoordinate) {
         LatLng tapLatLng = fromScreenLocation(new PointF(xCoordinate, yCoordinate));
+
+        // NaN and Infinite checks to prevent JSON errors at send to server time
+        if (Double.isNaN(tapLatLng.getLatitude()) ||  Double.isNaN(tapLatLng.getLongitude())) {
+            Log.d(MapView.class.getSimpleName(), "trackGestureDragEndEvent() has a NaN lat or lon.  Returning.");
+            return;
+        }
+
+        if (Double.isInfinite(tapLatLng.getLatitude()) ||  Double.isInfinite(tapLatLng.getLongitude())) {
+            Log.d(MapView.class.getSimpleName(), "trackGestureDragEndEvent() has an Infinite lat or lon.  Returning.");
+            return;
+        }
 
         Hashtable<String, Object> evt = new Hashtable<>();
         evt.put(MapboxEvent.ATTRIBUTE_EVENT, MapboxEvent.TYPE_MAP_DRAGEND);
@@ -1760,9 +1760,10 @@ public class MapView extends FrameLayout {
                 return false;
             }
 
+            requestDisallowInterceptTouchEvent(true);
+
             // reset tracking modes if gesture occurs
             resetTrackingModesIfRequired();
-
 
             // Cancel any animation
             mNativeMapView.cancelTransitions();
@@ -1931,12 +1932,10 @@ public class MapView extends FrameLayout {
             // Rotate the map
             if (mFocalPoint != null) {
                 // User provided focal point
-                mNativeMapView.setBearing(bearing, mFocalPoint.x / mScreenDensity, mFocalPoint.y / mScreenDensity);
+                setBearing(bearing, mFocalPoint.x / mScreenDensity, mFocalPoint.y / mScreenDensity);
             } else {
                 // around gesture
-                mNativeMapView.setBearing(bearing,
-                        detector.getFocusX() / mScreenDensity,
-                        detector.getFocusY() / mScreenDensity);
+                setBearing(bearing, detector.getFocusX() / mScreenDensity, detector.getFocusY() / mScreenDensity);
             }
             return true;
         }
@@ -2581,7 +2580,9 @@ public class MapView extends FrameLayout {
         if (!mInitialLoad) {
             callback.onMapReady(mMapboxMap);
         } else {
-            mOnMapReadyCallbackList.add(callback);
+            if(callback!=null) {
+                mOnMapReadyCallbackList.add(callback);
+            }
         }
     }
 
