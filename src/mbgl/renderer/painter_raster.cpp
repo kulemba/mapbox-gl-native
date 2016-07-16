@@ -1,32 +1,33 @@
 #include <mbgl/renderer/painter.hpp>
+#include <mbgl/renderer/paint_parameters.hpp>
+#include <mbgl/renderer/render_tile.hpp>
 #include <mbgl/gl/gl.hpp>
 #include <mbgl/renderer/raster_bucket.hpp>
 #include <mbgl/style/layers/raster_layer.hpp>
 #include <mbgl/style/layers/raster_layer_impl.hpp>
-#include <mbgl/shader/raster_shader.hpp>
+#include <mbgl/shader/shaders.hpp>
 
 namespace mbgl {
 
 using namespace style;
 
-void Painter::renderRaster(RasterBucket& bucket,
+void Painter::renderRaster(PaintParameters& parameters,
+                           RasterBucket& bucket,
                            const RasterLayer& layer,
-                           const UnwrappedTileID&,
-                           const mat4& matrix) {
+                           const RenderTile& tile) {
     if (pass != RenderPass::Translucent) return;
 
     const RasterPaintProperties& properties = layer.impl->paint;
 
     if (bucket.hasData()) {
-        const bool overdraw = isOverdraw();
-        auto& rasterShader = overdraw ? *overdrawShader.raster : *shader.raster;
-        auto& rasterVAO = overdraw ? coveringRasterOverdrawArray : coveringRasterArray;
+        auto& rasterShader = parameters.shaders.raster;
+        auto& rasterVAO = parameters.shaders.coveringRasterArray;
 
         config.program = rasterShader.getID();
-        rasterShader.u_matrix = matrix;
+        rasterShader.u_matrix = tile.matrix;
         rasterShader.u_buffer_scale = 1.0f;
         rasterShader.u_opacity0 = properties.rasterOpacity;
-        rasterShader.u_opacity1 = 1.0f - properties.rasterOpacity;
+        rasterShader.u_opacity1 = 0;
 
         rasterShader.u_brightness_low = properties.rasterBrightnessMin;
         rasterShader.u_brightness_high = properties.rasterBrightnessMax;

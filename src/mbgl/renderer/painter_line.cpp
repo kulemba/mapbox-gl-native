@@ -1,10 +1,10 @@
 #include <mbgl/renderer/painter.hpp>
+#include <mbgl/renderer/paint_parameters.hpp>
 #include <mbgl/renderer/line_bucket.hpp>
+#include <mbgl/renderer/render_tile.hpp>
 #include <mbgl/style/layers/line_layer.hpp>
 #include <mbgl/style/layers/line_layer_impl.hpp>
-#include <mbgl/shader/line_shader.hpp>
-#include <mbgl/shader/linesdf_shader.hpp>
-#include <mbgl/shader/linepattern_shader.hpp>
+#include <mbgl/shader/shaders.hpp>
 #include <mbgl/sprite/sprite_atlas.hpp>
 #include <mbgl/geometry/line_atlas.hpp>
 #include <mbgl/util/mat2.hpp>
@@ -13,10 +13,10 @@ namespace mbgl {
 
 using namespace style;
 
-void Painter::renderLine(LineBucket& bucket,
+void Painter::renderLine(PaintParameters& parameters,
+                         LineBucket& bucket,
                          const LineLayer& layer,
-                         const UnwrappedTileID& tileID,
-                         const mat4& matrix) {
+                         const RenderTile& tile) {
     // Abort early.
     if (pass == RenderPass::Opaque) return;
 
@@ -37,7 +37,7 @@ void Painter::renderLine(LineBucket& bucket,
 
     const Color color = properties.lineColor;
     const float opacity = properties.lineOpacity;
-    const float ratio = 1.0 / tileID.pixelsToTileUnits(1.0, state.getZoom());
+    const float ratio = 1.0 / tile.id.pixelsToTileUnits(1.0, state.getZoom());
 
     mat2 antialiasingMatrix;
     matrix::identity(antialiasingMatrix);
@@ -50,15 +50,15 @@ void Painter::renderLine(LineBucket& bucket,
     float x = state.getHeight() / 2.0f * std::tan(state.getPitch());
     float extra = (topedgelength + x) / topedgelength - 1.0f;
 
-    mat4 vtxMatrix =
-        translatedMatrix(matrix, properties.lineTranslate, tileID, properties.lineTranslateAnchor);
+    mat4 vtxMatrix = tile.translatedMatrix(properties.lineTranslate,
+                                           properties.lineTranslateAnchor,
+                                           state);
 
     setDepthSublayer(0);
 
-    const bool overdraw = isOverdraw();
-    auto& linesdfShader = overdraw ? *overdrawShader.linesdf : *shader.linesdf;
-    auto& linepatternShader = overdraw ? *overdrawShader.linepattern : *shader.linepattern;
-    auto& lineShader = overdraw ? *overdrawShader.line : *shader.line;
+    auto& linesdfShader = parameters.shaders.linesdf;
+    auto& linepatternShader = parameters.shaders.linepattern;
+    auto& lineShader = parameters.shaders.line;
 
     if (!properties.lineDasharray.value.from.empty()) {
         config.program = linesdfShader.getID();
@@ -78,9 +78,9 @@ void Painter::renderLine(LineBucket& bucket,
         const float widthA = posA.width * properties.lineDasharray.value.fromScale * layer.impl->dashLineWidth;
         const float widthB = posB.width * properties.lineDasharray.value.toScale * layer.impl->dashLineWidth;
 
-        float scaleXA = 1.0 / tileID.pixelsToTileUnits(widthA, state.getIntegerZoom());
+        float scaleXA = 1.0 / tile.id.pixelsToTileUnits(widthA, state.getIntegerZoom());
         float scaleYA = -posA.height / 2.0;
-        float scaleXB = 1.0 / tileID.pixelsToTileUnits(widthB, state.getIntegerZoom());
+        float scaleXB = 1.0 / tile.id.pixelsToTileUnits(widthB, state.getIntegerZoom());
         float scaleYB = -posB.height / 2.0;
 
         linesdfShader.u_patternscale_a = {{ scaleXA, scaleYA }};
@@ -96,7 +96,7 @@ void Painter::renderLine(LineBucket& bucket,
         linesdfShader.u_image = 0;
         lineAtlas->bind(store, config, 0);
 
-        bucket.drawLineSDF(linesdfShader, store, overdraw);
+        bucket.drawLineSDF(linesdfShader, store, isOverdraw());
 
     } else if (!properties.linePattern.value.from.empty()) {
         optional<SpriteAtlasPosition> imagePosA = spriteAtlas->getPosition(properties.linePattern.value.from, true);
@@ -115,14 +115,14 @@ void Painter::renderLine(LineBucket& bucket,
         linepatternShader.u_blur = blur;
 
         linepatternShader.u_pattern_size_a = {{
-            tileID.pixelsToTileUnits((*imagePosA).size[0] * properties.linePattern.value.fromScale, state.getIntegerZoom()),
+            tile.id.pixelsToTileUnits((*imagePosA).size[0] * properties.linePattern.value.fromScale, state.getIntegerZoom()),
             (*imagePosA).size[1]
         }};
         linepatternShader.u_pattern_tl_a = (*imagePosA).tl;
         linepatternShader.u_pattern_br_a = (*imagePosA).br;
 
         linepatternShader.u_pattern_size_b = {{
-            tileID.pixelsToTileUnits((*imagePosB).size[0] * properties.linePattern.value.toScale, state.getIntegerZoom()),
+            tile.id.pixelsToTileUnits((*imagePosB).size[0] * properties.linePattern.value.toScale, state.getIntegerZoom()),
             (*imagePosB).size[1]
         }};
         linepatternShader.u_pattern_tl_b = (*imagePosB).tl;
@@ -137,7 +137,7 @@ void Painter::renderLine(LineBucket& bucket,
         linepatternShader.u_image = 0;
         spriteAtlas->bind(true, store, config, 0);
 
-        bucket.drawLinePatterns(linepatternShader, store, overdraw);
+        bucket.drawLinePatterns(linepatternShader, store, isOverdraw());
 
     } else {
         config.program = lineShader.getID();
@@ -155,7 +155,7 @@ void Painter::renderLine(LineBucket& bucket,
         lineShader.u_color = color;
         lineShader.u_opacity = opacity;
 
-        bucket.drawLines(lineShader, store, overdraw);
+        bucket.drawLines(lineShader, store, isOverdraw());
     }
 }
 
