@@ -1,4 +1,5 @@
 #include <mbgl/renderer/painter.hpp>
+#include <mbgl/renderer/paint_parameters.hpp>
 #include <mbgl/renderer/render_tile.hpp>
 
 #include <mbgl/style/source.hpp>
@@ -18,18 +19,7 @@
 #include <mbgl/geometry/line_atlas.hpp>
 #include <mbgl/geometry/glyph_atlas.hpp>
 
-#include <mbgl/shader/pattern_shader.hpp>
-#include <mbgl/shader/plain_shader.hpp>
-#include <mbgl/shader/outline_shader.hpp>
-#include <mbgl/shader/outlinepattern_shader.hpp>
-#include <mbgl/shader/line_shader.hpp>
-#include <mbgl/shader/linesdf_shader.hpp>
-#include <mbgl/shader/linepattern_shader.hpp>
-#include <mbgl/shader/icon_shader.hpp>
-#include <mbgl/shader/raster_shader.hpp>
-#include <mbgl/shader/sdf_shader.hpp>
-#include <mbgl/shader/collision_box_shader.hpp>
-#include <mbgl/shader/circle_shader.hpp>
+#include <mbgl/shader/shaders.hpp>
 
 #include <mbgl/algorithm/generate_clip_ids.hpp>
 #include <mbgl/algorithm/generate_clip_ids_impl.hpp>
@@ -55,32 +45,8 @@ Painter::Painter(const TransformState& state_,
     : state(state_), store(store_) {
     gl::debugging::enable();
 
-    shader.plain = std::make_unique<PlainShader>(store);
-    shader.outline = std::make_unique<OutlineShader>(store);
-    shader.outlinePattern = std::make_unique<OutlinePatternShader>(store);
-    shader.line = std::make_unique<LineShader>(store);
-    shader.linesdf = std::make_unique<LineSDFShader>(store);
-    shader.linepattern = std::make_unique<LinepatternShader>(store);
-    shader.pattern = std::make_unique<PatternShader>(store);
-    shader.icon = std::make_unique<IconShader>(store);
-    shader.raster = std::make_unique<RasterShader>(store);
-    shader.sdfGlyph = std::make_unique<SDFShader>(store);
-    shader.sdfIcon = std::make_unique<SDFShader>(store);
-    shader.collisionBox = std::make_unique<CollisionBoxShader>(store);
-    shader.circle = std::make_unique<CircleShader>(store);
-
-    overdrawShader.plain = std::make_unique<PlainShader>(store, Shader::Overdraw);
-    overdrawShader.outline = std::make_unique<OutlineShader>(store, Shader::Overdraw);
-    overdrawShader.outlinePattern = std::make_unique<OutlinePatternShader>(store, Shader::Overdraw);
-    overdrawShader.line = std::make_unique<LineShader>(store, Shader::Overdraw);
-    overdrawShader.linesdf = std::make_unique<LineSDFShader>(store, Shader::Overdraw);
-    overdrawShader.linepattern = std::make_unique<LinepatternShader>(store, Shader::Overdraw);
-    overdrawShader.pattern = std::make_unique<PatternShader>(store, Shader::Overdraw);
-    overdrawShader.icon = std::make_unique<IconShader>(store, Shader::Overdraw);
-    overdrawShader.raster = std::make_unique<RasterShader>(store, Shader::Overdraw);
-    overdrawShader.sdfGlyph = std::make_unique<SDFShader>(store, Shader::Overdraw);
-    overdrawShader.sdfIcon = std::make_unique<SDFShader>(store, Shader::Overdraw);
-    overdrawShader.circle = std::make_unique<CircleShader>(store, Shader::Overdraw);
+    shaders = std::make_unique<Shaders>(store);
+    overdrawShaders = std::make_unique<Shaders>(store, Shader::Overdraw);
 
     // Reset GL values
     config.setDirty();
@@ -102,6 +68,10 @@ void Painter::setClipping(const ClipID& clip) {
 void Painter::render(const Style& style, const FrameData& frame_, SpriteAtlas& annotationSpriteAtlas) {
     frame = frame_;
 
+    PaintParameters parameters {
+        isOverdraw() ? *overdrawShaders : *shaders
+    };
+
     glyphAtlas = style.glyphAtlas.get();
     spriteAtlas = style.spriteAtlas.get();
     lineAtlas = style.lineAtlas.get();
@@ -118,11 +88,6 @@ void Painter::render(const Style& style, const FrameData& frame_, SpriteAtlas& a
     if (state.getViewportMode() == ViewportMode::FlippedY) {
         pixelsToGLUnits[1] *= -1;
     }
-
-    // The native matrix is a 1:1 matrix that paints the coordinates at the
-    // same screen position as the vertex specifies.
-    matrix::identity(nativeMatrix);
-    matrix::multiply(nativeMatrix, projMatrix, nativeMatrix);
 
     frameHistory.record(frame.timePoint, state.getZoom(),
         frame.mapMode == MapMode::Continuous ? util::DEFAULT_FADE_DURATION : Milliseconds(0));
@@ -185,7 +150,7 @@ void Painter::render(const Style& style, const FrameData& frame_, SpriteAtlas& a
             source->baseImpl->startRender(generator, projMatrix, state);
         }
 
-        drawClippingMasks(generator.getStencils());
+        drawClippingMasks(parameters, generator.getStencils());
     }
 
     if (frame.debugOptions & MapDebugOptions::StencilClip) {
@@ -201,13 +166,15 @@ void Painter::render(const Style& style, const FrameData& frame_, SpriteAtlas& a
 
     // - OPAQUE PASS -------------------------------------------------------------------------------
     // Render everything top-to-bottom by using reverse iterators. Render opaque objects first.
-    renderPass(RenderPass::Opaque,
+    renderPass(parameters,
+               RenderPass::Opaque,
                order.rbegin(), order.rend(),
                0, 1);
 
     // - TRANSLUCENT PASS --------------------------------------------------------------------------
     // Make a second pass, rendering translucent objects. This time, we render bottom-to-top.
-    renderPass(RenderPass::Translucent,
+    renderPass(parameters,
+               RenderPass::Translucent,
                order.begin(), order.end(),
                static_cast<GLsizei>(order.size()) - 1, -1);
 
@@ -246,7 +213,8 @@ void Painter::render(const Style& style, const FrameData& frame_, SpriteAtlas& a
 }
 
 template <class Iterator>
-void Painter::renderPass(RenderPass pass_,
+void Painter::renderPass(PaintParameters& parameters,
+                         RenderPass pass_,
                          Iterator it, Iterator end,
                          GLsizei i, int8_t increment) {
     pass = pass_;
@@ -281,7 +249,7 @@ void Painter::renderPass(RenderPass pass_,
 
         if (layer.is<BackgroundLayer>()) {
             MBGL_DEBUG_GROUP("background");
-            renderBackground(*layer.as<BackgroundLayer>());
+            renderBackground(parameters, *layer.as<BackgroundLayer>());
         } else if (layer.is<CustomLayer>()) {
             MBGL_DEBUG_GROUP(layer.baseImpl->id + " - custom");
             VertexArrayObject::Unbind();
@@ -292,38 +260,12 @@ void Painter::renderPass(RenderPass pass_,
             if (item.bucket->needsClipping()) {
                 setClipping(item.tile->clip);
             }
-            item.bucket->render(*this, layer, item.tile->id, item.tile->matrix);
+            item.bucket->render(*this, parameters, layer, *item.tile);
         }
     }
 
     if (debug::renderTree) {
         Log::Info(Event::Render, "%*s%s", --indent * 4, "", "}");
-    }
-}
-
-mat4 Painter::translatedMatrix(const mat4& matrix,
-                               const std::array<float, 2>& translation,
-                               const UnwrappedTileID& id,
-                               TranslateAnchorType anchor) {
-    if (translation[0] == 0 && translation[1] == 0) {
-        return matrix;
-    } else {
-        mat4 vtxMatrix;
-        if (anchor == TranslateAnchorType::Viewport) {
-            const double sin_a = std::sin(-state.getAngle());
-            const double cos_a = std::cos(-state.getAngle());
-            matrix::translate(vtxMatrix, matrix,
-                    id.pixelsToTileUnits(translation[0] * cos_a - translation[1] * sin_a, state.getZoom()),
-                    id.pixelsToTileUnits(translation[0] * sin_a + translation[1] * cos_a, state.getZoom()),
-                    0);
-        } else {
-            matrix::translate(vtxMatrix, matrix,
-                    id.pixelsToTileUnits(translation[0], state.getZoom()),
-                    id.pixelsToTileUnits(translation[1], state.getZoom()),
-                    0);
-        }
-
-        return vtxMatrix;
     }
 }
 
