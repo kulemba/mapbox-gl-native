@@ -156,6 +156,7 @@ public class MapView extends FrameLayout {
     private PointF mFocalPoint;
 
     private String mStyleUrl;
+    private String mInitalStyle;
 
     private List<OnMapReadyCallback> mOnMapReadyCallbackList;
 
@@ -270,7 +271,7 @@ public class MapView extends FrameLayout {
         // style url
         String style = options.getStyle();
         if (!TextUtils.isEmpty(style)) {
-            mMapboxMap.setStyleUrl(style);
+            mInitalStyle = style;
         }
 
         // MyLocationView
@@ -515,7 +516,7 @@ public class MapView extends FrameLayout {
         // UiSettings - Logo
         outState.putInt(MapboxConstants.STATE_LOGO_GRAVITY, uiSettings.getLogoGravity());
         outState.putInt(MapboxConstants.STATE_LOGO_MARGIN_LEFT, uiSettings.getLogoMarginLeft());
-        outState.putInt(MapboxConstants.STATE_LOGO_MARGIN_TOP, uiSettings.getCompassMarginTop());
+        outState.putInt(MapboxConstants.STATE_LOGO_MARGIN_TOP, uiSettings.getLogoMarginTop());
         outState.putInt(MapboxConstants.STATE_LOGO_MARGIN_RIGHT, uiSettings.getLogoMarginRight());
         outState.putInt(MapboxConstants.STATE_LOGO_MARGIN_BOTTOM, uiSettings.getLogoMarginBottom());
         outState.putBoolean(MapboxConstants.STATE_LOGO_ENABLED, uiSettings.isLogoEnabled());
@@ -567,8 +568,9 @@ public class MapView extends FrameLayout {
         mMyLocationView.onResume();
 
         if (mStyleUrl == null) {
+            // user supplied style through xml
             // user has failed to supply a style url
-            setStyleUrl(Style.MAPBOX_STREETS);
+            setStyleUrl(mInitalStyle == null ? Style.MAPBOX_STREETS : mInitalStyle);
         }
     }
 
@@ -1502,12 +1504,12 @@ public class MapView extends FrameLayout {
         LatLng tapLatLng = fromScreenLocation(new PointF(xCoordinate, yCoordinate));
 
         // NaN and Infinite checks to prevent JSON errors at send to server time
-        if (Double.isNaN(tapLatLng.getLatitude()) ||  Double.isNaN(tapLatLng.getLongitude())) {
+        if (Double.isNaN(tapLatLng.getLatitude()) || Double.isNaN(tapLatLng.getLongitude())) {
             Log.d(MapView.class.getSimpleName(), "trackGestureEvent() has a NaN lat or lon.  Returning.");
             return;
         }
 
-        if (Double.isInfinite(tapLatLng.getLatitude()) ||  Double.isInfinite(tapLatLng.getLongitude())) {
+        if (Double.isInfinite(tapLatLng.getLatitude()) || Double.isInfinite(tapLatLng.getLongitude())) {
             Log.d(MapView.class.getSimpleName(), "trackGestureEvent() has an Infinite lat or lon.  Returning.");
             return;
         }
@@ -1534,12 +1536,12 @@ public class MapView extends FrameLayout {
         LatLng tapLatLng = fromScreenLocation(new PointF(xCoordinate, yCoordinate));
 
         // NaN and Infinite checks to prevent JSON errors at send to server time
-        if (Double.isNaN(tapLatLng.getLatitude()) ||  Double.isNaN(tapLatLng.getLongitude())) {
+        if (Double.isNaN(tapLatLng.getLatitude()) || Double.isNaN(tapLatLng.getLongitude())) {
             Log.d(MapView.class.getSimpleName(), "trackGestureDragEndEvent() has a NaN lat or lon.  Returning.");
             return;
         }
 
-        if (Double.isInfinite(tapLatLng.getLatitude()) ||  Double.isInfinite(tapLatLng.getLongitude())) {
+        if (Double.isInfinite(tapLatLng.getLatitude()) || Double.isInfinite(tapLatLng.getLongitude())) {
             Log.d(MapView.class.getSimpleName(), "trackGestureDragEndEvent() has an Infinite lat or lon.  Returning.");
             return;
         }
@@ -1820,7 +1822,7 @@ public class MapView extends FrameLayout {
                 return false;
             }
 
-            requestDisallowInterceptTouchEvent(true);
+         //   requestDisallowInterceptTouchEvent(true);
 
             // reset tracking modes if gesture occurs
             resetTrackingModesIfRequired();
@@ -2636,11 +2638,11 @@ public class MapView extends FrameLayout {
      * @param callback The callback object that will be triggered when the map is ready to be used.
      */
     @UiThread
-    public void getMapAsync(@NonNull final OnMapReadyCallback callback) {
-        if (!mInitialLoad) {
+    public void getMapAsync(final OnMapReadyCallback callback) {
+        if (!mInitialLoad && callback != null) {
             callback.onMapReady(mMapboxMap);
         } else {
-            if(callback!=null) {
+            if (callback != null) {
                 mOnMapReadyCallbackList.add(callback);
             }
         }
@@ -2656,6 +2658,10 @@ public class MapView extends FrameLayout {
 
     MyLocationView getUserLocationView() {
         return mMyLocationView;
+    }
+
+    NativeMapView getNativeMapView() {
+        return mNativeMapView;
     }
 
     @UiThread
