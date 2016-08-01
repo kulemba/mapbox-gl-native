@@ -11,9 +11,15 @@ CREATE TABLE resources (                   -- Generic table for style, source, s
   UNIQUE (url)
 );
 
-CREATE TABLE tiles (
+CREATE TABLE url_templates (
   id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   url_template TEXT NOT NULL,
+  UNIQUE (url_template)
+);
+
+CREATE TABLE tiles (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  url_template_id INTEGER NOT NULL REFERENCES url_templates(id),
   pixel_ratio INTEGER NOT NULL,
   z INTEGER NOT NULL,
   x INTEGER NOT NULL,
@@ -24,7 +30,7 @@ CREATE TABLE tiles (
   data BLOB,
   compressed INTEGER NOT NULL DEFAULT 0,
   accessed INTEGER NOT NULL,
-  UNIQUE (url_template, pixel_ratio, z, x, y)
+  UNIQUE (url_template_id, pixel_ratio, z, x, y)
 );
 
 CREATE TABLE regions (

@@ -84,10 +84,11 @@ std::vector<std::string> Style::getClasses() const {
     return classes;
 }
 
-void Style::setJSON(const std::string& json) {
+void Style::setJSON(const std::string& json, uint8_t maxZoomLimit_) {
     sources.clear();
     layers.clear();
     classes.clear();
+    maxZoomLimit = maxZoomLimit_;
 
     Parser parser;
     parser.parse(json);
@@ -215,7 +216,7 @@ void Style::recalculate(float z, const TimePoint& timePoint, MapMode mode) {
         if (source && layer->baseImpl->needsRendering()) {
             source->enabled = true;
             if (!source->loaded && !source->isLoading()) {
-                source->load(fileSource);
+                source->load(fileSource, maxZoomLimit);
             }
         }
     }
