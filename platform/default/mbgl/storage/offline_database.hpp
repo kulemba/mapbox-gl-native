@@ -107,6 +107,10 @@ private:
     optional<uint64_t> offlineMapboxTileCount;
 
     bool evict(uint64_t neededFreeSize);
+    
+    void checkURLTemplateIndexing();
+    
+    bool nonIndexedURLTemplates;
 };
 
 } // namespace mbgl

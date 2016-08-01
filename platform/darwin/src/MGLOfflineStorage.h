@@ -1,11 +1,22 @@
 #import <Foundation/Foundation.h>
 
 #import "MGLTypes.h"
+#import "MGLGeometry.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
 @class MGLOfflinePack;
 @protocol MGLOfflineRegion;
+
+typedef NS_OPTIONS(NSUInteger, MGLResourceKind) {
+    MGLResourceNone = 0,
+    MGLResourceStyle = 1 << 0,
+    MGLResourceSource = 1 << 1,
+    MGLResourceTile = 1 << 2,
+    MGLResourceGlyphs = 1 << 3,
+    MGLResourceSpriteImage = 1 << 4,
+    MGLResourceSpriteJSON = 1 << 5
+};
 
 /**
  Posted by the shared `MGLOfflineStorage` object when an `MGLOfflinePack`
@@ -224,6 +235,12 @@ typedef void (^MGLOfflinePackRemovalCompletionHandler)(NSError * _Nullable error
  as part of an offline pack or due to caching during normal use of `MGLMapView`.
  */
 @property (nonatomic, readonly) unsigned long long countOfBytesCompleted;
+
+- (void)addSupplementaryOfflineDatabase:(NSString *)cachePath forResourceKind:(MGLResourceKind)resourceKind;
+
+- (void)addSupplementaryOfflineDatabase:(NSString *)cachePath forResourceKind:(MGLResourceKind)resourceKind andCoordinateBounds:(MGLCoordinateBounds)coordinateBounds;
+
+- (void)removeSupplementaryOfflineDatabases:(NSString *)cachePath;
 
 @end
 
