@@ -271,6 +271,7 @@ public:
     NSDate *_userLocationAnimationCompletionDate;
 
     BOOL _isWaitingForRedundantReachableNotification;
+    BOOL _isReachable;
     BOOL _isTargetingInterfaceBuilder;
 
     CLLocationDegrees _pendingLatitude;
@@ -320,6 +321,16 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     return self;
 }
 
+- (instancetype)initWithFrame:(CGRect)frame styleURL:(nullable NSURL *)styleURL maxZoomLimit:(double)maxZoomLimit
+{
+    if (self = [super initWithFrame:frame])
+    {
+        [self commonInit];
+        [self setStyleURL:styleURL withMaxZoomLimit:maxZoomLimit];
+    }
+    return self;
+}
+
 - (instancetype)initWithCoder:(nonnull NSCoder *)decoder
 {
     if (self = [super initWithCoder:decoder])
@@ -344,6 +355,11 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
 - (void)setStyleURL:(nullable NSURL *)styleURL
 {
+    [self setStyleURL:styleURL withMaxZoomLimit:std::numeric_limits<uint8_t>::max()];
+}
+
+- (void)setStyleURL:(nullable NSURL *)styleURL withMaxZoomLimit:(double)maxZoomLimit
+{
     if (_isTargetingInterfaceBuilder) return;
 
     if ( ! styleURL)
@@ -357,7 +373,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         styleURL = [NSURL URLWithString:[@"asset://" stringByAppendingString:[styleURL absoluteString]]];
     }
 
-    _mbglMap->setStyleURL([[styleURL absoluteString] UTF8String]);
+    _mbglMap->setStyleURL([[styleURL absoluteString] UTF8String], std::floor(maxZoomLimit));
 }
 
 - (IBAction)reloadStyle:(__unused id)sender {
@@ -414,7 +430,8 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
                                                object:nil];
 
     MGLReachability* reachability = [MGLReachability reachabilityForInternetConnection];
-    if ([reachability isReachable])
+    _isReachable = [reachability isReachable];
+    if (_isReachable)
     {
         _isWaitingForRedundantReachableNotification = YES;
     }
@@ -603,10 +620,13 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 - (void)reachabilityChanged:(NSNotification *)notification
 {
     MGLReachability *reachability = [notification object];
-    if ( ! _isWaitingForRedundantReachableNotification && [reachability isReachable])
+    [self willChangeValueForKey:@"reachable"];
+    _isReachable = [reachability isReachable];
+    if ( ! _isWaitingForRedundantReachableNotification && _isReachable)
     {
         mbgl::NetworkStatus::Reachable();
     }
+    [self didChangeValueForKey:@"reachable"];
     _isWaitingForRedundantReachableNotification = NO;
 }
 
@@ -1436,6 +1456,11 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     }
     else
     {
+        if ([self.delegate respondsToSelector:@selector(mapView:didReceiveTapOnMapAtLocation:)]) {
+            CLLocationCoordinate2D tapCoordinate = [self convertPoint:tapPoint toCoordinateFromView:self];
+            CLLocation *tapLocation = [[CLLocation alloc]initWithLatitude:tapCoordinate.latitude longitude:tapCoordinate.longitude];
+            [self.delegate mapView:self didReceiveTapOnMapAtLocation:tapLocation];
+        }
         [self deselectAnnotation:self.selectedAnnotation animated:YES];
     }
 }
@@ -1905,6 +1930,11 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 - (void)emptyMemoryCache
 {
     _mbglMap->onLowMemory();
+}
+
+- (BOOL)isReachable
+{
+    return _isReachable;
 }
 
 #pragma mark - Accessibility -
