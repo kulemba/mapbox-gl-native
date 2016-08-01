@@ -7,11 +7,16 @@
 #import "MGLCoordinateFormatter.h"
 #import "NSBundle+MGLAdditions.h"
 
+@interface MGLNoHitLayer : CALayer
+
+@end
+
 const CGFloat MGLUserLocationAnnotationDotSize = 22.0;
 const CGFloat MGLUserLocationAnnotationHaloSize = 115.0;
 
 const CGFloat MGLUserLocationAnnotationPuckSize = 45.0;
 const CGFloat MGLUserLocationAnnotationArrowSize = MGLUserLocationAnnotationPuckSize * 0.6;
+const CGFloat MGLUserLocationHeadingArrowSize = 40;
 
 @interface MGLUserLocationAnnotationView ()
 
@@ -28,7 +33,7 @@ const CGFloat MGLUserLocationAnnotationArrowSize = MGLUserLocationAnnotationPuck
     CALayer *_puckDot;
     CAShapeLayer *_puckArrow;
 
-    CALayer *_headingIndicatorLayer;
+    CAShapeLayer *_headingIndicatorLayer;
     CAShapeLayer *_headingIndicatorMaskLayer;
     CALayer *_accuracyRingLayer;
     CALayer *_dotBorderLayer;
@@ -142,8 +147,6 @@ const CGFloat MGLUserLocationAnnotationArrowSize = MGLUserLocationAnnotationPuck
 
         _haloLayer.backgroundColor = [tintColor CGColor];
         _dotLayer.backgroundColor = [tintColor CGColor];
-
-        _headingIndicatorLayer.contents = (__bridge id)[[self headingIndicatorTintedGradientImage] CGImage];
     }
 }
 
@@ -154,6 +157,11 @@ const CGFloat MGLUserLocationAnnotationArrowSize = MGLUserLocationAnnotationPuck
         (_mapView.userTrackingMode == MGLUserTrackingModeFollowWithCourse) ? [self drawPuck] : [self drawDot];
         [self updatePitch];
     }
+}
+
++ (Class)layerClass
+{
+    return [MGLNoHitLayer class];
 }
 
 - (void)updatePitch
@@ -288,6 +296,19 @@ const CGFloat MGLUserLocationAnnotationArrowSize = MGLUserLocationAnnotationPuck
     return bezierPath;
 }
 
+- (UIBezierPath *)headingArrow
+{
+    CGFloat max = MGLUserLocationHeadingArrowSize;
+    
+    UIBezierPath *bezierPath = [UIBezierPath bezierPath];
+    [bezierPath moveToPoint:    CGPointMake(max * 0.5, 0)];
+    [bezierPath addLineToPoint: CGPointMake(max * 0.75, max * 0.5)];
+    [bezierPath addLineToPoint: CGPointMake(max * 0.25, max * 0.5)];
+    [bezierPath closePath];
+    
+    return bezierPath;
+}
+
 - (void)drawDot
 {
     if (_puckModeActivated)
@@ -300,7 +321,7 @@ const CGFloat MGLUserLocationAnnotationArrowSize = MGLUserLocationAnnotationPuck
         [self updateFrameWithSize:MGLUserLocationAnnotationDotSize];
     }
     
-    BOOL showHeadingIndicator = _mapView.userTrackingMode == MGLUserTrackingModeFollowWithHeading;
+    BOOL showHeadingIndicator = self.annotation.heading;
     
     // update heading indicator
     //
@@ -308,19 +329,13 @@ const CGFloat MGLUserLocationAnnotationArrowSize = MGLUserLocationAnnotationPuck
     {
         _headingIndicatorLayer.hidden = NO;
         
-        // heading indicator (tinted, semi-circle)
-        //
         if ( ! _headingIndicatorLayer && self.annotation.heading.headingAccuracy)
         {
-            CGFloat headingIndicatorSize = MGLUserLocationAnnotationHaloSize;
-            
-            _headingIndicatorLayer = [CALayer layer];
-            _headingIndicatorLayer.bounds = CGRectMake(0, 0, headingIndicatorSize, headingIndicatorSize);
+            _headingIndicatorLayer = [CAShapeLayer layer];
+            _headingIndicatorLayer.path = [[self headingArrow] CGPath];
+            _headingIndicatorLayer.fillColor = [_mapView.tintColor CGColor];
+            _headingIndicatorLayer.bounds = CGRectMake(0, 0, MGLUserLocationHeadingArrowSize, MGLUserLocationHeadingArrowSize);
             _headingIndicatorLayer.position = CGPointMake(super.bounds.size.width / 2.0, super.bounds.size.height / 2.0);
-            _headingIndicatorLayer.contents = (__bridge id)[[self headingIndicatorTintedGradientImage] CGImage];
-            _headingIndicatorLayer.contentsGravity = kCAGravityBottom;
-            _headingIndicatorLayer.contentsScale = [UIScreen mainScreen].scale;
-            _headingIndicatorLayer.opacity = 0.4;
             _headingIndicatorLayer.shouldRasterize = YES;
             _headingIndicatorLayer.rasterizationScale = [UIScreen mainScreen].scale;
             _headingIndicatorLayer.drawsAsynchronously = YES;
@@ -328,32 +343,7 @@ const CGFloat MGLUserLocationAnnotationArrowSize = MGLUserLocationAnnotationPuck
             [self.layer insertSublayer:_headingIndicatorLayer below:_dotBorderLayer];
         }
         
-        // heading indicator accuracy mask (fan-shaped)
-        //
-        if ( ! _headingIndicatorMaskLayer && self.annotation.heading.headingAccuracy)
-        {
-            _headingIndicatorMaskLayer = [CAShapeLayer layer];
-            _headingIndicatorMaskLayer.frame = _headingIndicatorLayer.bounds;
-            _headingIndicatorMaskLayer.path = [[self headingIndicatorClippingMask] CGPath];
-            
-            // apply the mask to the halo-radius-sized gradient layer
-            _headingIndicatorLayer.mask = _headingIndicatorMaskLayer;
-            
-            _oldHeadingAccuracy = self.annotation.heading.headingAccuracy;
-            
-        }
-        else if (_oldHeadingAccuracy != self.annotation.heading.headingAccuracy)
-        {
-            // recalculate the clipping mask based on updated accuracy
-            _headingIndicatorMaskLayer.path = [[self headingIndicatorClippingMask] CGPath];
-            
-            _oldHeadingAccuracy = self.annotation.heading.headingAccuracy;
-        }
-        
-        if (self.annotation.heading.trueHeading >= 0)
-        {
-            _headingIndicatorLayer.affineTransform = CGAffineTransformRotate(CGAffineTransformIdentity, -MGLRadiansFromDegrees(self.mapView.direction - self.annotation.heading.trueHeading));
-        }
+        _headingIndicatorLayer.affineTransform = CGAffineTransformRotate(CGAffineTransformIdentity, -MGLRadiansFromDegrees(self.mapView.direction - self.annotation.heading.trueHeading));
     }
     else
     {
@@ -532,38 +522,6 @@ const CGFloat MGLUserLocationAnnotationArrowSize = MGLUserLocationAnnotationPuck
     return pixelRadius * 2;
 }
 
-- (UIImage *)headingIndicatorTintedGradientImage
-{
-    UIImage *image;
-
-    CGFloat haloRadius = MGLUserLocationAnnotationHaloSize / 2.0;
-
-    UIGraphicsBeginImageContextWithOptions(CGSizeMake(MGLUserLocationAnnotationHaloSize, haloRadius), NO, 0);
-
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-    CGContextRef context = UIGraphicsGetCurrentContext();
-
-    // gradient from the tint color to no-alpha tint color
-    CGFloat gradientLocations[] = {0.0, 1.0};
-    CGGradientRef gradient = CGGradientCreateWithColors(
-                                                        colorSpace, (__bridge CFArrayRef)@[(id)[_mapView.tintColor CGColor],
-                                                                                           (id)[[_mapView.tintColor colorWithAlphaComponent:0] CGColor]], gradientLocations);
-
-    // draw the gradient from the center point to the edge (full halo radius)
-    CGPoint centerPoint = CGPointMake(haloRadius, haloRadius);
-    CGContextDrawRadialGradient(context, gradient,
-                                centerPoint, 0.0,
-                                centerPoint, haloRadius,
-                                kNilOptions);
-
-    image = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
-
-    CGGradientRelease(gradient);
-    CGColorSpaceRelease(colorSpace);
-
-    return image;
-}
 
 - (UIBezierPath *)headingIndicatorClippingMask
 {
@@ -598,6 +556,16 @@ const CGFloat MGLUserLocationAnnotationArrowSize = MGLUserLocationAnnotationPuck
         return [NSNull null];
     }
     return [super actionForLayer:layer forKey:event];
+}
+
+@end
+
+
+@implementation MGLNoHitLayer
+
+- (nullable CALayer *)hitTest:(CGPoint)p
+{
+    return nil;
 }
 
 @end
