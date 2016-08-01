@@ -271,6 +271,7 @@ public:
     NSDate *_userLocationAnimationCompletionDate;
 
     BOOL _isWaitingForRedundantReachableNotification;
+    BOOL _isReachable;
     BOOL _isTargetingInterfaceBuilder;
 
     CLLocationDegrees _pendingLatitude;
@@ -320,6 +321,16 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     return self;
 }
 
+- (instancetype)initWithFrame:(CGRect)frame styleURL:(nullable NSURL *)styleURL maxZoomLimit:(double)maxZoomLimit
+{
+    if (self = [super initWithFrame:frame])
+    {
+        [self commonInit];
+        [self setStyleURL:styleURL withMaxZoomLimit:maxZoomLimit];
+    }
+    return self;
+}
+
 - (instancetype)initWithCoder:(nonnull NSCoder *)decoder
 {
     if (self = [super initWithCoder:decoder])
@@ -344,6 +355,11 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
 - (void)setStyleURL:(nullable NSURL *)styleURL
 {
+    [self setStyleURL:styleURL withMaxZoomLimit:std::numeric_limits<uint8_t>::max()];
+}
+
+- (void)setStyleURL:(nullable NSURL *)styleURL withMaxZoomLimit:(double)maxZoomLimit
+{
     if (_isTargetingInterfaceBuilder) return;
 
     if ( ! styleURL)
@@ -357,7 +373,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         styleURL = [NSURL URLWithString:[@"asset://" stringByAppendingString:[styleURL absoluteString]]];
     }
 
-    _mbglMap->setStyleURL([[styleURL absoluteString] UTF8String]);
+    _mbglMap->setStyleURL([[styleURL absoluteString] UTF8String], std::floor(maxZoomLimit));
 }
 
 - (IBAction)reloadStyle:(__unused id)sender {
@@ -414,7 +430,8 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
                                                object:nil];
 
     MGLReachability* reachability = [MGLReachability reachabilityForInternetConnection];
-    if ([reachability isReachable])
+    _isReachable = [reachability isReachable];
+    if (_isReachable)
     {
         _isWaitingForRedundantReachableNotification = YES;
     }
@@ -603,10 +620,13 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 - (void)reachabilityChanged:(NSNotification *)notification
 {
     MGLReachability *reachability = [notification object];
-    if ( ! _isWaitingForRedundantReachableNotification && [reachability isReachable])
+    [self willChangeValueForKey:@"reachable"];
+    _isReachable = [reachability isReachable];
+    if ( ! _isWaitingForRedundantReachableNotification && _isReachable)
     {
         mbgl::NetworkStatus::Reachable();
     }
+    [self didChangeValueForKey:@"reachable"];
     _isWaitingForRedundantReachableNotification = NO;
 }
 
@@ -878,6 +898,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         _mbglMap->render();
 
         [self updateUserLocationAnnotationView];
+        [self updateSelectedAnnotationCalloutView];
     }
 }
 
@@ -905,6 +926,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     }
     
     [self updateUserLocationAnnotationView];
+    [self updateSelectedAnnotationCalloutView];
 }
 
 /// Updates `contentInset` to reflect the current window geometry.
@@ -1436,6 +1458,11 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     }
     else
     {
+        if ([self.delegate respondsToSelector:@selector(mapView:didReceiveTapOnMapAtLocation:)]) {
+            CLLocationCoordinate2D tapCoordinate = [self convertPoint:tapPoint toCoordinateFromView:self];
+            CLLocation *tapLocation = [[CLLocation alloc]initWithLatitude:tapCoordinate.latitude longitude:tapCoordinate.longitude];
+            [self.delegate mapView:self didReceiveTapOnMapAtLocation:tapLocation];
+        }
         [self deselectAnnotation:self.selectedAnnotation animated:YES];
     }
 }
@@ -1909,6 +1936,11 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 - (void)emptyMemoryCache
 {
     _mbglMap->onLowMemory();
+}
+
+- (BOOL)isReachable
+{
+    return _isReachable;
 }
 
 #pragma mark - Accessibility -
@@ -3442,11 +3474,6 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
     if (annotation == self.selectedAnnotation) return;
 
-    if (annotation != self.userLocation)
-    {
-        self.userTrackingMode = MGLUserTrackingModeNone;
-    }
-
     [self deselectAnnotation:self.selectedAnnotation animated:NO];
     
     // Add the annotation to the map if it hasn’t been added yet.
@@ -3814,11 +3841,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         self.locationManager.headingFilter = 5.0;
         self.locationManager.delegate = self;
         [self.locationManager startUpdatingLocation];
-
-        if (self.userTrackingMode == MGLUserTrackingModeFollowWithHeading)
-        {
-            [self.locationManager startUpdatingHeading];
-        }
+        [self.locationManager startUpdatingHeading];
     }
     else if ( ! shouldEnableLocationServices && self.locationManager)
     {
@@ -3926,7 +3949,6 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         {
             self.userTrackingState = MGLUserTrackingStatePossible;
             
-            [self.locationManager stopUpdatingHeading];
 
             // Immediately update the annotation view; other cases update inside
             // the locationManager:didUpdateLocations: method.
@@ -3940,7 +3962,6 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
             self.userTrackingState = animated ? MGLUserTrackingStatePossible : MGLUserTrackingStateChanged;
             self.showsUserLocation = YES;
 
-            [self.locationManager stopUpdatingHeading];
 
             CLLocation *location = self.userLocation.location;
             if (location && self.userLocationAnnotationView)
@@ -4277,6 +4298,8 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         && self.userTrackingState != MGLUserTrackingStateBegan)
     {
         [self _setDirection:headingDirection animated:YES];
+    } else{
+        [self updateUserLocationAnnotationView];
     }
 }
 
@@ -4458,13 +4481,6 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         case mbgl::MapChangeRegionWillChange:
         case mbgl::MapChangeRegionWillChangeAnimated:
         {
-            if ( ! _userLocationAnnotationIsSelected
-                || self.userTrackingMode == MGLUserTrackingModeNone
-                || self.userTrackingState != MGLUserTrackingStateChanged)
-            {
-                [self deselectAnnotation:self.selectedAnnotation animated:NO];
-            }
-
             if ( ! [self isSuppressingChangeDelimiters] && [self.delegate respondsToSelector:@selector(mapView:regionWillChangeAnimated:)])
             {
                 BOOL animated = change == mbgl::MapChangeRegionWillChangeAnimated;
@@ -4711,6 +4727,18 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         {
             [self deselectAnnotation:self.selectedAnnotation animated:YES];
         }
+    }
+}
+
+-(void)updateSelectedAnnotationCalloutView
+{
+    if (self.calloutViewForSelectedAnnotation && [self.calloutViewForSelectedAnnotation respondsToSelector:@selector(updateCalloutFrameWithRect:)])
+    {
+        MGLAnnotationTag annotationTag = [self annotationTagForAnnotation:self.calloutViewForSelectedAnnotation.representedObject];
+        CGRect positioningRect = [self positioningRectForCalloutForAnnotationWithTag:annotationTag];
+        
+        // update location of selected annotation callout in view
+        [self.calloutViewForSelectedAnnotation updateCalloutFrameWithRect:positioningRect];
     }
 }
 
