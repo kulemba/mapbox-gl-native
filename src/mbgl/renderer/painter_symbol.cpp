@@ -1,12 +1,12 @@
 #include <mbgl/renderer/painter.hpp>
+#include <mbgl/renderer/paint_parameters.hpp>
 #include <mbgl/renderer/symbol_bucket.hpp>
+#include <mbgl/renderer/render_tile.hpp>
 #include <mbgl/style/layers/symbol_layer.hpp>
 #include <mbgl/style/layers/symbol_layer_impl.hpp>
 #include <mbgl/geometry/glyph_atlas.hpp>
 #include <mbgl/sprite/sprite_atlas.hpp>
-#include <mbgl/shader/sdf_shader.hpp>
-#include <mbgl/shader/icon_shader.hpp>
-#include <mbgl/shader/collision_box_shader.hpp>
+#include <mbgl/shader/shaders.hpp>
 #include <mbgl/util/math.hpp>
 
 #include <cmath>
@@ -15,9 +15,8 @@ namespace mbgl {
 
 using namespace style;
 
-void Painter::renderSDF(SymbolBucket &bucket,
-                        const UnwrappedTileID &tileID,
-                        const mat4 &matrix,
+void Painter::renderSDF(SymbolBucket& bucket,
+                        const RenderTile& tile,
                         float sdfFontSize,
                         std::array<float, 2> texsize,
                         SDFShader& sdfShader,
@@ -38,7 +37,7 @@ void Painter::renderSDF(SymbolBucket &bucket,
                         TranslateAnchorType translateAnchor,
                         float paintSize)
 {
-    mat4 vtxMatrix = translatedMatrix(matrix, translate, tileID, translateAnchor);
+    mat4 vtxMatrix = tile.translatedMatrix(translate, translateAnchor, state);
 
     // If layerStyle.size > bucket.info.fontSize then labels may collide
     float fontSize = paintSize;
@@ -52,7 +51,7 @@ void Painter::renderSDF(SymbolBucket &bucket,
 
     if (pitchWithMap) {
         gammaScale = 1.0 / std::cos(state.getPitch());
-        extrudeScale.fill(tileID.pixelsToTileUnits(1, state.getZoom()) * fontScale);
+        extrudeScale.fill(tile.id.pixelsToTileUnits(1, state.getZoom()) * fontScale);
     } else {
         gammaScale = 1.0;
         extrudeScale = {{
@@ -112,10 +111,10 @@ void Painter::renderSDF(SymbolBucket &bucket,
     }
 }
 
-void Painter::renderSymbol(SymbolBucket& bucket,
+void Painter::renderSymbol(PaintParameters& parameters,
+                           SymbolBucket& bucket,
                            const SymbolLayer& layer,
-                           const UnwrappedTileID& tileID,
-                           const mat4& matrix) {
+                           const RenderTile& tile) {
     // Abort early.
     if (pass == RenderPass::Opaque) {
         return;
@@ -167,11 +166,10 @@ void Painter::renderSymbol(SymbolBucket& bucket,
 
         if (sdf) {
             renderSDF(bucket,
-                      tileID,
-                      matrix,
+                      tile,
                       1.0f,
                       {{ float(activeSpriteAtlas->getWidth()) / 4.0f, float(activeSpriteAtlas->getHeight()) / 4.0f }},
-                      isOverdraw() ? *overdrawShader.sdfIcon : *shader.sdfIcon,
+                      parameters.shaders.sdfIcon,
                       &SymbolBucket::drawIcons,
                       layout.iconRotationAlignment,
                       // icon-pitch-alignment is not yet implemented
@@ -187,14 +185,15 @@ void Painter::renderSymbol(SymbolBucket& bucket,
                       paint.iconTranslateAnchor,
                       layer.impl->iconSize);
         } else {
-            mat4 vtxMatrix =
-                translatedMatrix(matrix, paint.iconTranslate, tileID, paint.iconTranslateAnchor);
+            mat4 vtxMatrix = tile.translatedMatrix(paint.iconTranslate,
+                                                   paint.iconTranslateAnchor,
+                                                   state);
 
             std::array<float, 2> extrudeScale;
 
             const bool alignedWithMap = layout.iconRotationAlignment == AlignmentType::Map;
             if (alignedWithMap) {
-                extrudeScale.fill(tileID.pixelsToTileUnits(1, state.getZoom()) * fontScale);
+                extrudeScale.fill(tile.id.pixelsToTileUnits(1, state.getZoom()) * fontScale);
             } else {
                 extrudeScale = {{
                     pixelsToGLUnits[0] * fontScale * state.getAltitude(),
@@ -202,8 +201,7 @@ void Painter::renderSymbol(SymbolBucket& bucket,
                 }};
             }
 
-            const bool overdraw = isOverdraw();
-            auto& iconShader = overdraw ? *overdrawShader.icon : *shader.icon;
+            auto& iconShader = parameters.shaders.icon;
 
             config.program = iconShader.getID();
             iconShader.u_matrix = vtxMatrix;
@@ -221,7 +219,7 @@ void Painter::renderSymbol(SymbolBucket& bucket,
             iconShader.u_fadetexture = 1;
 
             setDepthSublayer(0);
-            bucket.drawIcons(iconShader, store, overdraw);
+            bucket.drawIcons(iconShader, store, isOverdraw());
         }
     }
 
@@ -236,11 +234,10 @@ void Painter::renderSymbol(SymbolBucket& bucket,
         glyphAtlas->bind(store, config, 0);
 
         renderSDF(bucket,
-                  tileID,
-                  matrix,
+                  tile,
                   24.0f,
                   {{ float(glyphAtlas->width) / 4, float(glyphAtlas->height) / 4 }},
-                  isOverdraw() ? *overdrawShader.sdfGlyph : *shader.sdfGlyph,
+                  parameters.shaders.sdfGlyph,
                   &SymbolBucket::drawGlyphs,
                   layout.textRotationAlignment,
                   layout.textPitchAlignment,
@@ -259,13 +256,13 @@ void Painter::renderSymbol(SymbolBucket& bucket,
         config.stencilOp.reset();
         config.stencilTest = GL_TRUE;
 
-        auto& collisionBoxShader = *shader.collisionBox;
+        auto& collisionBoxShader = shaders->collisionBox;
         config.program = collisionBoxShader.getID();
-        collisionBoxShader.u_matrix = matrix;
+        collisionBoxShader.u_matrix = tile.matrix;
         // TODO: This was the overscaled z instead of the canonical z.
-        collisionBoxShader.u_scale = std::pow(2, state.getZoom() - tileID.canonical.z);
+        collisionBoxShader.u_scale = std::pow(2, state.getZoom() - tile.id.canonical.z);
         collisionBoxShader.u_zoom = state.getZoom() * 10;
-        collisionBoxShader.u_maxzoom = (tileID.canonical.z + 1) * 10;
+        collisionBoxShader.u_maxzoom = (tile.id.canonical.z + 1) * 10;
         config.lineWidth = 1.0f;
 
         setDepthSublayer(0);
