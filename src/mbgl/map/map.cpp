@@ -234,7 +234,6 @@ void Map::Impl::update() {
                                        transform.getState(),
                                        style->workers,
                                        fileSource,
-                                       *texturePool,
                                        style->shouldReparsePartialTiles,
                                        mode,
                                        *annotationManager,
@@ -255,7 +254,7 @@ void Map::Impl::update() {
 
 void Map::Impl::render() {
     if (!painter) {
-        painter = std::make_unique<Painter>(transform.getState(), store);
+        painter = std::make_unique<Painter>(transform.getState(), *texturePool, store);
     }
 
     FrameData frameData { view.getFramebufferSize(),
@@ -787,14 +786,14 @@ void Map::cycleDebugOptions() {
 #ifndef GL_ES_VERSION_2_0
     if (impl->debugOptions & MapDebugOptions::StencilClip)
         impl->debugOptions = MapDebugOptions::NoDebug;
-    else if (impl->debugOptions & MapDebugOptions::Wireframe)
+    else if (impl->debugOptions & MapDebugOptions::Overdraw)
         impl->debugOptions = MapDebugOptions::StencilClip;
 #else
-    if (impl->debugOptions & MapDebugOptions::Wireframe)
+    if (impl->debugOptions & MapDebugOptions::Overdraw)
         impl->debugOptions = MapDebugOptions::NoDebug;
 #endif // GL_ES_VERSION_2_0
     else if (impl->debugOptions & MapDebugOptions::Collision)
-        impl->debugOptions = MapDebugOptions::Collision | MapDebugOptions::Wireframe;
+        impl->debugOptions = MapDebugOptions::Overdraw;
     else if (impl->debugOptions & MapDebugOptions::Timestamps)
         impl->debugOptions = impl->debugOptions | MapDebugOptions::Collision;
     else if (impl->debugOptions & MapDebugOptions::ParseStatus)
