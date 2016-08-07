@@ -1,6 +1,7 @@
 #include <mbgl/renderer/painter.hpp>
+#include <mbgl/renderer/paint_parameters.hpp>
 #include <mbgl/style/source.hpp>
-#include <mbgl/shader/plain_shader.hpp>
+#include <mbgl/shader/shaders.hpp>
 #include <mbgl/util/clip_id.hpp>
 #include <mbgl/util/string.hpp>
 #include <mbgl/gl/debugging.hpp>
@@ -8,12 +9,11 @@
 namespace mbgl {
 
 
-void Painter::drawClippingMasks(const std::map<UnwrappedTileID, ClipID>& stencils) {
+void Painter::drawClippingMasks(PaintParameters& parameters, const std::map<UnwrappedTileID, ClipID>& stencils) {
     MBGL_DEBUG_GROUP("clipping masks");
 
-    const bool overdraw = isOverdraw();
-    auto& plainShader = overdraw ? *overdrawShader.plain : *shader.plain;
-    auto& arrayCoveringPlain = overdraw ? coveringPlainOverdrawArray : coveringPlainArray;
+    auto& plainShader = parameters.shaders.plain;
+    auto& arrayCoveringPlain = parameters.shaders.coveringPlainArray;
 
     mat4 matrix;
     const GLuint mask = 0b11111111;
