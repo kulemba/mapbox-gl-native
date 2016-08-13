@@ -54,6 +54,8 @@ public class TileSet {
      * contain any legal character. Implementations SHOULD NOT interpret the
      * name as HTML.
      * "name": "compositing",
+     *
+     * @param name the name to be set
      */
     public void setName(String name) {
         this.name = name;
@@ -69,6 +71,8 @@ public class TileSet {
      * Implementations SHOULD NOT
      * interpret the description as HTML.
      * "description": "A simple, light grey world."
+     *
+     * @param description the description to set
      */
     public void setDescription(String description) {
         this.description = description;
@@ -92,6 +96,8 @@ public class TileSet {
      * as HTML or literal text. For security reasons, make absolutely sure that
      * this field can't be abused as a vector for XSS or beacon tracking.
      * "attribution": "<a href='http:openstreetmap.org'>OSM contributors</a>",
+     *
+     * @param attribution the attribution to set
      */
     public void setAttribution(String attribution) {
         this.attribution = attribution;
@@ -107,6 +113,8 @@ public class TileSet {
      * See https:github.com/mapbox/utfgrid-spec/tree/master/1.2
      * for the interactivity specification.
      * "template": "{{#__teaser__}}{{NAME}}{{/__teaser__}}"
+     *
+     * @param template the template to set
      */
     public void setTemplate(String template) {
         this.template = template;
@@ -122,6 +130,8 @@ public class TileSet {
      * For security reasons, make absolutely sure that this field can't be
      * abused as a vector for XSS or beacon tracking.
      * "legend": "Dangerous zones are red, safe zones are green"
+     *
+     * @param legend the legend to set
      */
     public void setLegend(String legend) {
         this.legend = legend;
@@ -136,6 +146,8 @@ public class TileSet {
      * direction of the tile coordinates.
      * The global-mercator (aka Spherical Mercator) profile is assumed.
      * "scheme": "xyz"
+     *
+     * @param scheme the scheme to set
      */
     public void setScheme(String scheme) {
         this.scheme = scheme;
@@ -157,8 +169,11 @@ public class TileSet {
      * If the array doesn't contain any entries, interactivity is not supported
      * for this tileset.     See https:github.com/mapbox/utfgrid-spec/tree/master/1.2
      * for the interactivity specification.
-     * <p/>
+     * <p>
      * Example: "http:localhost:8888/admin/1.0.0/broadband/{z}/{x}/{y}.grid.json"
+     * </p>
+     *
+     * @param grids the grids to set
      */
     public void setGrids(String... grids) {
         this.grids = grids;
@@ -176,8 +191,11 @@ public class TileSet {
      * All endpoints MUST return the same content for the same URL.
      * If the array doesn't contain any entries, then no data is present in
      * the map.
-     * <p/>
+     * <p>
      * "http:localhost:8888/admin/data.geojson"
+     * </p>
+     *
+     * @param data the data array to set
      */
     public void setData(String... data) {
         this.data = data;
@@ -188,7 +206,9 @@ public class TileSet {
     }
 
     /**
-     * 0. >= 0, <= 22. An integer specifying the minimum zoom level.
+     * 0. &gt;= 0, &lt; 22. An integer specifying the minimum zoom level.
+     *
+     * @param minZoom the minZoom level to set
      */
     public void setMinZoom(float minZoom) {
         this.minZoom = minZoom;
@@ -199,7 +219,9 @@ public class TileSet {
     }
 
     /**
-     * 0. >= 0, <= 22. An integer specifying the maximum zoom level.
+     * 0. &gt;= 0, &lt;= 22. An integer specifying the maximum zoom level.
+     *
+     * @param maxZoom the maxZoom level to set
      */
     public void setMaxZoom(float maxZoom) {
         this.maxZoom = maxZoom;
@@ -214,6 +236,8 @@ public class TileSet {
      * covered by all zoom levels. The bounds are represented in WGS:84
      * latitude and longitude values, in the order left, bottom, right, top.
      * Values may be integers or floating point numbers.
+     *
+     * @param bounds the Float array to set
      */
     public void setBounds(@Size(value = 4) Float... bounds) {
         this.bounds = bounds;
@@ -231,6 +255,8 @@ public class TileSet {
      * Implementations can use this value to set the default location. If the
      * value is null, implementations may use their own algorithm for
      * determining a default location.
+     *
+     * @param center the Float array to set
      */
     public void setCenter(@Size(value = 2) Float... center) {
         this.center = center;
