@@ -47,7 +47,7 @@ public:
     ~Source();
 
     bool loaded = false;
-    void load(FileSource&);
+    void load(FileSource&, uint8_t);
     bool isLoading() const;
     bool isLoaded() const;
 

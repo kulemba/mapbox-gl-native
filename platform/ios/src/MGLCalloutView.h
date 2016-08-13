@@ -38,6 +38,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)presentCalloutFromRect:(CGRect)rect inView:(UIView *)view constrainedToView:(UIView *)constrainedView animated:(BOOL)animated;
 
 /**
+ Updates the frame of a Callout view when the mapView lays out its subviews, and when the renderer renders.
+ */
+-(void)updateCalloutFrameWithRect:(CGRect)rect;
+
+/**
  Dismisses the callout view.
  */
 - (void)dismissCalloutAnimated:(BOOL)animated;

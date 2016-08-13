@@ -120,6 +120,8 @@ IB_DESIGNABLE
  */
 - (instancetype)initWithFrame:(CGRect)frame styleURL:(nullable NSURL *)styleURL;
 
+- (instancetype)initWithFrame:(CGRect)frame styleURL:(nullable NSURL *)styleURL maxZoomLimit:(double)maxZoomLimit;
+
 #pragma mark Accessing the Delegate
 
 /**
@@ -153,6 +155,8 @@ IB_DESIGNABLE
  and this property will automatically be set to that style's URL.
  */
 @property (nonatomic, null_resettable) NSURL *styleURL;
+
+- (void)setStyleURL:(nullable NSURL *)styleURL withMaxZoomLimit:(double)maxZoomLimit;
 
 /**
  Reloads the style.
@@ -1233,6 +1237,8 @@ IB_DESIGNABLE
     a northern heading.
  */
 - (void)resetPosition;
+
+@property (nonatomic, readonly, getter=isReachable) BOOL reachable;
 
 @end
 
