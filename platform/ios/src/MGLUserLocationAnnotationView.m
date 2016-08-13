@@ -7,10 +7,6 @@
 #import "MGLCoordinateFormatter.h"
 #import "NSBundle+MGLAdditions.h"
 
-@interface MGLNoHitLayer : CALayer
-
-@end
-
 const CGFloat MGLUserLocationAnnotationDotSize = 22.0;
 const CGFloat MGLUserLocationAnnotationHaloSize = 115.0;
 
@@ -150,6 +146,12 @@ const CGFloat MGLUserLocationHeadingArrowSize = 40;
     }
 }
 
+- (CALayer *)hitTestLayer
+{
+    // only the main dot should be interactive (i.e., exclude the accuracy ring and halo)
+    return _dotBorderLayer ?: _puckDot;
+}
+
 - (void)setupLayers
 {
     if (CLLocationCoordinate2DIsValid(self.annotation.coordinate))
@@ -157,11 +159,6 @@ const CGFloat MGLUserLocationHeadingArrowSize = 40;
         (_mapView.userTrackingMode == MGLUserTrackingModeFollowWithCourse) ? [self drawPuck] : [self drawDot];
         [self updatePitch];
     }
-}
-
-+ (Class)layerClass
-{
-    return [MGLNoHitLayer class];
 }
 
 - (void)updatePitch
@@ -556,16 +553,6 @@ const CGFloat MGLUserLocationHeadingArrowSize = 40;
         return [NSNull null];
     }
     return [super actionForLayer:layer forKey:event];
-}
-
-@end
-
-
-@implementation MGLNoHitLayer
-
-- (nullable CALayer *)hitTest:(CGPoint)p
-{
-    return nil;
 }
 
 @end

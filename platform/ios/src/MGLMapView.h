@@ -14,6 +14,7 @@ NS_ASSUME_NONNULL_BEGIN
 @class MGLPolyline;
 @class MGLPolygon;
 @class MGLShape;
+@class MGLStyle;
 
 @protocol MGLMapViewDelegate;
 @protocol MGLAnnotation;
@@ -1090,6 +1091,10 @@ IB_DESIGNABLE
     protocol.
  */
 - (void)removeOverlays:(NS_ARRAY_OF(id <MGLOverlay>) *)overlays;
+
+#pragma mark - Runtime styling API
+
+- (MGLStyle *)style;
 
 #pragma mark Accessing the Underlying Map Data
 
