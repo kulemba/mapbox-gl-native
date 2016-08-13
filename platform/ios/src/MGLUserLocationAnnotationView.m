@@ -150,6 +150,12 @@ const CGFloat MGLUserLocationHeadingArrowSize = 40;
     }
 }
 
+- (CALayer *)hitTestLayer
+{
+    // only the main dot should be interactive (i.e., exclude the accuracy ring and halo)
+    return _dotBorderLayer ?: _puckDot;
+}
+
 - (void)setupLayers
 {
     if (CLLocationCoordinate2DIsValid(self.annotation.coordinate))
