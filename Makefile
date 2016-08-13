@@ -253,6 +253,8 @@ ifabric: $(IOS_PROJ_PATH)
 idocument:
 	OUTPUT=$(OUTPUT) ./platform/ios/scripts/document.sh
 
+style-code-darwin:
+	node platform/darwin/scripts/generate-style-code.js
 endif
 
 #### Linux targets #####################################################
@@ -456,6 +458,10 @@ android-test:
 .PHONY: apackage
 apackage:
 	cd platform/android && ./gradlew --parallel-threads=$(JOBS) assemble$(BUILDTYPE)
+
+.PHONY: style-code-android
+style-code-android:
+	node platform/android/scripts/generate-style-code.js
 
 #### Miscellaneous targets #####################################################
 
