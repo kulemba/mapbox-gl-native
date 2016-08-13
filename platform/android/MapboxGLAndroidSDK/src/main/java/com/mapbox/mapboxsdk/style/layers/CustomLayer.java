@@ -2,8 +2,9 @@ package com.mapbox.mapboxsdk.style.layers;
 
 /**
  * Custom layer.
- * <p/>
+ * <p>
  * Experimental feature. Do not use.
+ * </p>
  */
 public class CustomLayer extends Layer {
 
@@ -19,12 +20,15 @@ public class CustomLayer extends Layer {
         super(nativePtr);
     }
 
-    public void invalidate() {
+    public void update() {
         nativeUpdate();
     }
 
     protected native void initialize(String id, long initializeFunction, long renderFunction, long deinitializeFunction, long context);
 
     protected native void nativeUpdate();
+
+    @Override
+    protected native void finalize() throws Throwable;
 
 }
