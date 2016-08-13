@@ -1,4 +1,4 @@
-#import "MGLMapView_Internal.h"
+#import "MGLMapView_Private.hpp"
 
 #import <mbgl/platform/log.hpp>
 #import <mbgl/gl/gl.hpp>
@@ -35,13 +35,17 @@
 #import "NSString+MGLAdditions.h"
 #import "NSProcessInfo+MGLAdditions.h"
 #import "NSException+MGLAdditions.h"
+#import "UIColor+MGLAdditions.hpp"
 #import "MGLUserLocationAnnotationView.h"
 #import "MGLUserLocation_Private.h"
 #import "MGLAnnotationImage_Private.h"
 #import "MGLAnnotationView_Private.h"
+#import "MGLStyle_Private.hpp"
+#import "MGLStyleLayer_Private.hpp"
 #import "MGLMapboxEvents.h"
 #import "MGLCompactCalloutView.h"
 #import "MGLAnnotationContainerView.h"
+#import "MGLAnnotationContainerView_Private.h"
 
 #import <algorithm>
 #import <cstdlib>
@@ -128,17 +132,6 @@ mbgl::util::UnitBezier MGLUnitBezierForMediaTimingFunction(CAMediaTimingFunction
     [function getControlPointAtIndex:0 values:p1];
     [function getControlPointAtIndex:1 values:p2];
     return { p1[0], p1[1], p2[0], p2[1] };
-}
-
-mbgl::Color MGLColorObjectFromUIColor(UIColor *color)
-{
-    if (!color)
-    {
-        return { 0, 0, 0, 0 };
-    }
-    CGFloat r, g, b, a;
-    [color getRed:&r green:&g blue:&b alpha:&a];
-    return { (float)r, (float)g, (float)b, (float)a };
 }
 
 @interface MGLAnnotationAccessibilityElement : UIAccessibilityElement
@@ -608,6 +601,13 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
     UIGraphicsEndImageContext();
     return image;
+}
+
+- (MGLStyle *)style
+{
+    MGLStyle *style = [[MGLStyle alloc] init];
+    style.mapView = self;
+    return style;
 }
 
 - (void)reachabilityChanged:(NSNotification *)notification
@@ -1394,16 +1394,32 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         return;
     }
 
-    CGPoint tapPoint = [singleTap locationInView:self];
-
-    CALayer *hitLayer = self.userLocationVisible ? [self.userLocationAnnotationView.layer.presentationLayer hitTest:tapPoint] : nil;
-    if (hitLayer && hitLayer != self.userLocationAnnotationView.haloLayer.presentationLayer)
+    if (self.userLocationVisible)
     {
-        if ( ! _userLocationAnnotationIsSelected)
+        CGPoint tapPointForUserLocation = [singleTap locationInView:self.userLocationAnnotationView];
+        CALayer *hitLayer = [self.userLocationAnnotationView.hitTestLayer hitTest:tapPointForUserLocation];
+        if (hitLayer)
         {
-            [self selectAnnotation:self.userLocation animated:YES];
+            if ( ! _userLocationAnnotationIsSelected)
+            {
+                [self selectAnnotation:self.userLocation animated:YES];
+            }
+            return;
         }
-        return;
+    }
+
+    CGPoint tapPoint = [singleTap locationInView:self];
+   
+    // Handle the case of an offset annotation view by converting the tap point to be the geo location
+    // of the annotation itself that the view represents
+    for (MGLAnnotationView *view in self.annotationContainerView.annotationViews)
+    {
+        if (view.centerOffset.dx != 0 || view.centerOffset.dy != 0) {
+            if (CGRectContainsPoint(view.frame, tapPoint)) {
+                CGPoint annotationPoint = [self convertCoordinate:view.annotation.coordinate toPointToView:self];
+                tapPoint = annotationPoint;
+            }
+        }
     }
     
     MGLAnnotationTag hitAnnotationTag = [self annotationTagAtPoint:tapPoint persistingResults:YES];
@@ -3041,7 +3057,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     UIColor *color = (_delegateHasStrokeColorsForShapeAnnotations
                       ? [self.delegate mapView:self strokeColorForShapeAnnotation:annotation]
                       : self.tintColor);
-    return MGLColorObjectFromUIColor(color);
+    return color.mbgl_color;
 }
 
 - (mbgl::Color)fillColorForPolygonAnnotation:(MGLPolygon *)annotation
@@ -3049,7 +3065,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     UIColor *color = (_delegateHasFillColorsForShapeAnnotations
                       ? [self.delegate mapView:self fillColorForPolygonAnnotation:annotation]
                       : self.tintColor);
-    return MGLColorObjectFromUIColor(color);
+    return color.mbgl_color;
 }
 
 - (CGFloat)lineWidthForPolylineAnnotation:(MGLPolyline *)annotation
@@ -3367,8 +3383,10 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 /// Returns the tags of the annotations coincident with the given rectangle.
 - (std::vector<MGLAnnotationTag>)annotationTagsInRect:(CGRect)rect
 {
-    mbgl::LatLngBounds queryBounds = [self convertRect:rect toLatLngBoundsFromView:self];
-    return _mbglMap->getPointAnnotationsInBounds(queryBounds);
+    return _mbglMap->queryPointAnnotations({
+        { CGRectGetMinX(rect), CGRectGetMinY(rect) },
+        { CGRectGetMaxX(rect), CGRectGetMaxY(rect) },
+    });
 }
 
 - (id <MGLAnnotation>)selectedAnnotation
@@ -5153,6 +5171,10 @@ void MGLFinishCustomStyleLayer(void *context)
 - (void)setCustomStyleLayersNeedDisplay
 {
     _mbglMap->update(mbgl::Update::Repaint);
+}
+
+- (mbgl::Map *)mbglMap {
+    return _mbglMap;
 }
 
 @end
