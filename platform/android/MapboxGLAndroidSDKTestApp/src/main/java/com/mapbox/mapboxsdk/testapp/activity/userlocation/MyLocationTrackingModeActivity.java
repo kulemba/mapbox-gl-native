@@ -20,12 +20,12 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Spinner;
 import android.widget.Toast;
+
 import com.mapbox.mapboxsdk.camera.CameraUpdateFactory;
 import com.mapbox.mapboxsdk.constants.MapboxConstants;
 import com.mapbox.mapboxsdk.constants.MyBearingTracking;
 import com.mapbox.mapboxsdk.constants.MyLocationTracking;
 import com.mapbox.mapboxsdk.geometry.LatLng;
-import com.mapbox.mapboxsdk.location.LocationServices;
 import com.mapbox.mapboxsdk.maps.MapView;
 import com.mapbox.mapboxsdk.maps.MapboxMap;
 import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
@@ -41,7 +41,7 @@ public class MyLocationTrackingModeActivity extends AppCompatActivity implements
     private static final int PERMISSIONS_LOCATION = 0;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_my_location_tracking);
 
@@ -103,7 +103,9 @@ public class MyLocationTrackingModeActivity extends AppCompatActivity implements
                     }
                 });
 
-                toggleGps(!mapboxMap.isMyLocationEnabled());
+                if (savedInstanceState == null) {
+                    toggleGps(true);
+                }
             }
         });
     }
@@ -145,7 +147,7 @@ public class MyLocationTrackingModeActivity extends AppCompatActivity implements
         }
     }
 
-    private void setInitialPosition(LatLng latLng){
+    private void setInitialPosition(LatLng latLng) {
         mMapboxMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 14));
         mMapboxMap.setMyLocationEnabled(true);
         mLocationSpinner.setEnabled(true);
@@ -274,6 +276,7 @@ public class MyLocationTrackingModeActivity extends AppCompatActivity implements
                 mMapboxMap.getTrackingSettings().setDismissBearingTrackingOnGesture(state);
                 Toast.makeText(this, "Dismiss bearing mode on gesture = " + state, Toast.LENGTH_SHORT).show();
                 item.setChecked(state);
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
