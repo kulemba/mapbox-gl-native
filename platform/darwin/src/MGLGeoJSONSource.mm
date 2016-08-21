@@ -1,29 +1,24 @@
 #import "MGLGeoJSONSource.h"
 
-#import "MGLSource_Private.hpp"
+#import "MGLSource_Private.h"
+#import "MGLFeature_Private.h"
+
+#import "NSURL+MGLAdditions.h"
 
 #include <mbgl/style/sources/geojson_source.hpp>
 
-@interface MGLGeoJSONSource ()
-
-@property (nonatomic, copy) NSURL *URL;
-
-@end
-
 @implementation MGLGeoJSONSource
 
-static NSString *MGLGeoJSONSourceType   = @"geojson";
-static NSString *MGLGeoJSONDataKey      = @"data";
+- (instancetype)initWithSourceIdentifier:(NSString *)sourceIdentifier geoJSONData:(NSData *)data {
+    if (self = [super initWithSourceIdentifier:sourceIdentifier]) {
+        _geoJSONData = data;
+    }
+    return self;
+}
 
-- (instancetype)initWithSourceIdentifier:(NSString *)sourceIdentifier URL:(NSURL *)url
-{
-    if (self = [super initWithSourceIdentifier:sourceIdentifier sourceType:MGLGeoJSONSourceType]) {
+- (instancetype)initWithSourceIdentifier:(NSString *)sourceIdentifier URL:(NSURL *)url {
+    if (self = [super initWithSourceIdentifier:sourceIdentifier]) {
         _URL = url;
-        if (url.isFileURL) {
-            _data = [[NSString alloc] initWithContentsOfURL:url encoding:NSUTF8StringEncoding error:NULL];
-        } else {
-            _data = url.absoluteString;
-        }
     }
     return self;
 }
@@ -31,11 +26,14 @@ static NSString *MGLGeoJSONDataKey      = @"data";
 - (std::unique_ptr<mbgl::style::Source>)mbgl_source
 {
     auto source = std::make_unique<mbgl::style::GeoJSONSource>(self.sourceIdentifier.UTF8String);
-    if (_URL.isFileURL) {
-        const auto geojson = mapbox::geojson::parse(self.data.UTF8String).get<mapbox::geojson::feature_collection>();
-        source->setGeoJSON(geojson);
+    if (self.URL) {
+        NSURL *url = self.URL.mgl_URLByStandardizingScheme;
+        source->setURL(url.absoluteString.UTF8String);
     } else {
-        source->setURL(self.data.UTF8String);
+        NSString *string = [[NSString alloc] initWithData:self.geoJSONData encoding:NSUTF8StringEncoding];
+        const auto geojson = mapbox::geojson::parse(string.UTF8String).get<mapbox::geojson::feature_collection>();
+        source->setGeoJSON(geojson);
+        _features = MGLFeaturesFromMBGLFeatures(geojson);
     }
     return std::move(source);
 }

@@ -1,7 +1,7 @@
-#import "MGLMapView_Private.hpp"
+#import "MGLMapView_Private.h"
 
-#import <mbgl/platform/log.hpp>
-#import <mbgl/gl/gl.hpp>
+#include <mbgl/platform/log.hpp>
+#include <mbgl/gl/gl.hpp>
 
 #import <GLKit/GLKit.h>
 #import <OpenGLES/EAGL.h>
@@ -32,25 +32,29 @@
 #import "MGLOfflineStorage_Private.h"
 
 #import "NSBundle+MGLAdditions.h"
+#import "NSDate+MGLAdditions.h"
 #import "NSString+MGLAdditions.h"
 #import "NSProcessInfo+MGLAdditions.h"
 #import "NSException+MGLAdditions.h"
-#import "UIColor+MGLAdditions.hpp"
+#import "NSURL+MGLAdditions.h"
+
+#import "MGLFaux3DUserLocationAnnotationView.h"
 #import "MGLUserLocationAnnotationView.h"
+#import "MGLUserLocationAnnotationView_Private.h"
 #import "MGLUserLocation_Private.h"
 #import "MGLAnnotationImage_Private.h"
 #import "MGLAnnotationView_Private.h"
-#import "MGLStyle_Private.hpp"
-#import "MGLStyleLayer_Private.hpp"
+#import "MGLStyle_Private.h"
+#import "MGLStyleLayer_Private.h"
 #import "MGLMapboxEvents.h"
 #import "MGLCompactCalloutView.h"
 #import "MGLAnnotationContainerView.h"
 #import "MGLAnnotationContainerView_Private.h"
 
-#import <algorithm>
-#import <cstdlib>
-#import <map>
-#import <unordered_set>
+#include <algorithm>
+#include <cstdlib>
+#include <map>
+#include <unordered_set>
 
 class MBGLView;
 class MGLAnnotationContext;
@@ -239,6 +243,7 @@ public:
 @property (nonatomic, readonly, getter=isRotationAllowed) BOOL rotationAllowed;
 @property (nonatomic) MGLMapViewProxyAccessibilityElement *mapViewProxyAccessibilityElement;
 @property (nonatomic) MGLAnnotationContainerView *annotationContainerView;
+@property (nonatomic) MGLUserLocation *userLocation;
 
 @end
 
@@ -288,11 +293,6 @@ public:
 }
 
 #pragma mark - Setup & Teardown -
-
-mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
-{
-    return std::chrono::duration_cast<mbgl::Duration>(std::chrono::duration<NSTimeInterval>(duration));
-}
 
 - (instancetype)initWithFrame:(CGRect)frame
 {
@@ -345,12 +345,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         styleURL = [MGLStyle streetsStyleURLWithVersion:MGLStyleDefaultVersion];
     }
 
-    if ( ! [styleURL scheme])
-    {
-        // Assume a relative path into the application bundle.
-        styleURL = [NSURL URLWithString:[@"asset://" stringByAppendingString:[styleURL absoluteString]]];
-    }
-
+    styleURL = styleURL.mgl_URLByStandardizingScheme;
     _mbglMap->setStyleURL([[styleURL absoluteString] UTF8String]);
 }
 
@@ -1394,10 +1389,23 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         return;
     }
 
+    CGPoint tapPoint = [singleTap locationInView:self];
+
     if (self.userLocationVisible)
     {
-        CGPoint tapPointForUserLocation = [singleTap locationInView:self.userLocationAnnotationView];
+        CGPoint tapPointForUserLocation;
+        if (self.userLocationAnnotationView.hitTestLayer == self.userLocationAnnotationView.layer.presentationLayer)
+        {
+            tapPointForUserLocation = tapPoint;
+        }
+        else
+        {
+            // Get the tap point within the custom hit test layer.
+            tapPointForUserLocation = [singleTap locationInView:self.userLocationAnnotationView];
+        }
+
         CALayer *hitLayer = [self.userLocationAnnotationView.hitTestLayer hitTest:tapPointForUserLocation];
+
         if (hitLayer)
         {
             if ( ! _userLocationAnnotationIsSelected)
@@ -1408,8 +1416,6 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         }
     }
 
-    CGPoint tapPoint = [singleTap locationInView:self];
-   
     // Handle the case of an offset annotation view by converting the tap point to be the geo location
     // of the annotation itself that the view represents
     for (MGLAnnotationView *view in self.annotationContainerView.annotationViews)
@@ -2702,16 +2708,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
 - (NS_ARRAY_OF(NSString *) *)styleClasses
 {
-    NSMutableArray *returnArray = [NSMutableArray array];
-
-    const std::vector<std::string> &appliedClasses = _mbglMap->getClasses();
-
-    for (auto class_it = appliedClasses.begin(); class_it != appliedClasses.end(); class_it++)
-    {
-        [returnArray addObject:@(class_it->c_str())];
-    }
-
-    return returnArray;
+    return [self.style styleClasses];
 }
 
 - (void)setStyleClasses:(NS_ARRAY_OF(NSString *) *)appliedClasses
@@ -2721,36 +2718,22 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 
 - (void)setStyleClasses:(NS_ARRAY_OF(NSString *) *)appliedClasses transitionDuration:(NSTimeInterval)transitionDuration
 {
-    std::vector<std::string> newAppliedClasses;
-
-    for (NSString *appliedClass in appliedClasses)
-    {
-        newAppliedClasses.insert(newAppliedClasses.end(), [appliedClass UTF8String]);
-    }
-
-    mbgl::style::TransitionOptions transition { { MGLDurationInSeconds(transitionDuration) } };
-    _mbglMap->setClasses(newAppliedClasses, transition);
+    [self.style setStyleClasses:appliedClasses transitionDuration:transitionDuration];
 }
 
 - (BOOL)hasStyleClass:(NSString *)styleClass
 {
-    return styleClass && _mbglMap->hasClass([styleClass UTF8String]);
+    return [self.style hasStyleClass:styleClass];
 }
 
 - (void)addStyleClass:(NSString *)styleClass
 {
-    if (styleClass)
-    {
-        _mbglMap->addClass([styleClass UTF8String]);
-    }
+    [self.style addStyleClass:styleClass];
 }
 
 - (void)removeStyleClass:(NSString *)styleClass
 {
-    if (styleClass)
-    {
-        _mbglMap->removeClass([styleClass UTF8String]);
-    }
+    [self.style removeStyleClass:styleClass];
 }
 
 #pragma mark - Annotations -
@@ -3826,8 +3809,25 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         {
             [self.delegate mapViewWillStartLocatingUser:self];
         }
-
-        self.userLocationAnnotationView = [[MGLUserLocationAnnotationView alloc] initInMapView:self];
+        
+        self.userLocation = [[MGLUserLocation alloc] initWithMapView:self];
+        
+        MGLUserLocationAnnotationView *userLocationAnnotationView;
+        
+        if ([self.delegate respondsToSelector:@selector(mapView:viewForAnnotation:)])
+        {
+            userLocationAnnotationView = (MGLUserLocationAnnotationView *)[self.delegate mapView:self viewForAnnotation:self.userLocation];
+            if (userLocationAnnotationView)
+            {
+                NSAssert([userLocationAnnotationView.class isSubclassOfClass:MGLUserLocationAnnotationView.class],
+                         @"User location annotation view must be a subclass of MGLUserLocationAnnotationView");
+            }
+        }
+        
+        self.userLocationAnnotationView = userLocationAnnotationView ?: [[MGLFaux3DUserLocationAnnotationView alloc] init];
+        self.userLocationAnnotationView.mapView = self;
+        self.userLocationAnnotationView.userLocation = self.userLocation;
+        
         self.userLocationAnnotationView.autoresizingMask = (UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin |
                                                             UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin);
 
@@ -3861,11 +3861,6 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
 + (NS_SET_OF(NSString *) *)keyPathsForValuesAffectingUserLocation
 {
     return [NSSet setWithObject:@"userLocationAnnotationView"];
-}
-
-- (nullable MGLUserLocation *)userLocation
-{
-    return self.userLocationAnnotationView.annotation;
 }
 
 - (BOOL)isUserLocationVisible
@@ -4035,9 +4030,6 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
     }
 
     [self didUpdateLocationWithUserTrackingAnimated:animated];
-
-    self.userLocationAnnotationView.haloLayer.hidden = ! CLLocationCoordinate2DIsValid(self.userLocation.coordinate) ||
-        newLocation.horizontalAccuracy > 10;
 
     NSTimeInterval duration = MGLAnimationDuration;
     if (oldLocation && ! CGPointEqualToPoint(self.userLocationAnnotationView.center, CGPointZero))
@@ -4670,7 +4662,7 @@ mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration)
         _userLocationAnimationCompletionDate = [NSDate dateWithTimeIntervalSinceNow:duration];
         
         annotationView.hidden = NO;
-        [annotationView setupLayers];
+        [annotationView update];
         
         if (_userLocationAnnotationIsSelected)
         {
