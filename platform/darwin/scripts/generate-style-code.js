@@ -4,8 +4,8 @@ const fs = require('fs');
 const ejs = require('ejs');
 const spec = require('mapbox-gl-style-spec').latest;
 
-var prefix = 'MGL';
-var suffix = 'StyleLayer';
+const prefix = 'MGL';
+const suffix = 'StyleLayer';
 
 global.camelize = function (str) {
     return str.replace(/(?:^|-)(.)/g, function (_, x) {
@@ -21,6 +21,10 @@ global.camelizeWithLeadingLowercase = function (str) {
 
 global.objCName = function (property) { return camelizeWithLeadingLowercase(property.name); }
 
+global.arrayType = function (property) {
+    return property.type === 'array' ? property.name.split('-').pop() : false;
+};
+
 global.testImplementation = function (property, layerType) {
     switch (property.type) {
         case 'boolean':
@@ -30,14 +34,14 @@ global.testImplementation = function (property, layerType) {
         case 'string':
             return `layer.${objCName(property)} = MGLRuntimeStylingHelper.testString;`;
         case 'enum':
-            var objCType = `${prefix}${camelize(layerType)}${suffix}${camelize(property.name)}`;
-            var objCEnum = `${objCType}${camelize(property.values[property.values.length-1])}`;
+            let objCType = `${prefix}${camelize(layerType)}${suffix}${camelize(property.name)}`;
+            let objCEnum = `${objCType}${camelize(property.values[property.values.length-1])}`;
             return `layer.${objCName(property)} = [MGLRuntimeStylingHelper testEnum:${objCEnum} type:@encode(${objCType})];`;    
         case 'color':
             return `layer.${objCName(property)} = MGLRuntimeStylingHelper.testColor;`;
         case 'array':
             return testArrayImplementation(property);
-        default: throw new Error(`unknown type for ${property.name}`)
+        default: throw new Error(`unknown type for ${property.name}`);
     }
 }
 
@@ -50,41 +54,144 @@ global.testGetterImplementation = function (property, layerType) {
         case 'string':
             return `XCTAssertEqualObjects(gLayer.${objCName(property)}, MGLRuntimeStylingHelper.testString);`;
         case 'enum':
-            var objCType = `${prefix}${camelize(layerType)}${suffix}${camelize(property.name)}`;
-            var objCEnum = `${objCType}${camelize(property.values[property.values.length-1])}`;
+            let objCType = `${prefix}${camelize(layerType)}${suffix}${camelize(property.name)}`;
+            let objCEnum = `${objCType}${camelize(property.values[property.values.length-1])}`;
             return `XCTAssert([(NSValue *)gLayer.${objCName(property)} objCType] == [[MGLRuntimeStylingHelper testEnum:${objCEnum} type:@encode(${objCType})] objCType]);`;
         case 'color':
             return `XCTAssertEqualObjects(gLayer.${objCName(property)}, MGLRuntimeStylingHelper.testColor);`;
         case 'array':
             return testGetterArrayImplementation(property);
-        default: throw new Error(`unknown type for ${property.name}`)
+        default: throw new Error(`unknown type for ${property.name}`);
     }
 }
 
 global.testGetterArrayImplementation = function (property) {
-    switch (property.name) {
-        case 'icon-text-fit-padding':
-            return `XCTAssertEqualObjects(gLayer.${objCName(property)}, MGLRuntimeStylingHelper.testPadding);`;
-        case 'line-dasharray':
+    switch (arrayType(property)) {
+        case 'dasharray':
             return `XCTAssertEqualObjects(gLayer.${objCName(property)}, MGLRuntimeStylingHelper.testDashArray);`;
-        case 'text-font':
+        case 'font':
             return `XCTAssertEqualObjects(gLayer.${objCName(property)}, MGLRuntimeStylingHelper.testFont);`;
-        default:
+        case 'padding':
+            return `XCTAssertEqualObjects(gLayer.${objCName(property)}, MGLRuntimeStylingHelper.testPadding);`;
+        case 'offset':
+        case 'translate':
             return `XCTAssertEqualObjects(gLayer.${objCName(property)}, MGLRuntimeStylingHelper.testOffset);`; // Default offset (dx, dy)
+        default:
+            throw new Error(`unknown array type for ${property.name}`);
     }
 };
 
 global.testArrayImplementation = function (property) {
-    switch (property.name) {
-        case 'icon-text-fit-padding':
-            return `layer.${objCName(property)} = MGLRuntimeStylingHelper.testPadding;`;
-        case 'line-dasharray':
+    switch (arrayType(property)) {
+        case 'dasharray':
             return `layer.${objCName(property)} = MGLRuntimeStylingHelper.testDashArray;`;
-        case 'text-font':
+        case 'font':
             return `layer.${objCName(property)} = MGLRuntimeStylingHelper.testFont;`;
-        default:
+        case 'padding':
+            return `layer.${objCName(property)} = MGLRuntimeStylingHelper.testPadding;`;
+        case 'offset':
+        case 'translate':
             return `layer.${objCName(property)} = MGLRuntimeStylingHelper.testOffset;`; // Default offset (dx, dy)
+        default:
+            throw new Error(`unknown array type for ${property.name}`);
     }
+};
+
+global.propertyDoc = function (property, layerType) {
+    let doc = property.doc.replace(/`(.+?)`/g, function (m, symbol, offset, str) {
+        if ('values' in property && property.values.indexOf(symbol) !== -1) {
+            let objCType = `${prefix}${camelize(layerType)}${suffix}${camelize(property.name)}`;
+            return '`' + `${objCType}${camelize(symbol)}` + '`';
+        }
+        if (str.substr(offset - 4, 3) !== 'CSS') {
+            symbol = camelizeWithLeadingLowercase(symbol);
+        }
+        return '`' + symbol + '`';
+    });
+    if ('units' in property) {
+        if (!property.units.match(/s$/)) {
+            property.units += 's';
+        }
+        doc += `
+
+ This property is measured in ${property.units}.`;
+    }
+    return doc.replace(/(p)ixel/gi, '$1oint').replace(/(\d)px\b/g, '$1pt');
+};
+
+global.propertyReqs = function (property, layoutPropertiesByName, type) {
+    return 'This property is only applied to the style if ' + property.requires.map(function (req) {
+        if (typeof req === 'string') {
+            return '`' + camelizeWithLeadingLowercase(req) + '` is non-`nil`';
+        } else if ('!' in req) {
+            return '`' + camelizeWithLeadingLowercase(req['!']) + '` is set to `nil`';
+        } else {
+            let name = Object.keys(req)[0];
+            return '`' + camelizeWithLeadingLowercase(name) + '` is set to ' + describeValue(req[Object.keys(req)[0]], layoutPropertiesByName[name], type);
+        }
+    }).join(', and ') + '. Otherwise, it is ignored.';
+};
+
+global.parseColor = function (str) {
+    let m = str.match(/^#(\d\d)(\d\d)(\d\d)$/);
+    if (m) {
+        return {
+            r: parseInt(m[1], 16) / 255,
+            g: parseInt(m[2], 16) / 255,
+            b: parseInt(m[3], 16) / 255,
+            a: 1.0,
+        };
+    }
+    
+    m = str.match(/^rgba\(\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+),\s*([\d.]+)\s*\)$/);
+    if (m) {
+        return {
+            r: parseFloat(m[1]) / 255,
+            g: parseFloat(m[2]) / 255,
+            b: parseFloat(m[3]) / 255,
+            a: parseFloat(m[4]),
+        };
+    }
+};
+
+global.describeValue = function (value, property, layerType) {
+    switch (property.type) {
+        case 'boolean':
+            return value ? '`YES`' : '`NO`';
+        case 'number':
+        case 'string':
+            return '`' + value + '`';
+        case 'enum':
+            let objCType = `${prefix}${camelize(layerType)}${suffix}${camelize(property.name)}`;
+            return '`' + `${objCType}${camelize(value)}` + '`';
+        case 'color':
+            let color = parseColor(value);
+            if (!color) {
+                throw new Error(`unrecognized color format in default value of ${property.name}`);
+            }
+            return 'an `NSColor` or `UIColor`' + `object whose RGB value is ${color.r}, ${color.g}, ${color.b} and whose alpha value is ${color.a}`;
+        case 'array':
+            let units = property.units || '';
+            if (units) {
+                units = ` ${units}`.replace(/pixel/, 'point');
+            }
+            if (property.name.indexOf('padding') !== -1) {
+                if (value[0] === 0 && value[1] === 0 && value[2] === 0 && value[3] === 0) {
+                    return '`NSEdgeInsetsZero` or `UIEdgeInsetsZero`';
+                }
+                return `${value[0]}${units} on the top, ${value[3]}${units} on the left, ${value[2]}${units} on the bottom, and ${value[1]}${units} on the right`;
+            }
+            if (property.name.indexOf('offset') !== -1 || property.name.indexOf('translate') !== -1) {
+                return `${value[0]}${units} from the left and ${value[1]}${units} from the top`;
+            }
+            return '`' + value.join('`, `') + '`';
+        default:
+            throw new Error(`unknown type for ${property.name}`);
+    }
+};
+
+global.propertyDefault = function (property, layerType) {
+    return describeValue(property.default, property, layerType);
 };
 
 global.propertyType = function (property, _private) {
@@ -100,26 +207,35 @@ global.initLayer = function (layerType) {
 }
 
 global.setterImplementation = function(property, layerType) {
+    let implementation = '';
     switch (property.type) {
         case 'boolean':
-            return `self.layer->set${camelize(property.name)}(${objCName(property)}.mbgl_boolPropertyValue);`;
+            implementation = `self.layer->set${camelize(property.name)}(${objCName(property)}.mbgl_boolPropertyValue);`;
+            break;
         case 'number':
-            return `self.layer->set${camelize(property.name)}(${objCName(property)}.mbgl_floatPropertyValue);`;
+            implementation = `self.layer->set${camelize(property.name)}(${objCName(property)}.mbgl_floatPropertyValue);`;
+            break;
         case 'string':
-            return `self.layer->set${camelize(property.name)}(${objCName(property)}.mbgl_stringPropertyValue);`;
+            implementation = `self.layer->set${camelize(property.name)}(${objCName(property)}.mbgl_stringPropertyValue);`;
+            break;
         case 'enum':
-            var objCType = `${prefix}${camelize(layerType)}${suffix}${camelize(property.name)}`;
-            return `MGLSetEnumProperty(${objCName(property)}, ${camelize(property.name)}, ${mbglType(property)}, ${objCType});`; 
+            let objCType = `${prefix}${camelize(layerType)}${suffix}${camelize(property.name)}`;
+            implementation = `MGLSetEnumProperty(${objCName(property)}, ${camelize(property.name)}, ${mbglType(property)}, ${objCType});`;
+            break;
         case 'color':
-            return `self.layer->set${camelize(property.name)}(${objCName(property)}.mbgl_colorPropertyValue);`;
+            implementation = `self.layer->set${camelize(property.name)}(${objCName(property)}.mbgl_colorPropertyValue);`;
+            break;
         case 'array':
-            return arraySetterImplementation(property);
+            implementation = arraySetterImplementation(property);
+            break;
         default: throw new Error(`unknown type for ${property.name}`)
     }
+    implementation += "\n    [self update];"
+    return implementation;
 }
 
 global.mbglType = function(property) {
-    var mbglType = camelize(property.name) + 'Type';
+    let mbglType = camelize(property.name) + 'Type';
     if (/-translate-anchor$/.test(property.name)) {
         mbglType = 'TranslateAnchorType';
     }
@@ -136,16 +252,16 @@ global.arraySetterImplementation = function(property) {
 global.getterImplementation = function(property, layerType) {
     switch (property.type) {
         case 'boolean':
-            return `return [MGLStyleAttribute mbgl_boolPropertyValueWith:self.layer->get${camelize(property.name)}()];`
+            return `return [MGLStyleAttribute mbgl_boolWithPropertyValueBool:self.layer->get${camelize(property.name)}()];`
         case 'number':
-            return `return [MGLStyleAttribute mbgl_numberPropertyValueWith:self.layer->get${camelize(property.name)}()];`
+            return `return [MGLStyleAttribute mbgl_numberWithPropertyValueNumber:self.layer->get${camelize(property.name)}()];`
         case 'string':
-            return `return [MGLStyleAttribute mbgl_stringPropertyValueWith:self.layer->get${camelize(property.name)}()];`
+            return `return [MGLStyleAttribute mbgl_stringWithPropertyValueString:self.layer->get${camelize(property.name)}()];`
         case 'enum':
-            var objCType = `${prefix}${camelize(layerType)}${suffix}${camelize(property.name)}`;
+            let objCType = `${prefix}${camelize(layerType)}${suffix}${camelize(property.name)}`;
             return `MGLGetEnumProperty(${camelize(property.name)}, ${mbglType(property)}, ${objCType});`;
         case 'color':
-            return `return [MGLStyleAttribute mbgl_colorPropertyValueWith:self.layer->get${camelize(property.name)}()];`
+            return `return [MGLStyleAttribute mbgl_colorWithPropertyValueColor:self.layer->get${camelize(property.name)}()];`
         case 'array':
             return arrayGetterImplementation(property);
         default:
@@ -154,27 +270,22 @@ global.getterImplementation = function(property, layerType) {
 }
 
 global.arrayGetterImplementation = function(property) {
-    return `return [MGLStyleAttribute mbgl_${convertedType(property)}PropertyValueWith:self.layer->get${camelize(property.name)}()];`
+    return `return [MGLStyleAttribute mbgl_${convertedType(property)}WithPropertyValue${camelize(convertedType(property))}:self.layer->get${camelize(property.name)}()];`
 }
 
 global.convertedType = function(property) {
-    switch (property.name) {
-        case 'boolean':
-            return 'bool';
-        case 'number':
-            return 'number';
-        case 'color':
-            return 'color';
-        case 'string':
-            return 'string';
-        case 'icon-text-fit-padding':
-            return "padding";
-        case 'line-dasharray':
-            return "numberArray";
-        case 'text-font':
-            return "stringArray";
+    switch (arrayType(property)) {
+        case 'dasharray':
+            return 'numberArray';
+        case 'font':
+            return 'stringArray';
+        case 'padding':
+            return 'padding';
+        case 'offset':
+        case 'translate':
+            return 'offset';
         default:
-            return "offset";
+            throw new Error(`unknown array type for ${property.name}`);
     }
 }
 
@@ -201,6 +312,8 @@ const layers = spec.layer.type.values.map((type) => {
         type: type,
         layoutProperties: layoutProperties,
         paintProperties: paintProperties,
+        layoutPropertiesByName: spec[`layout_${type}`],
+        paintPropertiesByName: spec[`paint_${type}`],
     };
 });
 
