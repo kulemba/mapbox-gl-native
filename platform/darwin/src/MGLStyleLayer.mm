@@ -1,5 +1,4 @@
 #import "MGLStyleLayer.h"
 
-#import "MGLTypes.h"
-#import "MGLStyleLayer_Private.hpp"
-#import "MGLMapView_Private.hpp"
+#import "MGLStyleLayer_Private.h"
+#import "MGLMapView_Private.h"

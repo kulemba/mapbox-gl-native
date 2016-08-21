@@ -1,7 +1,8 @@
 // This file is generated. 
 // Edit platform/darwin/scripts/generate-style-code.js, then run `make style-code-darwin`.
 
-#import "MGLStyleLayer_Private.hpp"
+#import "MGLBaseStyleLayer_Private.h"
+#import "MGLStyleLayer_Private.h"
 #import "MGLStyleAttributeValue.h"
 #import "MGLFillStyleLayer.h"
 
@@ -32,46 +33,52 @@
 
 - (void)setFillAntialias:(id <MGLStyleAttributeValue, MGLStyleAttributeValue_Private>)fillAntialias {
     self.layer->setFillAntialias(fillAntialias.mbgl_boolPropertyValue);
+    [self update];
 }
 
 - (id <MGLStyleAttributeValue>)fillAntialias {
-    return [MGLStyleAttribute mbgl_boolPropertyValueWith:self.layer->getFillAntialias()];
+    return [MGLStyleAttribute mbgl_boolWithPropertyValueBool:self.layer->getFillAntialias()];
 }
 
 - (void)setFillOpacity:(id <MGLStyleAttributeValue, MGLStyleAttributeValue_Private>)fillOpacity {
     self.layer->setFillOpacity(fillOpacity.mbgl_floatPropertyValue);
+    [self update];
 }
 
 - (id <MGLStyleAttributeValue>)fillOpacity {
-    return [MGLStyleAttribute mbgl_numberPropertyValueWith:self.layer->getFillOpacity()];
+    return [MGLStyleAttribute mbgl_numberWithPropertyValueNumber:self.layer->getFillOpacity()];
 }
 
 - (void)setFillColor:(id <MGLStyleAttributeValue, MGLStyleAttributeValue_Private>)fillColor {
     self.layer->setFillColor(fillColor.mbgl_colorPropertyValue);
+    [self update];
 }
 
 - (id <MGLStyleAttributeValue>)fillColor {
-    return [MGLStyleAttribute mbgl_colorPropertyValueWith:self.layer->getFillColor()];
+    return [MGLStyleAttribute mbgl_colorWithPropertyValueColor:self.layer->getFillColor()];
 }
 
 - (void)setFillOutlineColor:(id <MGLStyleAttributeValue, MGLStyleAttributeValue_Private>)fillOutlineColor {
     self.layer->setFillOutlineColor(fillOutlineColor.mbgl_colorPropertyValue);
+    [self update];
 }
 
 - (id <MGLStyleAttributeValue>)fillOutlineColor {
-    return [MGLStyleAttribute mbgl_colorPropertyValueWith:self.layer->getFillOutlineColor()];
+    return [MGLStyleAttribute mbgl_colorWithPropertyValueColor:self.layer->getFillOutlineColor()];
 }
 
 - (void)setFillTranslate:(id <MGLStyleAttributeValue, MGLStyleAttributeValue_Private>)fillTranslate {
     self.layer->setFillTranslate(fillTranslate.mbgl_offsetPropertyValue);
+    [self update];
 }
 
 - (id <MGLStyleAttributeValue>)fillTranslate {
-    return [MGLStyleAttribute mbgl_offsetPropertyValueWith:self.layer->getFillTranslate()];
+    return [MGLStyleAttribute mbgl_offsetWithPropertyValueOffset:self.layer->getFillTranslate()];
 }
 
 - (void)setFillTranslateAnchor:(id <MGLStyleAttributeValue, MGLStyleAttributeValue_Private>)fillTranslateAnchor {
     MGLSetEnumProperty(fillTranslateAnchor, FillTranslateAnchor, TranslateAnchorType, MGLFillStyleLayerFillTranslateAnchor);
+    [self update];
 }
 
 - (id <MGLStyleAttributeValue>)fillTranslateAnchor {
@@ -80,10 +87,11 @@
 
 - (void)setFillPattern:(id <MGLStyleAttributeValue, MGLStyleAttributeValue_Private>)fillPattern {
     self.layer->setFillPattern(fillPattern.mbgl_stringPropertyValue);
+    [self update];
 }
 
 - (id <MGLStyleAttributeValue>)fillPattern {
-    return [MGLStyleAttribute mbgl_stringPropertyValueWith:self.layer->getFillPattern()];
+    return [MGLStyleAttribute mbgl_stringWithPropertyValueString:self.layer->getFillPattern()];
 }
 
 @end
