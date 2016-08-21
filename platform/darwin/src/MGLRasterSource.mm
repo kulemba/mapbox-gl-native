@@ -1,15 +1,13 @@
 #import "MGLRasterSource.h"
 
-#import "MGLSource_Private.hpp"
+#import "MGLSource_Private.h"
 
 #include <mbgl/style/sources/raster_source.hpp>
 
 @implementation MGLRasterSource
 
-static NSString *MGLRasterSourceType   = @"raster";
-
 - (instancetype)initWithSourceIdentifier:(NSString *)sourceIdentifier URL:(NSURL *)url tileSize:(CGFloat)tileSize {
-    if (self = [super initWithSourceIdentifier:sourceIdentifier sourceType:MGLRasterSourceType]) {
+    if (self = [super initWithSourceIdentifier:sourceIdentifier]) {
         _URL = url;
         _tileSize = tileSize;
     }

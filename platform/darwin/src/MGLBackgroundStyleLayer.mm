@@ -1,7 +1,8 @@
 // This file is generated. 
 // Edit platform/darwin/scripts/generate-style-code.js, then run `make style-code-darwin`.
 
-#import "MGLStyleLayer_Private.hpp"
+#import "MGLBaseStyleLayer_Private.h"
+#import "MGLStyleLayer_Private.h"
 #import "MGLStyleAttributeValue.h"
 #import "MGLBackgroundStyleLayer.h"
 
@@ -32,26 +33,29 @@
 
 - (void)setBackgroundColor:(id <MGLStyleAttributeValue, MGLStyleAttributeValue_Private>)backgroundColor {
     self.layer->setBackgroundColor(backgroundColor.mbgl_colorPropertyValue);
+    [self update];
 }
 
 - (id <MGLStyleAttributeValue>)backgroundColor {
-    return [MGLStyleAttribute mbgl_colorPropertyValueWith:self.layer->getBackgroundColor()];
+    return [MGLStyleAttribute mbgl_colorWithPropertyValueColor:self.layer->getBackgroundColor()];
 }
 
 - (void)setBackgroundPattern:(id <MGLStyleAttributeValue, MGLStyleAttributeValue_Private>)backgroundPattern {
     self.layer->setBackgroundPattern(backgroundPattern.mbgl_stringPropertyValue);
+    [self update];
 }
 
 - (id <MGLStyleAttributeValue>)backgroundPattern {
-    return [MGLStyleAttribute mbgl_stringPropertyValueWith:self.layer->getBackgroundPattern()];
+    return [MGLStyleAttribute mbgl_stringWithPropertyValueString:self.layer->getBackgroundPattern()];
 }
 
 - (void)setBackgroundOpacity:(id <MGLStyleAttributeValue, MGLStyleAttributeValue_Private>)backgroundOpacity {
     self.layer->setBackgroundOpacity(backgroundOpacity.mbgl_floatPropertyValue);
+    [self update];
 }
 
 - (id <MGLStyleAttributeValue>)backgroundOpacity {
-    return [MGLStyleAttribute mbgl_numberPropertyValueWith:self.layer->getBackgroundOpacity()];
+    return [MGLStyleAttribute mbgl_numberWithPropertyValueNumber:self.layer->getBackgroundOpacity()];
 }
 
 @end

@@ -1,4 +1,4 @@
-#import "MGLMapView_Private.hpp"
+#import "MGLMapView_Private.h"
 #import "MGLAnnotationImage_Private.h"
 #import "MGLAttributionButton.h"
 #import "MGLCompassCell.h"
@@ -9,7 +9,7 @@
 #import "MGLGeometry_Private.h"
 #import "MGLMultiPoint_Private.h"
 #import "MGLOfflineStorage_Private.h"
-#import "MGLStyle_Private.hpp"
+#import "MGLStyle_Private.h"
 
 #import "MGLAccountManager.h"
 #import "MGLMapCamera.h"
@@ -34,10 +34,12 @@
 #import <unordered_set>
 
 #import "NSBundle+MGLAdditions.h"
+#import "NSDate+MGLAdditions.h"
 #import "NSProcessInfo+MGLAdditions.h"
 #import "NSException+MGLAdditions.h"
 #import "NSString+MGLAdditions.h"
-#import "NSColor+MGLAdditions.hpp"
+#import "NSURL+MGLAdditions.h"
+#import "NSColor+MGLAdditions.h"
 
 #import <QuartzCore/QuartzCore.h>
 
@@ -107,11 +109,6 @@ NSImage *MGLDefaultMarkerImage() {
     NSString *path = [[NSBundle mgl_frameworkBundle] pathForResource:MGLDefaultStyleMarkerSymbolName
                                                               ofType:@"pdf"];
     return [[NSImage alloc] initWithContentsOfFile:path];
-}
-
-/// Converts from a duration in seconds to a duration object usable in mbgl.
-mbgl::Duration MGLDurationInSeconds(NSTimeInterval duration) {
-    return std::chrono::duration_cast<mbgl::Duration>(std::chrono::duration<NSTimeInterval>(duration));
 }
 
 /// Converts a media timing function into a unit bezier object usable in mbgl.
@@ -543,11 +540,7 @@ public:
         styleURL = [MGLStyle streetsStyleURLWithVersion:MGLStyleDefaultVersion];
     }
     
-    if (![styleURL scheme]) {
-        // Assume a relative path into the application’s resource folder.
-        styleURL = [NSURL URLWithString:[@"asset://" stringByAppendingString:styleURL.absoluteString]];
-    }
-    
+    styleURL = styleURL.mgl_URLByStandardizingScheme;
     _mbglMap->setStyleURL(styleURL.absoluteString.UTF8String);
 }
 
@@ -2457,6 +2450,9 @@ public:
     if (options & mbgl::MapDebugOptions::StencilClip) {
         mask |= MGLMapDebugStencilBufferMask;
     }
+    if (options & mbgl::MapDebugOptions::DepthBuffer) {
+        mask |= MGLMapDebugDepthBufferMask;
+    }
     return mask;
 }
 
@@ -2479,6 +2475,9 @@ public:
     }
     if (debugMask & MGLMapDebugStencilBufferMask) {
         options |= mbgl::MapDebugOptions::StencilClip;
+    }
+    if (debugMask & MGLMapDebugDepthBufferMask) {
+        options |= mbgl::MapDebugOptions::DepthBuffer;
     }
     _mbglMap->setDebug(options);
 }
