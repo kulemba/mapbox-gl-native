@@ -91,7 +91,15 @@ void Style::setJSON(const std::string& json, uint8_t maxZoomLimit_) {
     maxZoomLimit = maxZoomLimit_;
 
     Parser parser;
-    parser.parse(json);
+    auto error = parser.parse(json);
+
+    if (error) {
+        Log::Error(Event::ParseStyle, "Failed to parse style: %s", util::toString(error).c_str());
+        observer->onStyleError();
+        observer->onResourceError(error);
+
+        return;
+    }
 
     for (auto& source : parser.sources) {
         addSource(std::move(source));
