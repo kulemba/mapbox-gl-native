@@ -807,7 +807,10 @@ public:
         }
         case mbgl::MapChangeDidFailLoadingMap:
         {
-            // Not yet implemented.
+            if ([self.delegate respondsToSelector:@selector(mapViewDidFailLoadingMap:withError:)]) {
+                NSError *error = [NSError errorWithDomain:MGLErrorDomain code:0 userInfo:nil];
+                [self.delegate mapViewDidFailLoadingMap:self withError:error];
+            }
             break;
         }
         case mbgl::MapChangeWillStartRenderingMap:
@@ -1180,8 +1183,8 @@ public:
         NSRect contentLayoutRect = [self convertRect:self.window.contentLayoutRect fromView:nil];
         if (NSMaxX(contentLayoutRect) > 0 && NSMaxY(contentLayoutRect) > 0) {
             contentInsets = NSEdgeInsetsMake(NSHeight(self.bounds) - NSMaxY(contentLayoutRect),
-                                             NSMinX(contentLayoutRect),
-                                             NSMinY(contentLayoutRect),
+                                             MAX(NSMinX(contentLayoutRect), 0),
+                                             MAX(NSMinY(contentLayoutRect), 0),
                                              NSWidth(self.bounds) - NSMaxX(contentLayoutRect));
         }
     } else {
