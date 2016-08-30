@@ -1899,9 +1899,13 @@ public:
 
 - (void)resetPosition
 {
-    MGLMapCamera *camera = [MGLMapCamera camera];
-    camera.altitude = MGLAltitudeForZoomLevel(0, 0, 0, self.frame.size);
-    self.camera = camera;
+    CGFloat pitch = _mbglMap->getDefaultPitch();
+    CLLocationDirection heading = mbgl::util::wrap(_mbglMap->getDefaultBearing(), 0., 360.);
+    CLLocationDistance distance = MGLAltitudeForZoomLevel(_mbglMap->getDefaultZoom(), pitch, 0, self.frame.size);
+    self.camera = [MGLMapCamera cameraLookingAtCenterCoordinate:MGLLocationCoordinate2DFromLatLng(_mbglMap->getDefaultLatLng())
+                                                   fromDistance:distance
+                                                          pitch:pitch
+                                                        heading:heading];
 }
 
 - (void)emptyMemoryCache
@@ -3816,10 +3820,14 @@ public:
         if ([self.delegate respondsToSelector:@selector(mapView:viewForAnnotation:)])
         {
             userLocationAnnotationView = (MGLUserLocationAnnotationView *)[self.delegate mapView:self viewForAnnotation:self.userLocation];
-            if (userLocationAnnotationView)
+            if (userLocationAnnotationView && ! [userLocationAnnotationView isKindOfClass:MGLUserLocationAnnotationView.class])
             {
-                NSAssert([userLocationAnnotationView.class isSubclassOfClass:MGLUserLocationAnnotationView.class],
-                         @"User location annotation view must be a subclass of MGLUserLocationAnnotationView");
+                static dispatch_once_t onceToken;
+                dispatch_once(&onceToken, ^{
+                    NSLog(@"Ignoring user location annotation view with type %@. User location annotation view must be a kind of MGLUserLocationAnnotationView. This warning is only shown once and will become an error in a future version.", NSStringFromClass(userLocationAnnotationView.class));
+                });
+
+                userLocationAnnotationView = nil;
             }
         }
         

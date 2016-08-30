@@ -76,10 +76,16 @@ const CGFloat MGLUserLocationHeadingArrowSize = 40;
 {
     if (self.mapView.camera.pitch != _oldPitch)
     {
+        // disable implicit animation
+        [CATransaction begin];
+        [CATransaction setValue:(id)kCFBooleanTrue forKey:kCATransactionDisableActions];
+
         CATransform3D t = CATransform3DRotate(CATransform3DIdentity, MGLRadiansFromDegrees(self.mapView.camera.pitch), 1.0, 0, 0);
         self.layer.sublayerTransform = t;
 
         [self updateFaux3DEffect];
+
+        [CATransaction commit];
 
         _oldPitch = self.mapView.camera.pitch;
     }
@@ -434,20 +440,21 @@ const CGFloat MGLUserLocationHeadingArrowSize = 40;
 
 - (CGFloat)calculateAccuracyRingSize
 {
-    CGFloat latRadians = self.userLocation.coordinate.latitude * M_PI / 180.0f;
-    CGFloat pixelRadius = self.userLocation.location.horizontalAccuracy / cos(latRadians) / [self.mapView metersPerPointAtLatitude:self.userLocation.coordinate.latitude];
+    CGFloat latitudeRadians = MGLRadiansFromDegrees(self.userLocation.coordinate.latitude);
+    CGFloat metersPerPoint = [self.mapView metersPerPointAtLatitude:self.userLocation.coordinate.latitude];
+    CGFloat pixelRadius = self.userLocation.location.horizontalAccuracy / cos(latitudeRadians) / metersPerPoint;
 
-    return pixelRadius * 2;
+    return pixelRadius * 2.0;
 }
 
 - (UIBezierPath *)headingIndicatorClippingMask
 {
     CGFloat accuracy = self.userLocation.heading.headingAccuracy;
 
-    // size the mask using exagerated accuracy, but keep within a good display range
-    CGFloat clippingDegrees = 90 - (accuracy * 1.5);
-    clippingDegrees = fmin(clippingDegrees, 55);
-    clippingDegrees = fmax(clippingDegrees, 10);
+    // size the mask using accuracy, but keep within a good display range
+    CGFloat clippingDegrees = 90 - accuracy;
+    clippingDegrees = fmin(clippingDegrees, 70); // most accurate
+    clippingDegrees = fmax(clippingDegrees, 10); // least accurate
 
     CGRect ovalRect = CGRectMake(0, 0, MGLUserLocationAnnotationHaloSize, MGLUserLocationAnnotationHaloSize);
     UIBezierPath *ovalPath = UIBezierPath.bezierPath;
@@ -455,8 +462,8 @@ const CGFloat MGLUserLocationHeadingArrowSize = 40;
     // clip the oval to ± incoming accuracy degrees (converted to radians), from the top
     [ovalPath addArcWithCenter:CGPointMake(CGRectGetMidX(ovalRect), CGRectGetMidY(ovalRect))
                         radius:CGRectGetWidth(ovalRect) / 2.0
-                    startAngle:(-180 + clippingDegrees) * M_PI / 180
-                      endAngle:-clippingDegrees * M_PI / 180
+                    startAngle:MGLRadiansFromDegrees(-180 + clippingDegrees)
+                      endAngle:MGLRadiansFromDegrees(-clippingDegrees)
                      clockwise:YES];
 
     [ovalPath addLineToPoint:CGPointMake(CGRectGetMidX(ovalRect), CGRectGetMidY(ovalRect))];
