@@ -3189,25 +3189,6 @@ public:
     return reusableView;
 }
 
-- (MGLAnnotationView *)annotationViewAtPoint:(CGPoint)point
-{
-    std::vector<MGLAnnotationTag> annotationTags = [self annotationTagsInRect:self.bounds];
-    
-    for(auto const& annotationTag: annotationTags)
-    {
-        auto &annotationContext = _annotationContextsByAnnotationTag[annotationTag];
-        MGLAnnotationView *annotationView = annotationContext.annotationView;
-        CGPoint convertedPoint = [self convertPoint:point toView:annotationView];
-        
-        if ([annotationView pointInside:convertedPoint withEvent:nil])
-        {
-            return annotationView;
-        }
-    }
-    
-    return nil;
-}
-
 /**
     Returns the tag of the annotation at the given point in the view.
 
@@ -4098,7 +4079,7 @@ public:
 - (void)didUpdateLocationIncrementallyAnimated:(BOOL)animated
 {
     [self _setCenterCoordinate:self.userLocation.location.coordinate
-                   edgePadding:self.edgePaddingForFollowing
+                   edgePadding:self.contentInset
                      zoomLevel:self.zoomLevel
                      direction:self.directionByFollowingWithCourse
                       duration:animated ? MGLUserLocationAnimationDuration : 0
@@ -4125,7 +4106,7 @@ public:
     
     __weak MGLMapView *weakSelf = self;
     [self _flyToCamera:camera
-           edgePadding:self.edgePaddingForFollowing
+           edgePadding:self.contentInset
           withDuration:animated ? -1 : 0
           peakAltitude:-1
      completionHandler:^{
@@ -4582,15 +4563,14 @@ public:
             MGLAnnotationView *annotationView = [self annotationViewForAnnotation:annotationContext.annotation];
             if (annotationView)
             {
-                // If the annotation view has no superview it means it was never used before so add it
-                if (!annotationView.superview)
-                {
-                    [self.glView addSubview:annotationView];
-                }
-                
                 annotationView.mapView = self;
                 annotationView.center = [self convertCoordinate:annotationContext.annotation.coordinate toPointToView:self];
                 annotationContext.annotationView = annotationView;
+            }
+            else
+            {
+                // if there is no annotationView at this point then we are dealing with a sprite backed annotation
+                continue;
             }
         }
         
