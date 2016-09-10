@@ -1,7 +1,8 @@
 // This file is generated. 
 // Edit platform/darwin/scripts/generate-style-code.js, then run `make style-code-darwin`.
 
-#import "MGLBaseStyleLayer_Private.h"
+#import "MGLSource.h"
+#import "NSPredicate+MGLAdditions.h"
 #import "MGLStyleLayer_Private.h"
 #import "MGLStyleAttributeValue.h"
 #import "MGLRasterStyleLayer.h"
@@ -13,6 +14,7 @@
 @property (nonatomic) mbgl::style::RasterLayer *layer;
 @property (nonatomic, readwrite) NSString *layerIdentifier;
 @property (nonatomic, readwrite) NSString *sourceIdentifier;
+@property (nonatomic, readwrite) NSString *sourceLayerIdentifier;
 
 @end
 
@@ -20,20 +22,22 @@
 
 @synthesize mapView;
 
-- (instancetype)initWithLayerIdentifier:(NSString *)layerIdentifier sourceIdentifier:(NSString *)sourceIdentifier {
+
+- (instancetype)initWithLayerIdentifier:(NSString *)layerIdentifier source:(MGLSource *)source
+{
     if (self = [super init]) {
         _layerIdentifier = layerIdentifier;
-        _sourceIdentifier = sourceIdentifier;
-        _layer = new mbgl::style::RasterLayer(layerIdentifier.UTF8String, sourceIdentifier.UTF8String);
+        _sourceIdentifier = source.sourceIdentifier;
+        _layer = new mbgl::style::RasterLayer(layerIdentifier.UTF8String, source.sourceIdentifier.UTF8String);
     }
     return self;
 }
+
 
 #pragma mark - Accessing the Paint Attributes
 
 - (void)setRasterOpacity:(id <MGLStyleAttributeValue, MGLStyleAttributeValue_Private>)rasterOpacity {
     self.layer->setRasterOpacity(rasterOpacity.mbgl_floatPropertyValue);
-    [self update];
 }
 
 - (id <MGLStyleAttributeValue>)rasterOpacity {
@@ -42,7 +46,6 @@
 
 - (void)setRasterHueRotate:(id <MGLStyleAttributeValue, MGLStyleAttributeValue_Private>)rasterHueRotate {
     self.layer->setRasterHueRotate(rasterHueRotate.mbgl_floatPropertyValue);
-    [self update];
 }
 
 - (id <MGLStyleAttributeValue>)rasterHueRotate {
@@ -51,7 +54,6 @@
 
 - (void)setRasterBrightnessMin:(id <MGLStyleAttributeValue, MGLStyleAttributeValue_Private>)rasterBrightnessMin {
     self.layer->setRasterBrightnessMin(rasterBrightnessMin.mbgl_floatPropertyValue);
-    [self update];
 }
 
 - (id <MGLStyleAttributeValue>)rasterBrightnessMin {
@@ -60,7 +62,6 @@
 
 - (void)setRasterBrightnessMax:(id <MGLStyleAttributeValue, MGLStyleAttributeValue_Private>)rasterBrightnessMax {
     self.layer->setRasterBrightnessMax(rasterBrightnessMax.mbgl_floatPropertyValue);
-    [self update];
 }
 
 - (id <MGLStyleAttributeValue>)rasterBrightnessMax {
@@ -69,7 +70,6 @@
 
 - (void)setRasterSaturation:(id <MGLStyleAttributeValue, MGLStyleAttributeValue_Private>)rasterSaturation {
     self.layer->setRasterSaturation(rasterSaturation.mbgl_floatPropertyValue);
-    [self update];
 }
 
 - (id <MGLStyleAttributeValue>)rasterSaturation {
@@ -78,7 +78,6 @@
 
 - (void)setRasterContrast:(id <MGLStyleAttributeValue, MGLStyleAttributeValue_Private>)rasterContrast {
     self.layer->setRasterContrast(rasterContrast.mbgl_floatPropertyValue);
-    [self update];
 }
 
 - (id <MGLStyleAttributeValue>)rasterContrast {
@@ -87,7 +86,6 @@
 
 - (void)setRasterFadeDuration:(id <MGLStyleAttributeValue, MGLStyleAttributeValue_Private>)rasterFadeDuration {
     self.layer->setRasterFadeDuration(rasterFadeDuration.mbgl_floatPropertyValue);
-    [self update];
 }
 
 - (id <MGLStyleAttributeValue>)rasterFadeDuration {
