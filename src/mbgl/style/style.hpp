@@ -3,6 +3,8 @@
 #include <mbgl/style/transition_options.hpp>
 #include <mbgl/style/observer.hpp>
 #include <mbgl/style/source_observer.hpp>
+#include <mbgl/style/layer_observer.hpp>
+#include <mbgl/style/update_batch.hpp>
 #include <mbgl/text/glyph_store_observer.hpp>
 #include <mbgl/sprite/sprite_store_observer.hpp>
 #include <mbgl/map/mode.hpp>
@@ -35,6 +37,7 @@ class QueryParameters;
 class Style : public GlyphStoreObserver,
               public SpriteStoreObserver,
               public SourceObserver,
+              public LayerObserver,
               public util::noncopyable {
 public:
     Style(FileSource&, float pixelRatio);
@@ -48,8 +51,9 @@ public:
 
     // Fetch the tiles needed by the current viewport and emit a signal when
     // a tile is ready so observers can render the tile.
-    void update(const UpdateParameters&);
+    void updateTiles(const UpdateParameters&);
 
+    void relayout();
     void cascade(const TimePoint&, MapMode);
     void recalculate(float z, const TimePoint&, MapMode);
 
@@ -113,6 +117,7 @@ private:
     double defaultPitch;
 
     std::vector<std::unique_ptr<Layer>>::const_iterator findLayer(const std::string& layerID) const;
+    void reloadLayerSource(Layer&);
 
     // GlyphStoreObserver implementation.
     void onGlyphsLoaded(const FontStack&, const GlyphRange&) override;
@@ -125,15 +130,22 @@ private:
     // SourceObserver implementation.
     void onSourceLoaded(Source&) override;
     void onSourceError(Source&, std::exception_ptr) override;
-    void onTileLoaded(Source&, const OverscaledTileID&, bool isNewTile) override;
+    void onTileLoaded(Source&, const OverscaledTileID&, TileLoadState) override;
     void onTileError(Source&, const OverscaledTileID&, std::exception_ptr) override;
-    void onNeedsRepaint() override;
+    void onTileUpdated(Source&, const OverscaledTileID&) override;
+
+    // LayerObserver implementation.
+    void onLayerFilterChanged(Layer&) override;
+    void onLayerVisibilityChanged(Layer&) override;
+    void onLayerPaintPropertyChanged(Layer&) override;
+    void onLayerLayoutPropertyChanged(Layer&) override;
 
     Observer nullObserver;
     Observer* observer = &nullObserver;
 
     std::exception_ptr lastError;
 
+    UpdateBatch updateBatch;
     ZoomHistory zoomHistory;
     bool hasPendingTransitions = false;
 
