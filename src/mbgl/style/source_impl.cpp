@@ -77,11 +77,9 @@ const std::map<UnwrappedTileID, RenderTile>& Source::Impl::getRenderTiles() cons
     return renderTiles;
 }
 
-bool Source::Impl::update(const UpdateParameters& parameters) {
-    bool allTilesUpdated = true;
-
-    if (!loaded || parameters.animationTime <= updated) {
-        return allTilesUpdated;
+void Source::Impl::loadTiles(const UpdateParameters& parameters) {
+    if (!loaded) {
+        return;
     }
 
     const uint16_t tileSize = getTileSize();
@@ -163,7 +161,10 @@ bool Source::Impl::update(const UpdateParameters& parameters) {
             ++retainIt;
         }
     }
+}
 
+bool Source::Impl::parseTiles(const UpdateParameters& parameters) {
+    bool allTilesUpdated = true;
     const PlacementConfig newConfig{ parameters.transformState.getAngle(),
                                      parameters.transformState.getPitch(),
                                      parameters.debugOptions & MapDebugOptions::Collision };
@@ -178,9 +179,16 @@ bool Source::Impl::update(const UpdateParameters& parameters) {
         }
     }
 
-    updated = parameters.animationTime;
-
     return allTilesUpdated;
+}
+
+void Source::Impl::reload() {
+    cache.clear();
+
+    for (auto& pair : tiles) {
+        auto tile = pair.second.get();
+        tile->redoLayout();
+    }
 }
 
 static Point<int16_t> coordinateToTilePoint(const UnwrappedTileID& tileID, const Point<double>& p) {
@@ -250,16 +258,16 @@ void Source::Impl::setObserver(SourceObserver* observer_) {
     observer = observer_;
 }
 
-void Source::Impl::onTileLoaded(Tile& tile, bool isNewTile) {
-    observer->onTileLoaded(base, tile.id, isNewTile);
+void Source::Impl::onTileLoaded(Tile& tile, TileLoadState loadState) {
+    observer->onTileLoaded(base, tile.id, loadState);
 }
 
 void Source::Impl::onTileError(Tile& tile, std::exception_ptr error) {
     observer->onTileError(base, tile.id, error);
 }
 
-void Source::Impl::onNeedsRepaint() {
-    observer->onNeedsRepaint();
+void Source::Impl::onTileUpdated(Tile& tile) {
+    observer->onTileUpdated(base, tile.id);
 }
 
 void Source::Impl::dumpDebugLogs() const {
