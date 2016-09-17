@@ -260,6 +260,12 @@ public class MapView extends FrameLayout {
             mMyLocationView.setTilt(position.tilt);
         }
 
+        // api base url
+        String apiBaseUrl = options.getApiBaseUrl();
+        if (!TextUtils.isEmpty(apiBaseUrl)) {
+            setApiBaseUrl(apiBaseUrl);
+        }
+
         // access token
         String accessToken = options.getAccessToken();
         if (!TextUtils.isEmpty(accessToken)) {
@@ -875,6 +881,15 @@ public class MapView extends FrameLayout {
     @NonNull
     public String getStyleUrl() {
         return mStyleUrl;
+    }
+
+    //
+    // API Base URL
+    //
+
+    @UiThread
+    void setApiBaseUrl(@NonNull String baseUrl) {
+        mNativeMapView.setApiBaseUrl(baseUrl);
     }
 
     //
@@ -1514,11 +1529,14 @@ public class MapView extends FrameLayout {
         }
 
         // Required by ZoomButtonController (from Android SDK documentation)
-        if (mMapboxMap.getUiSettings().isZoomControlsEnabled() && (visibility != View.VISIBLE)) {
-            mZoomButtonsController.setVisible(false);
-        }
-        if (mMapboxMap.getUiSettings().isZoomControlsEnabled() && (visibility == View.VISIBLE)) {
-            mZoomButtonsController.setVisible(true);
+        if (visibility == View.VISIBLE) {
+            if (mMapboxMap != null && mMapboxMap.getUiSettings().isZoomControlsEnabled()) {
+                mZoomButtonsController.setVisible(true);
+            }
+        } else {
+            if (mMapboxMap != null && mMapboxMap.getUiSettings().isZoomControlsEnabled()) {
+                mZoomButtonsController.setVisible(false);
+            }
         }
     }
 
