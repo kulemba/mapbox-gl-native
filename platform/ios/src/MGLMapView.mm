@@ -4079,7 +4079,7 @@ public:
 - (void)didUpdateLocationIncrementallyAnimated:(BOOL)animated
 {
     [self _setCenterCoordinate:self.userLocation.location.coordinate
-                   edgePadding:self.contentInset
+                   edgePadding:self.edgePaddingForFollowing
                      zoomLevel:self.zoomLevel
                      direction:self.directionByFollowingWithCourse
                       duration:animated ? MGLUserLocationAnimationDuration : 0
@@ -4106,7 +4106,7 @@ public:
     
     __weak MGLMapView *weakSelf = self;
     [self _flyToCamera:camera
-           edgePadding:self.contentInset
+           edgePadding:self.edgePaddingForFollowing
           withDuration:animated ? -1 : 0
           peakAltitude:-1
      completionHandler:^{
@@ -4167,8 +4167,10 @@ public:
     CGRect boundsAroundCorrectPoint = CGRectOffset(bounds,
                                                    correctPoint.x - CGRectGetMidX(bounds),
                                                    correctPoint.y - CGRectGetMidY(bounds));
-    return UIEdgeInsetsMake(CGRectGetMinY(boundsAroundCorrectPoint) - CGRectGetMinY(bounds), 0,
-                            CGRectGetMaxY(bounds) - CGRectGetMaxY(boundsAroundCorrectPoint), 0);
+    return UIEdgeInsetsMake(CGRectGetMinY(boundsAroundCorrectPoint) - CGRectGetMinY(bounds) + self.contentInset.top,
+                            self.contentInset.left,
+                            CGRectGetMaxY(bounds) - CGRectGetMaxY(boundsAroundCorrectPoint) + self.contentInset.bottom,
+                            self.contentInset.right);
 }
 
 /// Returns the edge padding to apply during bifocal course tracking.
