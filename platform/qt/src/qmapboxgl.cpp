@@ -107,11 +107,22 @@ auto fromQMapboxTransitionOptions(const QMapbox::TransitionOptions &options) {
     return mbgl::style::TransitionOptions { convert(options.duration), convert(options.delay) };
 }
 
+auto toQMapboxTransitionOptions(const mbgl::style::TransitionOptions &options) {
+    auto convert = [](auto& value) -> QVariant {
+        if (value) {
+            return qint64(std::chrono::duration_cast<mbgl::Milliseconds>(*value).count());
+        }
+        return {};
+    };
+    return QMapbox::TransitionOptions { convert(options.duration), convert(options.delay) };
+}
+
 auto fromQStringList(const QStringList &list)
 {
-    std::vector<std::string> strings(list.size());
+    std::vector<std::string> strings;
+    strings.reserve(list.size());
     for (const QString &string : list) {
-        strings.emplace_back(string.toStdString());
+        strings.push_back(string.toStdString());
     }
     return strings;
 }
@@ -462,19 +473,9 @@ void QMapboxGL::addClass(const QString &className)
     d_ptr->mapObj->addClass(className.toStdString());
 }
 
-void QMapboxGL::addClass(const QString &className, const QMapbox::TransitionOptions &options)
-{
-    d_ptr->mapObj->addClass(className.toStdString(), fromQMapboxTransitionOptions(options));
-}
-
 void QMapboxGL::removeClass(const QString &className)
 {
     d_ptr->mapObj->removeClass(className.toStdString());
-}
-
-void QMapboxGL::removeClass(const QString &className, const QMapbox::TransitionOptions &options)
-{
-    d_ptr->mapObj->removeClass(className.toStdString(), fromQMapboxTransitionOptions(options));
 }
 
 bool QMapboxGL::hasClass(const QString &className) const
@@ -487,11 +488,6 @@ void QMapboxGL::setClasses(const QStringList &classNames)
     d_ptr->mapObj->setClasses(fromQStringList(classNames));
 }
 
-void QMapboxGL::setClasses(const QStringList &classNames, const QMapbox::TransitionOptions &options)
-{
-    d_ptr->mapObj->setClasses(fromQStringList(classNames), fromQMapboxTransitionOptions(options));
-}
-
 QStringList QMapboxGL::getClasses() const
 {
     QStringList classNames;
@@ -499,6 +495,14 @@ QStringList QMapboxGL::getClasses() const
         classNames << QString::fromStdString(mbglClass);
     }
     return classNames;
+}
+
+QMapbox::TransitionOptions QMapboxGL::getTransitionOptions() const {
+    return toQMapboxTransitionOptions(d_ptr->mapObj->getTransitionOptions());
+}
+
+void QMapboxGL::setTransitionOptions(const QMapbox::TransitionOptions &options) {
+    d_ptr->mapObj->setTransitionOptions(fromQMapboxTransitionOptions(options));
 }
 
 mbgl::Annotation fromPointAnnotation(const PointAnnotation &pointAnnotation) {
