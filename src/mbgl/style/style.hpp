@@ -12,25 +12,28 @@
 
 #include <mbgl/util/noncopyable.hpp>
 #include <mbgl/util/chrono.hpp>
-#include <mbgl/util/worker.hpp>
 #include <mbgl/util/optional.hpp>
 #include <mbgl/util/feature.hpp>
 #include <mbgl/util/geo.hpp>
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
 namespace mbgl {
 
 class FileSource;
+class GlyphStore;
 class GlyphAtlas;
+class SpriteStore;
 class SpriteAtlas;
 class LineAtlas;
 class RenderData;
 
 namespace style {
 
+class Layer;
 class UpdateParameters;
 class QueryParameters;
 
@@ -79,10 +82,14 @@ public:
     double getDefaultBearing() const;
     double getDefaultPitch() const;
 
-    bool addClass(const std::string&, const TransitionOptions& = {});
-    bool removeClass(const std::string&, const TransitionOptions& = {});
+    bool addClass(const std::string&);
+    bool removeClass(const std::string&);
+    void setClasses(const std::vector<std::string>&);
+
+    TransitionOptions getTransitionOptions() const;
+    void setTransitionOptions(const TransitionOptions&);
+
     bool hasClass(const std::string&) const;
-    void setClasses(const std::vector<std::string>&, const TransitionOptions& = {});
     std::vector<std::string> getClasses() const;
 
     RenderData getRenderData(MapDebugOptions) const;
@@ -107,7 +114,7 @@ private:
     std::vector<std::unique_ptr<Source>> sources;
     std::vector<std::unique_ptr<Layer>> layers;
     std::vector<std::string> classes;
-    optional<TransitionOptions> transitionProperties;
+    TransitionOptions transitionOptions;
 
     // Defaults
     std::string name;
@@ -130,9 +137,8 @@ private:
     // SourceObserver implementation.
     void onSourceLoaded(Source&) override;
     void onSourceError(Source&, std::exception_ptr) override;
-    void onTileLoaded(Source&, const OverscaledTileID&, TileLoadState) override;
+    void onTileChanged(Source&, const OverscaledTileID&) override;
     void onTileError(Source&, const OverscaledTileID&, std::exception_ptr) override;
-    void onTileUpdated(Source&, const OverscaledTileID&) override;
 
     // LayerObserver implementation.
     void onLayerFilterChanged(Layer&) override;
@@ -150,9 +156,7 @@ private:
     bool hasPendingTransitions = false;
 
 public:
-    bool shouldReparsePartialTiles = false;
     bool loaded = false;
-    Worker workers;
 };
 
 } // namespace style

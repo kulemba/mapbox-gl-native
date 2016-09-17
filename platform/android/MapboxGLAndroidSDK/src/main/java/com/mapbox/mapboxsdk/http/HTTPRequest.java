@@ -43,7 +43,7 @@ class HTTPRequest implements Callback {
 
     private native void nativeOnFailure(int type, String message);
 
-    private native void nativeOnResponse(int code, String etag, String modified, String cacheControl, String expires, byte[] body);
+    private native void nativeOnResponse(int code, String etag, String modified, String cacheControl, String expires, String retryAfter, String xRateLimitReset, byte[] body);
 
     private HTTPRequest(long nativePtr, String resourceUrl, String userAgent, String etag, String modified) {
         mNativePtr = nativePtr;
@@ -56,7 +56,7 @@ class HTTPRequest implements Callback {
 
             HttpUrl httpUrl = HttpUrl.parse(resourceUrl);
             final String host = httpUrl.host().toLowerCase(MapboxConstants.MAPBOX_LOCALE);
-            if (host.equals("mapbox.com") || host.endsWith(".mapbox.com")) {
+            if (host.equals("mapbox.com") || host.endsWith(".mapbox.com") || host.equals("mapbox.cn") || host.endsWith(".mapbox.cn")) {
                 if (httpUrl.querySize() == 0) {
                     resourceUrl = resourceUrl + "?";
                 } else {
@@ -120,7 +120,14 @@ class HTTPRequest implements Callback {
 
         mLock.lock();
         if (mNativePtr != 0) {
-            nativeOnResponse(response.code(), response.header("ETag"), response.header("Last-Modified"), response.header("Cache-Control"), response.header("Expires"), body);
+            nativeOnResponse(response.code(),
+                    response.header("ETag"),
+                    response.header("Last-Modified"),
+                    response.header("Cache-Control"),
+                    response.header("Expires"),
+                    response.header("Retry-After"),
+                    response.header("x-rate-limit-reset"),
+                    body);
         }
         mLock.unlock();
     }
