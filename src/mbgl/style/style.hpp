@@ -5,8 +5,8 @@
 #include <mbgl/style/source_observer.hpp>
 #include <mbgl/style/layer_observer.hpp>
 #include <mbgl/style/update_batch.hpp>
-#include <mbgl/text/glyph_store_observer.hpp>
-#include <mbgl/sprite/sprite_store_observer.hpp>
+#include <mbgl/text/glyph_atlas_observer.hpp>
+#include <mbgl/sprite/sprite_atlas_observer.hpp>
 #include <mbgl/map/mode.hpp>
 #include <mbgl/map/zoom_history.hpp>
 
@@ -24,9 +24,7 @@
 namespace mbgl {
 
 class FileSource;
-class GlyphStore;
 class GlyphAtlas;
-class SpriteStore;
 class SpriteAtlas;
 class LineAtlas;
 class RenderData;
@@ -37,8 +35,8 @@ class Layer;
 class UpdateParameters;
 class QueryParameters;
 
-class Style : public GlyphStoreObserver,
-              public SpriteStoreObserver,
+class Style : public GlyphAtlasObserver,
+              public SpriteAtlasObserver,
               public SourceObserver,
               public LayerObserver,
               public util::noncopyable {
@@ -104,9 +102,7 @@ public:
     void dumpDebugLogs() const;
 
     FileSource& fileSource;
-    std::unique_ptr<GlyphStore> glyphStore;
     std::unique_ptr<GlyphAtlas> glyphAtlas;
-    std::unique_ptr<SpriteStore> spriteStore;
     std::unique_ptr<SpriteAtlas> spriteAtlas;
     std::unique_ptr<LineAtlas> lineAtlas;
 
