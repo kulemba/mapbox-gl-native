@@ -3,11 +3,10 @@
 #include <mbgl/layout/clip_lines.hpp>
 #include <mbgl/renderer/symbol_bucket.hpp>
 #include <mbgl/style/filter_evaluator.hpp>
-#include <mbgl/sprite/sprite_store.hpp>
 #include <mbgl/sprite/sprite_atlas.hpp>
-#include <mbgl/geometry/glyph_atlas.hpp>
+#include <mbgl/text/glyph_atlas.hpp>
 #include <mbgl/text/get_anchors.hpp>
-#include <mbgl/text/glyph_store.hpp>
+#include <mbgl/text/glyph_atlas.hpp>
 #include <mbgl/text/collision_tile.hpp>
 #include <mbgl/util/utf.hpp>
 #include <mbgl/util/token.hpp>
@@ -125,12 +124,12 @@ bool SymbolLayout::hasSymbolInstances() const {
     return !symbolInstances.empty();
 }
 
-bool SymbolLayout::canPrepare(GlyphStore& glyphStore, SpriteStore& spriteStore) {
-    if (!layout.textField.value.empty() && !layout.textFont.value.empty() && !glyphStore.hasGlyphRanges(layout.textFont, ranges)) {
+bool SymbolLayout::canPrepare(GlyphAtlas& glyphAtlas) {
+    if (!layout.textField.value.empty() && !layout.textFont.value.empty() && !glyphAtlas.hasGlyphRanges(layout.textFont, ranges)) {
         return false;
     }
 
-    if (!layout.iconImage.value.empty() && !spriteStore.isLoaded()) {
+    if (!layout.iconImage.value.empty() && !spriteAtlas.isLoaded()) {
         return false;
     }
 
@@ -138,8 +137,7 @@ bool SymbolLayout::canPrepare(GlyphStore& glyphStore, SpriteStore& spriteStore) 
 }
 
 void SymbolLayout::prepare(uintptr_t tileUID,
-                           GlyphAtlas& glyphAtlas,
-                           GlyphStore& glyphStore) {
+                           GlyphAtlas& glyphAtlas) {
     float horizontalAlign = 0.5;
     float verticalAlign = 0.5;
 
@@ -181,7 +179,7 @@ void SymbolLayout::prepare(uintptr_t tileUID,
         layout.textJustify == TextJustifyType::Left ? 0 :
         0.5;
 
-    auto glyphSet = glyphStore.getGlyphSet(layout.textFont);
+    auto glyphSet = glyphAtlas.getGlyphSet(layout.textFont);
 
     for (const auto& feature : features) {
         if (feature.geometry.empty()) continue;
