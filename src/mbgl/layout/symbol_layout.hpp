@@ -7,7 +7,7 @@
 
 #include <memory>
 #include <map>
-#include <set>
+#include <unordered_set>
 #include <vector>
 
 namespace mbgl {
@@ -15,9 +15,7 @@ namespace mbgl {
 class GeometryTileLayer;
 class CollisionTile;
 class SpriteAtlas;
-class SpriteStore;
 class GlyphAtlas;
-class GlyphStore;
 class SymbolBucket;
 
 namespace style {
@@ -39,11 +37,10 @@ public:
                  float textMaxSize,
                  SpriteAtlas&);
 
-    bool canPrepare(GlyphStore&, SpriteStore&);
+    bool canPrepare(GlyphAtlas&);
 
     void prepare(uintptr_t tileUID,
-                 GlyphAtlas&,
-                 GlyphStore&);
+                 GlyphAtlas&);
 
     std::unique_ptr<SymbolBucket> place(CollisionTile&);
 
@@ -91,7 +88,7 @@ private:
     bool sdfIcons = false;
     bool iconsNeedLinear = false;
 
-    std::set<GlyphRange> ranges;
+    GlyphRangeSet ranges;
     std::vector<SymbolInstance> symbolInstances;
     std::vector<SymbolFeature> features;
 };
