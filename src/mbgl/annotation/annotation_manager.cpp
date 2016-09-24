@@ -8,6 +8,7 @@
 #include <mbgl/style/style.hpp>
 #include <mbgl/style/layers/symbol_layer.hpp>
 #include <mbgl/style/layers/symbol_layer_impl.hpp>
+#include <mbgl/storage/file_source.hpp>
 
 #include <boost/function_output_iterator.hpp>
 
@@ -19,15 +20,29 @@ const std::string AnnotationManager::SourceID = "com.mapbox.annotations";
 const std::string AnnotationManager::PointLayerID = "com.mapbox.annotations.points";
 
 AnnotationManager::AnnotationManager(float pixelRatio)
-    : spriteStore(pixelRatio),
-      spriteAtlas(1024, 1024, pixelRatio, spriteStore) {
+    : spriteAtlas(1024, 1024, pixelRatio) {
+
+    struct NullFileSource : public FileSource {
+        std::unique_ptr<AsyncRequest> request(const Resource&, Callback) override {
+            assert(false);
+            return nullptr;
+        }
+    };
+
+    NullFileSource nullFileSource;
+
+    // This is a special atlas, holding only images added via addIcon. But we need its isLoaded()
+    // method to return true.
+    spriteAtlas.load("", nullFileSource);
 }
 
 AnnotationManager::~AnnotationManager() = default;
 
 AnnotationID AnnotationManager::addAnnotation(const Annotation& annotation, const uint8_t maxZoom) {
     AnnotationID id = nextID++;
-    updateAnnotation(id, annotation, maxZoom);
+    Annotation::visit(annotation, [&] (const auto& annotation_) {
+        this->add(id, annotation_, maxZoom);
+    });
     return id;
 }
 
@@ -44,6 +59,8 @@ void AnnotationManager::removeAnnotation(const AnnotationID& id) {
     } else if (shapeAnnotations.find(id) != shapeAnnotations.end()) {
         obsoleteShapeAnnotationLayers.insert(shapeAnnotations.at(id)->layerID);
         shapeAnnotations.erase(id);
+    } else {
+        assert(false); // Should never happen
     }
 }
 
@@ -72,13 +89,14 @@ void AnnotationManager::add(const AnnotationID& id, const StyleSourcedAnnotation
 }
 
 Update AnnotationManager::update(const AnnotationID& id, const SymbolAnnotation& annotation, const uint8_t maxZoom) {
+    Update result = Update::Nothing;
+    
     auto it = symbolAnnotations.find(id);
     if (it == symbolAnnotations.end()) {
-        removeAndAdd(id, annotation, maxZoom);
-        return Update::AnnotationData | Update::AnnotationStyle;
+        assert(false); // Attempt to update a non-existent symbol annotation
+        return result;
     }
 
-    Update result = Update::Nothing;
     const SymbolAnnotation& existing = it->second->annotation;
 
     if (existing.geometry != annotation.geometry) {
@@ -97,16 +115,31 @@ Update AnnotationManager::update(const AnnotationID& id, const SymbolAnnotation&
 }
 
 Update AnnotationManager::update(const AnnotationID& id, const LineAnnotation& annotation, const uint8_t maxZoom) {
+    auto it = shapeAnnotations.find(id);
+    if (it == shapeAnnotations.end()) {
+        assert(false); // Attempt to update a non-existent shape annotation
+        return Update::Nothing;
+    }
     removeAndAdd(id, annotation, maxZoom);
     return Update::AnnotationData | Update::AnnotationStyle;
 }
 
 Update AnnotationManager::update(const AnnotationID& id, const FillAnnotation& annotation, const uint8_t maxZoom) {
+    auto it = shapeAnnotations.find(id);
+    if (it == shapeAnnotations.end()) {
+        assert(false); // Attempt to update a non-existent shape annotation
+        return Update::Nothing;
+    }
     removeAndAdd(id, annotation, maxZoom);
     return Update::AnnotationData | Update::AnnotationStyle;
 }
 
 Update AnnotationManager::update(const AnnotationID& id, const StyleSourcedAnnotation& annotation, const uint8_t maxZoom) {
+    auto it = shapeAnnotations.find(id);
+    if (it == shapeAnnotations.end()) {
+        assert(false); // Attempt to update a non-existent shape annotation
+        return Update::Nothing;
+    }
     removeAndAdd(id, annotation, maxZoom);
     return Update::AnnotationData | Update::AnnotationStyle;
 }
@@ -187,17 +220,17 @@ void AnnotationManager::removeTile(AnnotationTile& tile) {
 }
 
 void AnnotationManager::addIcon(const std::string& name, std::shared_ptr<const SpriteImage> sprite) {
-    spriteStore.setSprite(name, sprite);
+    spriteAtlas.setSprite(name, sprite);
     spriteAtlas.updateDirty();
 }
 
 void AnnotationManager::removeIcon(const std::string& name) {
-    spriteStore.removeSprite(name);
+    spriteAtlas.removeSprite(name);
     spriteAtlas.updateDirty();
 }
 
 double AnnotationManager::getTopOffsetPixelsForIcon(const std::string& name) {
-    auto sprite = spriteStore.getSprite(name);
+    auto sprite = spriteAtlas.getSprite(name);
     return sprite ? -(sprite->image.height / sprite->pixelRatio) / 2 : 0;
 }
 

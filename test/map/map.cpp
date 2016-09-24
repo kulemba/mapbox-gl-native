@@ -6,8 +6,10 @@
 #include <mbgl/map/map.hpp>
 #include <mbgl/platform/default/headless_view.hpp>
 #include <mbgl/platform/default/headless_display.hpp>
+#include <mbgl/sprite/sprite_image.hpp>
 #include <mbgl/storage/network_status.hpp>
 #include <mbgl/storage/default_file_source.hpp>
+#include <mbgl/util/image.hpp>
 #include <mbgl/util/io.hpp>
 #include <mbgl/util/run_loop.hpp>
 #include <mbgl/style/layers/background_layer.hpp>
@@ -202,6 +204,26 @@ TEST(Map, StyleEarlyMutation) {
     EXPECT_NE(nullptr, map.getLayer("water"));
 }
 
+TEST(Map, StyleLoadedSignal) {
+    MapTest test;
+    Map map(test.view, test.fileSource, MapMode::Still);
+    
+    // The map should emit a signal on style loaded
+    bool emitted = false;
+    test.view.setMapChangeCallback([&](MapChange change) {
+        if (change == mbgl::MapChangeDidFinishLoadingStyle) {
+            emitted = true;
+        }
+    });
+    map.setStyleJSON(util::read_file("test/fixtures/api/empty.json"));
+    EXPECT_TRUE(emitted);
+    
+    // But not when the style couldn't be parsed
+    emitted = false;
+    map.setStyleJSON("invalid");
+    EXPECT_FALSE(emitted);
+}
+
 TEST(Map, AddLayer) {
     MapTest test;
 
@@ -227,6 +249,67 @@ TEST(Map, RemoveLayer) {
     map.removeLayer("background");
 
     test::checkImage("test/fixtures/map/remove_layer", test::render(map));
+}
+
+TEST(Map, DisabledSources) {
+    MapTest test;
+
+    // Always load the same image tile for raster layers.
+    test.fileSource.response = [] (const Resource& res) -> optional<Response> {
+        if (res.url == "asset://tile.png") {
+            Response response;
+            response.data = std::make_shared<std::string>(
+                util::read_file("test/fixtures/map/disabled_layers/tile.png"));
+            return {std::move(response)};
+        }
+        return {};
+    };
+
+    Map map(test.view, test.fileSource, MapMode::Still);
+    map.setZoom(1);
+
+    // This stylesheet has two raster layers, one that starts at zoom 1, the other at zoom 0.
+    // We first render a map at zoom level 1, which should show both layers (both are "visible" due
+    // to an opacity of 0.5). Then, we are zooming back out to a zoom level of 0.5 and rerender.
+    // The "raster1" layer should not be visible anymore since it has minzoom 1, while "raster2"
+    // should still be there. Both layers have a distinct color through "raster-hue-rotate".
+    map.setStyleJSON(R"STYLE(
+{
+  "version": 8,
+  "name": "Test",
+  "sources": {
+    "raster": {
+      "type": "raster",
+      "tiles": [ "asset://tile.png" ],
+      "tileSize": 256
+    }
+  },
+  "layers": [{
+    "id": "background",
+    "type": "background",
+    "paint": {
+      "background-color": "white"
+    }
+  }, {
+    "id": "raster1",
+    "type": "raster",
+    "source": "raster",
+    "minzoom": 0
+  }, {
+    "id": "raster2",
+    "type": "raster",
+    "source": "raster",
+    "minzoom": 1,
+    "paint": {
+      "raster-hue-rotate": 180
+    }
+  }]
+}
+)STYLE");
+
+    test::checkImage("test/fixtures/map/disabled_layers/first", test::render(map));
+    map.setZoom(0.5);
+    test::checkImage("test/fixtures/map/disabled_layers/second", test::render(map));
 }
 
 TEST(Map, Classes) {
@@ -262,3 +345,34 @@ TEST(Map, Classes) {
     EXPECT_TRUE(map.getClasses().empty());
     EXPECT_FALSE(map.getTransitionOptions().duration);
 }
+
+TEST(Map, AddImage) {
+    MapTest test;
+
+    Map map(test.view, test.fileSource, MapMode::Still);
+    auto decoded1 = decodeImage(util::read_file("test/fixtures/sprites/default_marker.png"));
+    auto decoded2 = decodeImage(util::read_file("test/fixtures/sprites/default_marker.png"));
+    auto image1 = std::make_unique<SpriteImage>(std::move(decoded1), 1.0);
+    auto image2 = std::make_unique<SpriteImage>(std::move(decoded2), 1.0);
+
+    // No-op.
+    map.addImage("test-icon", std::move(image1));
+
+    map.setStyleJSON(util::read_file("test/fixtures/api/icon_style.json"));
+    map.addImage("test-icon", std::move(image2));
+    test::checkImage("test/fixtures/map/add_icon", test::render(map));
+}
+
+TEST(Map, RemoveImage) {
+    MapTest test;
+
+    Map map(test.view, test.fileSource, MapMode::Still);
+    auto decoded = decodeImage(util::read_file("test/fixtures/sprites/default_marker.png"));
+    auto image = std::make_unique<SpriteImage>(std::move(decoded), 1.0);
+
+    map.setStyleJSON(util::read_file("test/fixtures/api/icon_style.json"));
+    map.addImage("test-icon", std::move(image));
+    map.removeImage("test-icon");
+    test::checkImage("test/fixtures/map/remove_icon", test::render(map));
+}
+
