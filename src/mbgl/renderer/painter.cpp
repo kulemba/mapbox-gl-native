@@ -17,7 +17,7 @@
 
 #include <mbgl/sprite/sprite_atlas.hpp>
 #include <mbgl/geometry/line_atlas.hpp>
-#include <mbgl/geometry/glyph_atlas.hpp>
+#include <mbgl/text/glyph_atlas.hpp>
 
 #include <mbgl/shader/shaders.hpp>
 
@@ -31,6 +31,7 @@
 #include <cassert>
 #include <algorithm>
 #include <iostream>
+#include <unordered_set>
 
 namespace mbgl {
 
@@ -80,7 +81,7 @@ void Painter::render(const Style& style, const FrameData& frame_, SpriteAtlas& a
 
     RenderData renderData = style.getRenderData(frame.debugOptions);
     const std::vector<RenderItem>& order = renderData.order;
-    const std::set<Source*>& sources = renderData.sources;
+    const std::unordered_set<Source*>& sources = renderData.sources;
     const Color& background = renderData.backgroundColor;
 
     // Update the default matrices to the current viewport dimensions.
