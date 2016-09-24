@@ -387,6 +387,10 @@ qtproj: $(MACOS_QT_PROJ_PATH)
 
 endif
 
+.PHONY: qt-lib
+qt-lib: $(QT_BUILD)
+	$(NINJA) $(NINJA_ARGS) -j$(JOBS) -C $(QT_OUTPUT_PATH) qmapboxgl
+
 .PHONY: qt-app
 qt-app: $(QT_BUILD)
 	$(NINJA) $(NINJA_ARGS) -j$(JOBS) -C $(QT_OUTPUT_PATH) mbgl-qt
@@ -462,7 +466,7 @@ android: android-arm-v7
 
 .PHONY: android-test
 android-test:
-	cd platform/android && ./gradlew testReleaseUnitTest --continue
+	cd platform/android && ./gradlew testDebugUnitTest --continue
 
 .PHONY: android-test-apk
 android-test-apk:
