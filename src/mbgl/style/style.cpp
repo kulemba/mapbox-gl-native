@@ -18,9 +18,8 @@
 #include <mbgl/style/update_parameters.hpp>
 #include <mbgl/style/cascade_parameters.hpp>
 #include <mbgl/style/calculation_parameters.hpp>
-#include <mbgl/sprite/sprite_store.hpp>
 #include <mbgl/sprite/sprite_atlas.hpp>
-#include <mbgl/geometry/glyph_atlas.hpp>
+#include <mbgl/text/glyph_atlas.hpp>
 #include <mbgl/geometry/line_atlas.hpp>
 #include <mbgl/renderer/render_item.hpp>
 #include <mbgl/renderer/render_tile.hpp>
@@ -38,14 +37,12 @@ static Observer nullObserver;
 
 Style::Style(FileSource& fileSource_, float pixelRatio)
     : fileSource(fileSource_),
-      glyphStore(std::make_unique<GlyphStore>(fileSource)),
-      glyphAtlas(std::make_unique<GlyphAtlas>(2048, 2048)),
-      spriteStore(std::make_unique<SpriteStore>(pixelRatio)),
-      spriteAtlas(std::make_unique<SpriteAtlas>(1024, 1024, pixelRatio, *spriteStore)),
+      glyphAtlas(std::make_unique<GlyphAtlas>(2048, 2048, fileSource)),
+      spriteAtlas(std::make_unique<SpriteAtlas>(1024, 1024, pixelRatio)),
       lineAtlas(std::make_unique<LineAtlas>(256, 512)),
       observer(&nullObserver) {
-    glyphStore->setObserver(this);
-    spriteStore->setObserver(this);
+    glyphAtlas->setObserver(this);
+    spriteAtlas->setObserver(this);
 }
 
 Style::~Style() {
@@ -53,8 +50,8 @@ Style::~Style() {
         source->baseImpl->setObserver(nullptr);
     }
 
-    glyphStore->setObserver(nullptr);
-    spriteStore->setObserver(nullptr);
+    glyphAtlas->setObserver(nullptr);
+    spriteAtlas->setObserver(nullptr);
 }
 
 bool Style::addClass(const std::string& className) {
@@ -107,7 +104,6 @@ void Style::setJSON(const std::string& json, uint8_t maxZoomLimit_) {
         Log::Error(Event::ParseStyle, "Failed to parse style: %s", util::toString(error).c_str());
         observer->onStyleError();
         observer->onResourceError(error);
-
         return;
     }
 
@@ -125,10 +121,12 @@ void Style::setJSON(const std::string& json, uint8_t maxZoomLimit_) {
     defaultBearing = parser.bearing;
     defaultPitch = parser.pitch;
 
-    glyphStore->setURL(parser.glyphURL);
-    spriteStore->load(parser.spriteURL, fileSource);
+    glyphAtlas->setURL(parser.glyphURL);
+    spriteAtlas->load(parser.spriteURL, fileSource);
 
     loaded = true;
+    
+    observer->onStyleLoaded();
 }
 
 void Style::addSource(std::unique_ptr<Source> source) {
@@ -268,10 +266,18 @@ void Style::recalculate(float z, const TimePoint& timePoint, MapMode mode) {
 
     hasPendingTransitions = false;
     for (const auto& layer : layers) {
-        hasPendingTransitions |= layer->baseImpl->recalculate(parameters);
+        const bool hasTransitions = layer->baseImpl->recalculate(parameters);
 
-        Source* source = getSource(layer->baseImpl->source);
-        if (source && layer->baseImpl->needsRendering(z)) {
+        // Disable this layer if it doesn't need to be rendered.
+        const bool needsRendering = layer->baseImpl->needsRendering(zoomHistory.lastZoom);
+        if (!needsRendering) {
+            continue;
+        }
+
+        hasPendingTransitions |= hasTransitions;
+
+        // If this layer has a source, make sure that it gets loaded.
+        if (Source* source = getSource(layer->baseImpl->source)) {
             source->baseImpl->enabled = true;
             if (!source->baseImpl->loaded) {
                 source->baseImpl->loadDescription(fileSource);
@@ -303,7 +309,7 @@ bool Style::isLoaded() const {
         }
     }
 
-    if (!spriteStore->isLoaded()) {
+    if (!spriteAtlas->isLoaded()) {
         return false;
     }
 
@@ -320,8 +326,9 @@ RenderData Style::getRenderData(MapDebugOptions debugOptions) const {
     }
 
     for (const auto& layer : layers) {
-        if (layer->baseImpl->visibility == VisibilityType::None)
+        if (!layer->baseImpl->needsRendering(zoomHistory.lastZoom)) {
             continue;
+        }
 
         if (const BackgroundLayer* background = layer->as<BackgroundLayer>()) {
             if (debugOptions & MapDebugOptions::Overdraw) {
@@ -401,6 +408,9 @@ std::vector<Feature> Style::queryRenderedFeatures(const QueryParameters& paramet
 
     // Combine all results based on the style layer order.
     for (const auto& layer : layers) {
+        if (!layer->baseImpl->needsRendering(zoomHistory.lastZoom)) {
+            continue;
+        }
         auto it = resultsByLayer.find(layer->baseImpl->id);
         if (it != resultsByLayer.end()) {
             std::move(it->second.begin(), it->second.end(), std::back_inserter(result));
@@ -413,6 +423,9 @@ std::vector<Feature> Style::queryRenderedFeatures(const QueryParameters& paramet
 float Style::getQueryRadius() const {
     float additionalRadius = 0;
     for (auto& layer : layers) {
+        if (!layer->baseImpl->needsRendering(zoomHistory.lastZoom)) {
+            continue;
+        }
         additionalRadius = util::max(additionalRadius, layer->baseImpl->getQueryRadius());
     }
     return additionalRadius;
@@ -526,7 +539,7 @@ void Style::dumpDebugLogs() const {
         source->baseImpl->dumpDebugLogs();
     }
 
-    spriteStore->dumpDebugLogs();
+    spriteAtlas->dumpDebugLogs();
 }
 
 } // namespace style

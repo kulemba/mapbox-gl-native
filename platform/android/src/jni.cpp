@@ -11,6 +11,7 @@
 #include "jni.hpp"
 #include "java_types.hpp"
 #include "native_map_view.hpp"
+#include "connectivity_listener.hpp"
 #include "style/layers/layers.hpp"
 #include "style/sources/sources.hpp"
 
@@ -22,6 +23,7 @@
 #include <mbgl/map/camera.hpp>
 #include <mbgl/annotation/annotation.hpp>
 #include <mbgl/style/layer.hpp>
+#include <mbgl/style/source.hpp>
 #include <mbgl/sprite/sprite_image.hpp>
 #include <mbgl/platform/event.hpp>
 #include <mbgl/platform/log.hpp>
@@ -1185,23 +1187,35 @@ void nativeRemoveLayer(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr, j
     }
 }
 
-void nativeAddSource(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr, jni::jstring* id, jni::jobject* jsource) {
+jni::jobject* nativeGetSource(JNIEnv *env, jni::jobject* obj, jni::jlong nativeMapViewPtr, jni::jstring* sourceId) {
+    mbgl::Log::Debug(mbgl::Event::JNI, "nativeGetSource");
+
+    assert(env);
+    assert(nativeMapViewPtr != 0);
+
+    //Get the native map peer
+    NativeMapView *nativeMapView = reinterpret_cast<NativeMapView *>(nativeMapViewPtr);
+
+    //Find the source
+    mbgl::style::Source* coreSource = nativeMapView->getMap().getSource(std_string_from_jstring(env, sourceId));
+    if (!coreSource) {
+       mbgl::Log::Debug(mbgl::Event::JNI, "No source found");
+       return jni::Object<Source>();
+    }
+
+    //Create and return the source's native peer
+    return createJavaSourcePeer(*env, nativeMapView->getMap(), *coreSource);
+}
+
+void nativeAddSource(JNIEnv *env, jni::jobject* obj, jni::jlong nativeMapViewPtr, jni::jlong nativeSourcePtr) {
     mbgl::Log::Debug(mbgl::Event::JNI, "nativeAddSource");
     assert(nativeMapViewPtr != 0);
-    assert(id != nullptr);
-    assert(jsource != nullptr);
+    assert(nativeSourcePtr != 0);
 
-    //Convert
-    mbgl::optional<std::unique_ptr<mbgl::style::Source>> source = convertToNativeSource(
-        *env,
-        jni::Object<jni::jobject>(jsource), jni::String(id)
-    );
+    NativeMapView *nativeMapView = reinterpret_cast<NativeMapView *>(nativeMapViewPtr);
+    Source *source = reinterpret_cast<Source *>(nativeSourcePtr);
 
-    //Add to map view
-    if (source) {
-        NativeMapView *nativeMapView = reinterpret_cast<NativeMapView *>(nativeMapViewPtr);
-        nativeMapView->getMap().addSource(std::move(*source));
-    }
+    nativeMapView->getMap().addSource(source->releaseCoreSource());
 }
 
 void nativeRemoveSource(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr, jni::jstring* id) {
@@ -1524,6 +1538,7 @@ void setOfflineRegionObserver(JNIEnv *env, jni::jobject* offlineRegion_, jni::jo
             }
 
             // Error object
+            jni::UniqueLocalFrame frame = jni::PushLocalFrame(*env2, 3);
             jni::jobject* jerror = &jni::NewObject(*env2, *offlineRegionErrorClass, *offlineRegionErrorConstructorId);
             jni::SetField<jni::jobject*>(*env2, jerror, *offlineRegionErrorReasonId, std_string_to_jstring(env2, errorReason));
             jni::SetField<jni::jobject*>(*env2, jerror, *offlineRegionErrorMessageId, std_string_to_jstring(env2, error.message));
@@ -1687,6 +1702,8 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
 
     java::registerNatives(env);
     registerNativeLayers(env);
+    registerNativeSources(env);
+    ConnectivityListener::registerNative(env);
 
     latLngClass = &jni::FindClass(env, "com/mapbox/mapboxsdk/geometry/LatLng");
     latLngClass = jni::NewGlobalRef(env, latLngClass).release();
@@ -1838,7 +1855,8 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
         MAKE_NATIVE_METHOD(nativeGetLayer, "(JLjava/lang/String;)Lcom/mapbox/mapboxsdk/style/layers/Layer;"),
         MAKE_NATIVE_METHOD(nativeAddLayer, "(JJLjava/lang/String;)V"),
         MAKE_NATIVE_METHOD(nativeRemoveLayer, "(JLjava/lang/String;)V"),
-        MAKE_NATIVE_METHOD(nativeAddSource, "(JLjava/lang/String;Lcom/mapbox/mapboxsdk/style/sources/Source;)V"),
+        MAKE_NATIVE_METHOD(nativeGetSource, "(JLjava/lang/String;)Lcom/mapbox/mapboxsdk/style/sources/Source;"),
+        MAKE_NATIVE_METHOD(nativeAddSource, "(JJ)V"),
         MAKE_NATIVE_METHOD(nativeRemoveSource, "(JLjava/lang/String;)V"),
         MAKE_NATIVE_METHOD(nativeSetContentPadding, "(JDDDD)V"),
         MAKE_NATIVE_METHOD(nativeScheduleTakeSnapshot, "(J)V"),
