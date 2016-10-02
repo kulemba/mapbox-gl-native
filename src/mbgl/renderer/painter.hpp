@@ -11,8 +11,7 @@
 #include <mbgl/geometry/vao.hpp>
 #include <mbgl/geometry/static_vertex_buffer.hpp>
 
-#include <mbgl/gl/gl_config.hpp>
-#include <mbgl/gl/gl.hpp>
+#include <mbgl/gl/context.hpp>
 
 #include <mbgl/style/style.hpp>
 
@@ -47,10 +46,6 @@ class PaintParameters;
 
 struct ClipID;
 
-namespace util {
-class ObjectStore;
-} // namespace util
-
 namespace style {
 class Style;
 class Source;
@@ -63,7 +58,7 @@ class BackgroundLayer;
 } // namespace style
 
 struct FrameData {
-    std::array<uint16_t, 2> framebufferSize;
+    std::array<uint16_t, 2> framebufferSize = {{ 0, 0 }};
     TimePoint timePoint;
     float pixelRatio;
     MapMode mapMode;
@@ -73,12 +68,14 @@ struct FrameData {
 
 class Painter : private util::noncopyable {
 public:
-    Painter(const TransformState&, gl::ObjectStore&);
+    Painter(const TransformState&);
     ~Painter();
 
     void render(const style::Style&,
                 const FrameData&,
                 SpriteAtlas& annotationSpriteAtlas);
+
+    void cleanup();
 
     // Renders debug information for a tile.
     void renderTileDebug(const RenderTile&);
@@ -116,7 +113,7 @@ private:
     void renderPass(PaintParameters&,
                     RenderPass,
                     Iterator it, Iterator end,
-                    GLsizei i, int8_t increment);
+                    uint32_t i, int8_t increment);
 
     void setClipping(const ClipID&);
 
@@ -125,7 +122,7 @@ private:
                    float scaleDivisor,
                    std::array<float, 2> texsize,
                    SDFShader& sdfShader,
-                   void (SymbolBucket::*drawSDF)(SDFShader&, gl::ObjectStore&, PaintMode),
+                   void (SymbolBucket::*drawSDF)(SDFShader&, gl::Context&, PaintMode),
 
                    // Layout
                    style::AlignmentType rotationAlignment,
@@ -166,18 +163,17 @@ private:
     }();
 
     const TransformState& state;
-    gl::ObjectStore& store;
 
     FrameData frame;
 
     int indent = 0;
 
-    gl::Config config;
+    gl::Context context;
 
     RenderPass pass = RenderPass::Opaque;
 
     int numSublayers = 3;
-    GLsizei currentLayer;
+    uint32_t currentLayer;
     float depthRangeSize;
     const float depthEpsilon = 1.0f / (1 << 16);
 

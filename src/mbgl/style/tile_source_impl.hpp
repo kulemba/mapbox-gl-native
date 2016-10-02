@@ -34,6 +34,8 @@ public:
         return urlOrTileset;
     }
     
+    optional<std::string> getAttribution() const override;
+
     void limitMaxZoom(uint8_t) final;
 
 protected:
