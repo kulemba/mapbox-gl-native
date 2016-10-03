@@ -5,14 +5,14 @@
 
 namespace mbgl {
 
-IconShader::IconShader(gl::ObjectStore& store, Defines defines)
+IconShader::IconShader(gl::Context& context, Defines defines)
     : Shader(shaders::icon::name,
              shaders::icon::vertex,
              shaders::icon::fragment,
-             store, defines) {
+             context, defines) {
 }
 
-void IconShader::bind(GLbyte* offset) {
+void IconShader::bind(int8_t* offset) {
     const GLsizei stride = 16;
 
     MBGL_CHECK_ERROR(glEnableVertexAttribArray(a_pos));
