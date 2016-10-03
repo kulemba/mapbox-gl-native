@@ -15,7 +15,6 @@
 #include <mbgl/storage/file_source.hpp>
 #include <mbgl/storage/resource.hpp>
 #include <mbgl/storage/response.hpp>
-#include <mbgl/gl/object_store.hpp>
 #include <mbgl/util/projection.hpp>
 #include <mbgl/util/math.hpp>
 #include <mbgl/util/exception.hpp>
@@ -38,6 +37,7 @@ class Map::Impl : public style::Observer {
 public:
     Impl(View&, FileSource&, MapMode, GLContextMode, ConstrainMode, ViewportMode);
 
+    void onSourceAttributionChanged(style::Source&, const std::string&) override;
     void onUpdate(Update) override;
     void onStyleLoaded() override;
     void onStyleError() override;
@@ -60,7 +60,6 @@ public:
 
     MapDebugOptions debugOptions { MapDebugOptions::NoDebug };
 
-    gl::ObjectStore store;
     Update updateFlags = Update::Nothing;
     util::AsyncTask asyncUpdate;
     ThreadPool workerThreadPool;
@@ -112,11 +111,10 @@ Map::~Map() {
     impl->styleRequest = nullptr;
 
     // Explicit resets currently necessary because these abandon resources that need to be
-    // cleaned up by store.reset();
+    // cleaned up by context.reset();
     impl->style.reset();
-    impl->painter.reset();
     impl->annotationManager.reset();
-    impl->store.reset();
+    impl->painter.reset();
 
     impl->view.deactivate();
 }
@@ -252,7 +250,7 @@ void Map::Impl::update() {
 
 void Map::Impl::render() {
     if (!painter) {
-        painter = std::make_unique<Painter>(transform.getState(), store);
+        painter = std::make_unique<Painter>(transform.getState());
     }
 
     FrameData frameData { view.getFramebufferSize(),
@@ -271,7 +269,7 @@ void Map::Impl::render() {
         callback = nullptr;
     }
 
-    store.performCleanup();
+    painter->cleanup();
 
     if (style->hasTransitions()) {
         updateFlags |= Update::RecalculateStyle;
@@ -802,8 +800,7 @@ void Map::addLayer(std::unique_ptr<Layer> layer, const optional<std::string>& be
     impl->view.activate();
 
     impl->style->addLayer(std::move(layer), before);
-    impl->updateFlags |= Update::Classes;
-    impl->asyncUpdate.send();
+    update(Update::Classes);
 
     impl->view.deactivate();
 }
@@ -817,8 +814,7 @@ void Map::removeLayer(const std::string& id) {
     impl->view.activate();
 
     impl->style->removeLayer(id);
-    impl->updateFlags |= Update::Classes;
-    impl->asyncUpdate.send();
+    update(Update::Classes);
 
     impl->view.deactivate();
 }
@@ -892,7 +888,7 @@ void Map::setDebug(MapDebugOptions debugOptions) {
 }
 
 void Map::cycleDebugOptions() {
-#ifndef GL_ES_VERSION_2_0
+#if not MBGL_USE_GLES2
     if (impl->debugOptions & MapDebugOptions::StencilClip)
         impl->debugOptions = MapDebugOptions::NoDebug;
     else if (impl->debugOptions & MapDebugOptions::Overdraw)
@@ -900,7 +896,7 @@ void Map::cycleDebugOptions() {
 #else
     if (impl->debugOptions & MapDebugOptions::Overdraw)
         impl->debugOptions = MapDebugOptions::NoDebug;
-#endif // GL_ES_VERSION_2_0
+#endif // MBGL_USE_GLES2
     else if (impl->debugOptions & MapDebugOptions::Collision)
         impl->debugOptions = MapDebugOptions::Overdraw;
     else if (impl->debugOptions & MapDebugOptions::Timestamps)
@@ -976,10 +972,17 @@ void Map::setSourceTileCacheSize(size_t size) {
 }
 
 void Map::onLowMemory() {
-    impl->store.performCleanup();
-    if (!impl->style) return;
-    impl->style->onLowMemory();
-    impl->view.invalidate();
+    if (impl->painter) {
+        impl->painter->cleanup();
+    }
+    if (impl->style) {
+        impl->style->onLowMemory();
+        impl->view.invalidate();
+    }
+}
+
+void Map::Impl::onSourceAttributionChanged(style::Source&, const std::string&) {
+    view.notifyMapChange(MapChangeSourceDidChange);
 }
 
 void Map::Impl::onUpdate(Update flags) {
