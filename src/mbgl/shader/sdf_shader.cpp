@@ -5,14 +5,14 @@
 
 namespace mbgl {
 
-SDFShader::SDFShader(gl::ObjectStore& store, Defines defines)
+SDFShader::SDFShader(gl::Context& context, Defines defines)
     : Shader(shaders::sdf::name,
              shaders::sdf::vertex,
              shaders::sdf::fragment,
-             store, defines) {
+             context, defines) {
 }
 
-void SDFShader::bind(GLbyte* offset) {
+void SDFShader::bind(int8_t* offset) {
     const int stride = 16;
 
     MBGL_CHECK_ERROR(glEnableVertexAttribArray(a_pos));
