@@ -1,23 +1,26 @@
-#ifndef QQUICKMAPBOXGL_H
-#define QQUICKMAPBOXGL_H
+#pragma once
+
+#include "qmapbox.hpp"
+#include "qquickmapboxglmapparameter.hpp"
 
 #include <QColor>
 #include <QGeoCoordinate>
 #include <QGeoServiceProvider>
 #include <QGeoShape>
+#include <QImage>
 #include <QPointF>
+#include <QQmlListProperty>
 #include <QQuickFramebufferObject>
-
-#include <QQuickMapboxGLStyle>
 
 class QDeclarativeGeoServiceProvider;
 class QQuickItem;
+class QQuickMapboxGLRenderer;
 
 class Q_DECL_EXPORT QQuickMapboxGL : public QQuickFramebufferObject
 {
     Q_OBJECT
 
-    // Map QML Type interface implementation.
+    // Map QML Type interface.
     Q_ENUMS(QGeoServiceProvider::Error)
     Q_PROPERTY(QDeclarativeGeoServiceProvider *plugin READ plugin WRITE setPlugin NOTIFY pluginChanged)
     Q_PROPERTY(qreal minimumZoomLevel READ minimumZoomLevel WRITE setMinimumZoomLevel NOTIFY minimumZoomLevelChanged)
@@ -30,10 +33,9 @@ class Q_DECL_EXPORT QQuickMapboxGL : public QQuickFramebufferObject
     Q_PROPERTY(bool copyrightsVisible READ copyrightsVisible WRITE setCopyrightsVisible NOTIFY copyrightsVisibleChanged)
     Q_PROPERTY(QColor color READ color WRITE setColor NOTIFY colorChanged)
 
-    // MapboxGL QML Type interface.
-    Q_PROPERTY(QQuickMapboxGLStyle *style READ style WRITE setStyle NOTIFY styleChanged)
-    Q_PROPERTY(qreal bearing READ bearing WRITE setBearing NOTIFY bearingChanged)
-    Q_PROPERTY(qreal pitch READ pitch WRITE setPitch NOTIFY pitchChanged)
+    // Proposed Qt interface - based on the example documentation below:
+    // http://doc.qt.io/qt-5/qtqml-referenceexamples-properties-example.html
+    Q_PROPERTY(QQmlListProperty<QQuickMapboxGLMapParameter> parameters READ parameters)
 
 public:
     QQuickMapboxGL(QQuickItem *parent = 0);
@@ -71,20 +73,39 @@ public:
 
     Q_INVOKABLE void pan(int dx, int dy);
 
-    QList<QVariantMap>& layoutPropertyChanges() { return m_layoutChanges; }
-    QList<QVariantMap>& paintPropertyChanges() { return m_paintChanges; }
+    // Proposed Qt interface implementation.
+    QQmlListProperty<QQuickMapboxGLMapParameter> parameters();
 
-    // MapboxGL QML Type interface.
-    void setStyle(QQuickMapboxGLStyle *);
-    QQuickMapboxGLStyle* style() const;
+protected:
+    // QQmlParserStatus implementation
+    void componentComplete() override;
 
-    void setBearing(qreal bearing);
-    qreal bearing() const;
+signals:
+    // Map QML Type signals.
+    void minimumZoomLevelChanged();
+    void maximumZoomLevelChanged();
+    void zoomLevelChanged(qreal zoomLevel);
+    void centerChanged(const QGeoCoordinate &coordinate);
+    void colorChanged(const QColor &color);
+    void errorChanged();
 
-    void setPitch(qreal pitch);
-    qreal pitch() const;
+    // Compatibility with Map QML Type, but no-op.
+    void pluginChanged(QDeclarativeGeoServiceProvider *plugin);
+    void copyrightLinkActivated(const QString &link);
+    void copyrightsVisibleChanged(bool visible);
 
-    QPointF swapPan();
+public slots:
+    void setCenter(const QGeoCoordinate &center);
+
+private slots:
+    void onMapChanged(QMapbox::MapChange);
+    void onParameterPropertyUpdated(const QString &name);
+
+private:
+    static void appendParameter(QQmlListProperty<QQuickMapboxGLMapParameter> *prop, QQuickMapboxGLMapParameter *mapObject);
+    static int countParameters(QQmlListProperty<QQuickMapboxGLMapParameter> *prop);
+    static QQuickMapboxGLMapParameter *parameterAt(QQmlListProperty<QQuickMapboxGLMapParameter> *prop, int index);
+    static void clearParameter(QQmlListProperty<QQuickMapboxGLMapParameter> *prop);
 
     enum SyncState {
         NothingNeedsSync = 0,
@@ -96,54 +117,59 @@ public:
         PitchNeedsSync   = 1 << 5,
     };
 
-    int swapSyncState();
+    struct Image {
+        QString name;
+        QImage sprite;
+    };
 
-protected:
-    // QQuickItem implementation.
-    virtual void itemChange(QQuickItem::ItemChange change, const QQuickItem::ItemChangeData &value);
+    struct StyleProperty {
+        enum Type {
+            Paint = 0,
+            Layout
+        };
 
-signals:
-    void minimumZoomLevelChanged();
-    void maximumZoomLevelChanged();
-    void zoomLevelChanged(qreal zoomLevel);
-    void centerChanged(const QGeoCoordinate &coordinate);
+        Type type;
+        QString layer;
+        QString property;
+        QVariant value;
+        QString klass;
+    };
 
-    // Compatibility with Map QML Type, but no-op.
-    void pluginChanged(QDeclarativeGeoServiceProvider *plugin);
-    void errorChanged();
-    void copyrightLinkActivated(const QString &link);
-    void copyrightsVisibleChanged(bool visible);
-    void colorChanged(const QColor &color);
+    void processMapParameter(QQuickMapboxGLMapParameter *);
+    bool parseImage(QQuickMapboxGLMapParameter *);
+    bool parseStyle(QQuickMapboxGLMapParameter *);
+    bool parseStyleProperty(QQuickMapboxGLMapParameter *, const QString &name);
+    bool parseStyleLayer(QQuickMapboxGLMapParameter *);
+    bool parseStyleSource(QQuickMapboxGLMapParameter *);
+    bool parseStyleFilter(QQuickMapboxGLMapParameter *);
+    bool parseBearing(QQuickMapboxGLMapParameter *);
+    bool parsePitch(QQuickMapboxGLMapParameter *);
 
-    void styleChanged();
-    void bearingChanged(qreal angle);
-    void pitchChanged(qreal angle);
-
-public slots:
-    void setCenter(const QGeoCoordinate &center);
-
-private slots:
-    void onStyleChanged();
-    void onStylePropertyUpdated(const QVariantMap &params);
-
-private:
     qreal m_minimumZoomLevel = 0;
     qreal m_maximumZoomLevel = 20;
     qreal m_zoomLevel = 20;
 
-    QPointF m_pan = QPointF(0, 0);
+    QPointF m_pan;
 
     QGeoCoordinate m_center;
     QGeoShape m_visibleRegion;
     QColor m_color;
-    QList<QVariantMap> m_layoutChanges;
-    QList<QVariantMap> m_paintChanges;
+    QString m_styleUrl;
+    QList<Image> m_imageChanges;
+    QList<StyleProperty> m_stylePropertyChanges;
+    QList<QVariantMap> m_layerChanges;
+    QList<QVariantMap> m_sourceChanges;
+    QList<QVariantMap> m_filterChanges;
+    QList<QQuickMapboxGLMapParameter*> m_parameters;
 
-    QQuickMapboxGLStyle *m_style = 0;
+    QGeoServiceProvider::Error m_error = QGeoServiceProvider::NoError;
+    QString m_errorString;
+
     qreal m_bearing = 0;
     qreal m_pitch = 0;
 
     int m_syncState = NothingNeedsSync;
-};
+    bool m_styleLoaded = false;
 
-#endif // QQUICKMAPBOXGL_H
+    friend class QQuickMapboxGLRenderer;
+};
