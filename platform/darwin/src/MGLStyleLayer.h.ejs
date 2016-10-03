@@ -15,8 +15,14 @@ NS_ASSUME_NONNULL_BEGIN
 
 <% for (const property of layoutProperties) { -%>
 <% if (property.type == "enum") { -%>
+/**
+ <%- propertyDoc(property.name, property, type) %>
+ */
 typedef NS_ENUM(NSUInteger, MGL<%- camelize(type) %>StyleLayer<%- camelize(property.name) %>) {
-<% for (const value of property.values) { -%>
+<% for (const value in property.values) { -%>
+    /**
+     <%- propertyDoc(property.name, property.values[value], type) %>
+     */
     MGL<%- camelize(type) %>StyleLayer<%- camelize(property.name) %><%- camelize(value) %>,
 <% } -%>
 };
@@ -25,17 +31,38 @@ typedef NS_ENUM(NSUInteger, MGL<%- camelize(type) %>StyleLayer<%- camelize(prope
 <% } -%>
 <% for (const property of paintProperties) { -%>
 <% if (property.type == "enum") { -%>
+/**
+ <%- propertyDoc(property.name, property, type) %>
+ */
 typedef NS_ENUM(NSUInteger, MGL<%- camelize(type) %>StyleLayer<%- camelize(property.name) %>) {
-<% for (const value of property.values) { -%>
+<% for (const value in property.values) { -%>
+    /**
+     <%- propertyDoc(property.name, property.values[value], type) %>
+     */
     MGL<%- camelize(type) %>StyleLayer<%- camelize(property.name) %><%- camelize(value) %>,
 <% } -%>
 };
 
 <% } -%>
 <% } -%>
-@interface MGL<%- camelize(type) %>StyleLayer : MGLBaseStyleLayer <MGLStyleLayer>
-
 <% if (type == 'background') { -%>
+/**
+ A map style's background layer is the bottommost layer and is used to style a color 
+ or pattern to show below all other map features. You can query an `MGLMapView` for its 
+ `style` and obtain the background layer using the `-[MGLStyle layerWithIdentifier:]` 
+ method and passing `background` for the identifier. 
+ */
+<% } else { -%>
+/**
+ A <%- type %> layer which allows customization of styling properties at runtime. You may 
+ instantiate a new <%- type %> layer to add to a map style or you may query an 
+ `MGLMapView` for its `style` and obtain existing layers using the 
+ `-[MGLStyle layerWithIdentifier:]` method. 
+ */
+<% } -%>
+@interface MGL<%- camelize(type) %>StyleLayer : MGLBaseStyleLayer <MGLStyleLayer>
+<% if (type == 'background') { -%>
+
 - (instancetype)initWithLayerIdentifier:(NSString *)layerIdentifier;
 <% } -%>
 
@@ -60,7 +87,7 @@ typedef NS_ENUM(NSUInteger, MGL<%- camelize(type) %>StyleLayer<%- camelize(prope
 
 <% for (const property of layoutProperties) { -%>
 /**
- <%- propertyDoc(property, type) %>
+ <%- propertyDoc(property.name, property, type) %>
 <% if ('default' in property) { -%>
  
  The default value of this property is <%- propertyDefault(property, type) %>.<% if (!property.required) { %> Set this property to `nil` to reset it to the default value.<% } %>
@@ -78,7 +105,7 @@ typedef NS_ENUM(NSUInteger, MGL<%- camelize(type) %>StyleLayer<%- camelize(prope
 
 <% for (const property of paintProperties) { -%>
 /**
- <%- propertyDoc(property, type) %>
+ <%- propertyDoc(property.name, property, type) %>
 <% if ('default' in property) { -%>
  
  The default value of this property is <%- propertyDefault(property, type) %>.<% if (!property.required) { %> Set this property to `nil` to reset it to the default value.<% } %>
