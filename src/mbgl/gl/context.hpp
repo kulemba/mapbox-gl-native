@@ -3,6 +3,10 @@
 #include <mbgl/gl/object.hpp>
 #include <mbgl/gl/state.hpp>
 #include <mbgl/gl/value.hpp>
+#include <mbgl/gl/texture.hpp>
+#include <mbgl/gl/vertex_buffer.hpp>
+#include <mbgl/gl/index_buffer.hpp>
+#include <mbgl/gl/attribute.hpp>
 #include <mbgl/util/noncopyable.hpp>
 
 #include <memory>
@@ -21,12 +25,49 @@ public:
     UniqueProgram createProgram();
     UniqueShader createVertexShader();
     UniqueShader createFragmentShader();
-    UniqueBuffer createBuffer();
     UniqueTexture createTexture();
     UniqueVertexArray createVertexArray();
     UniqueFramebuffer createFramebuffer();
 
-    void uploadBuffer(BufferType, size_t, void*);
+    template <class V>
+    VertexBuffer<V> createVertexBuffer(std::vector<V>&& v) {
+        return VertexBuffer<V> {
+            v.size(),
+            createVertexBuffer(v.data(), v.size() * sizeof(V))
+        };
+    }
+
+    template <class P>
+    IndexBuffer<P> createIndexBuffer(std::vector<P>&& v) {
+        return IndexBuffer<P> {
+            createIndexBuffer(v.data(), v.size() * sizeof(P))
+        };
+    }
+
+    // Create a texture from an image with data.
+    template <typename Image>
+    Texture createTexture(const Image& image, TextureUnit unit = 0) {
+        return { {{ image.width, image.height }},
+                 createTexture(image.width, image.height, image.data.get(), unit) };
+    }
+
+    // Creates an empty texture with the specified dimensions.
+    Texture createTexture(const std::array<uint16_t, 2>& size, TextureUnit unit = 0) {
+        return { size, createTexture(size[0], size[1], nullptr, unit) };
+    }
+
+    void bindTexture(Texture&,
+                     TextureUnit = 0,
+                     TextureFilter = TextureFilter::Nearest,
+                     TextureMipMap = TextureMipMap::No);
+
+    template <class Shader, class Vertex>
+    void bindAttributes(const Shader& shader, const VertexBuffer<Vertex>&, const int8_t* offset) {
+        static_assert(std::is_same<typename Shader::VertexType, Vertex>::value, "vertex type mismatch");
+        for (const auto& binding : AttributeBindings<Shader, Vertex>()(shader)) {
+            bindAttribute(binding, sizeof(Vertex), offset);
+        }
+    }
 
     // Actually remove the objects we marked as abandoned with the above methods.
     // Only call this while the OpenGL context is exclusive to this thread.
@@ -80,6 +121,11 @@ public:
     State<value::BindVertexArray> vertexArrayObject;
 
 private:
+    UniqueBuffer createVertexBuffer(const void* data, std::size_t size);
+    UniqueBuffer createIndexBuffer(const void* data, std::size_t size);
+    UniqueTexture createTexture(uint16_t width, uint16_t height, const void* data, TextureUnit);
+    void bindAttribute(const AttributeBinding&, std::size_t stride, const int8_t* offset);
+
     friend detail::ProgramDeleter;
     friend detail::ShaderDeleter;
     friend detail::BufferDeleter;
