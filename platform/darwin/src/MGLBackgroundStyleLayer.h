@@ -2,7 +2,7 @@
 // Edit platform/darwin/scripts/generate-style-code.js, then run `make style-code-darwin`.
 
 #import "MGLStyleAttributeValue.h"
-#import "MGLBaseStyleLayer.h"
+#import "MGLStyleLayer.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -12,12 +12,9 @@ NS_ASSUME_NONNULL_BEGIN
  `style` and obtain the background layer using the `-[MGLStyle layerWithIdentifier:]` 
  method and passing `background` for the identifier. 
  */
-@interface MGLBackgroundStyleLayer : MGLBaseStyleLayer <MGLStyleLayer>
+@interface MGLBackgroundStyleLayer : MGLStyleLayer
 
-- (instancetype)initWithLayerIdentifier:(NSString *)layerIdentifier;
-
-- (instancetype)initWithLayerIdentifier:(NSString *)layerIdentifier source:(MGLSource *)source;
-
+- (instancetype)initWithIdentifier:(NSString *)identifier NS_DESIGNATED_INITIALIZER;
 
 #pragma mark - Accessing the Paint Attributes
 
