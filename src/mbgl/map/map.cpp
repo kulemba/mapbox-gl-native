@@ -22,6 +22,7 @@
 #include <mbgl/util/mapbox.hpp>
 #include <mbgl/util/tile_coordinate.hpp>
 #include <mbgl/actor/thread_pool.hpp>
+#include <mbgl/platform/log.hpp>
 
 namespace mbgl {
 
@@ -421,7 +422,7 @@ void Map::moveBy(const ScreenCoordinate& point, const Duration& duration) {
 }
 
 void Map::setLatLng(const LatLng& latLng, const Duration& duration) {
-    setLatLng(latLng, ScreenCoordinate {}, duration);
+    setLatLng(latLng, optional<ScreenCoordinate> {}, duration);
 }
 
 void Map::setLatLng(const LatLng& latLng, optional<EdgeInsets> padding, const Duration& duration) {
