@@ -24,6 +24,7 @@
 #include <mbgl/util/projection.hpp>
 #include <mbgl/util/default_styles.hpp>
 #include <mbgl/util/chrono.hpp>
+#import <mbgl/util/run_loop.hpp>
 
 #import "Mapbox.h"
 #import "MGLFeature_Private.h"
@@ -125,6 +126,11 @@ enum { MGLAnnotationTagNotFound = UINT32_MAX };
 /// Mapping from an annotation tag to metadata about that annotation, including
 /// the annotation itself.
 typedef std::map<MGLAnnotationTag, MGLAnnotationContext> MGLAnnotationContextMap;
+
+/// Initializes the run loop shim that lives on the main thread.
+void MGLinitializeRunLoop() {
+    static mbgl::util::RunLoop mainRunLoop;
+}
 
 mbgl::util::UnitBezier MGLUnitBezierForMediaTimingFunction(CAMediaTimingFunction *function)
 {
@@ -357,6 +363,8 @@ public:
 
 - (void)commonInit
 {
+    MGLinitializeRunLoop();
+
     _isTargetingInterfaceBuilder = NSProcessInfo.processInfo.mgl_isInterfaceBuilderDesignablesAgent;
     _opaque = YES;
 
@@ -1795,6 +1803,29 @@ public:
             }
         }
     }
+    else if ([keyPath isEqualToString:@"coordinates"] && [object isKindOfClass:[MGLMultiPoint class]])
+    {
+        MGLMultiPoint *annotation = object;
+        MGLAnnotationTag annotationTag = (MGLAnnotationTag)(NSUInteger)context;
+        // We can get here because a subclass registered itself as an observer
+        // of the coordinates key path of a multipoint annotation but failed
+        // to handle the change. This check deters us from treating the
+        // subclass’s context as an annotation tag. If the context happens to
+        // match a valid annotation tag, the annotation will be unnecessarily
+        // but safely updated.
+        if (annotation == [self annotationWithTag:annotationTag])
+        {
+            // Update the annotation’s backing geometry to match the annotation model object.
+            _mbglMap->updateAnnotation(annotationTag, [annotation annotationObjectWithDelegate:self]);
+
+            // We don't current support shape multipoint annotation selection, but let's make sure
+            // deselection is handled just to avoid problems in the future.
+            if (annotationTag == _selectedAnnotationTag)
+            {
+                [self deselectAnnotation:annotation animated:YES];
+            }
+        }
+    }
 }
 
 + (NS_SET_OF(NSString *) *)keyPathsForValuesAffectingZoomEnabled
@@ -2840,6 +2871,8 @@ public:
             MGLAnnotationContext context;
             context.annotation = annotation;
             _annotationContextsByAnnotationTag[annotationTag] = context;
+
+            [(NSObject *)annotation addObserver:self forKeyPath:@"coordinates" options:0 context:(void *)(NSUInteger)annotationTag];
         }
         else if ( ! [annotation isKindOfClass:[MGLMultiPolyline class]]
                  || ![annotation isKindOfClass:[MGLMultiPolygon class]]
@@ -3131,6 +3164,10 @@ public:
         if ([annotation isKindOfClass:[NSObject class]] && ![annotation isKindOfClass:[MGLMultiPoint class]])
         {
             [(NSObject *)annotation removeObserver:self forKeyPath:@"coordinate" context:(void *)(NSUInteger)annotationTag];
+        }
+        else if ([annotation isKindOfClass:[MGLMultiPoint class]])
+        {
+            [(NSObject *)annotation removeObserver:self forKeyPath:@"coordinates" context:(void *)(NSUInteger)annotationTag];
         }
 
         _mbglMap->removeAnnotation(annotationTag);
@@ -4173,9 +4210,9 @@ public:
     CGRect boundsAroundCorrectPoint = CGRectOffset(bounds,
                                                    correctPoint.x - CGRectGetMidX(bounds),
                                                    correctPoint.y - CGRectGetMidY(bounds));
-    return UIEdgeInsetsMake(CGRectGetMinY(boundsAroundCorrectPoint) - CGRectGetMinY(bounds) + self.contentInset.top,
+    return UIEdgeInsetsMake(CGRectGetMinY(boundsAroundCorrectPoint) - CGRectGetMinY(bounds),
                             self.contentInset.left,
-                            CGRectGetMaxY(bounds) - CGRectGetMaxY(boundsAroundCorrectPoint) + self.contentInset.bottom,
+                            CGRectGetMaxY(bounds) - CGRectGetMaxY(boundsAroundCorrectPoint),
                             self.contentInset.right);
 }
 
