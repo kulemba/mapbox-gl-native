@@ -30,6 +30,7 @@
 #import <mbgl/math/wrap.hpp>
 #import <mbgl/util/constants.hpp>
 #import <mbgl/util/chrono.hpp>
+#import <mbgl/util/run_loop.hpp>
 
 #import <unordered_map>
 #import <unordered_set>
@@ -110,6 +111,11 @@ NSImage *MGLDefaultMarkerImage() {
     NSString *path = [[NSBundle mgl_frameworkBundle] pathForResource:MGLDefaultStyleMarkerSymbolName
                                                               ofType:@"pdf"];
     return [[NSImage alloc] initWithContentsOfFile:path];
+}
+
+/// Initializes the run loop shim that lives on the main thread.
+void MGLinitializeRunLoop() {
+    static mbgl::util::RunLoop mainRunLoop;
 }
 
 /// Converts a media timing function into a unit bezier object usable in mbgl.
@@ -234,6 +240,8 @@ public:
 }
 
 - (void)commonInit {
+    MGLinitializeRunLoop();
+
     _isTargetingInterfaceBuilder = NSProcessInfo.processInfo.mgl_isInterfaceBuilderDesignablesAgent;
     
     // Set up cross-platform controllers and resources.
@@ -479,6 +487,25 @@ public:
             MGLAnnotationImage *annotationImage = [self imageOfAnnotationWithTag:annotationTag];
             _mbglMap->updateAnnotation(annotationTag, mbgl::SymbolAnnotation { point, annotationImage.styleIconIdentifier.UTF8String ?: "" });
             if (annotationTag == _selectedAnnotationTag) {
+                [self deselectAnnotation:annotation];
+            }
+        }
+    } else if ([keyPath isEqualToString:@"coordinates"] &&
+               [object isKindOfClass:[MGLMultiPoint class]]) {
+        MGLMultiPoint *annotation = object;
+        MGLAnnotationTag annotationTag = (MGLAnnotationTag)(NSUInteger)context;
+        // We can get here because a subclass registered itself as an observer
+        // of the coordinates key path of a multipoint annotation but failed
+        // to handle the change. This check deters us from treating the
+        // subclass’s context as an annotation tag. If the context happens to
+        // match a valid annotation tag, the annotation will be unnecessarily
+        // but safely updated.
+        if (annotation == [self annotationWithTag:annotationTag]) {
+            _mbglMap->updateAnnotation(annotationTag, [annotation annotationObjectWithDelegate:self]);
+            // We don't current support shape multipoint annotation selection, but let's make sure
+            // deselection is handled just to avoid problems in the future.
+            if (annotationTag == _selectedAnnotationTag)
+            {
                 [self deselectAnnotation:annotation];
             }
         }
@@ -1625,6 +1652,8 @@ public:
             MGLAnnotationContext context;
             context.annotation = annotation;
             _annotationContextsByAnnotationTag[annotationTag] = context;
+
+            [(NSObject *)annotation addObserver:self forKeyPath:@"coordinates" options:0 context:(void *)(NSUInteger)annotationTag];
         } else if (![annotation isKindOfClass:[MGLMultiPolyline class]]
                    || ![annotation isKindOfClass:[MGLMultiPolygon class]]
                    || ![annotation isKindOfClass:[MGLShapeCollection class]]) {
@@ -1762,6 +1791,8 @@ public:
         if ([annotation isKindOfClass:[NSObject class]] &&
             ![annotation isKindOfClass:[MGLMultiPoint class]]) {
             [(NSObject *)annotation removeObserver:self forKeyPath:@"coordinate" context:(void *)(NSUInteger)annotationTag];
+        } else if ([annotation isKindOfClass:[MGLMultiPoint class]]) {
+            [(NSObject *)annotation removeObserver:self forKeyPath:@"coordinates" context:(void *)(NSUInteger)annotationTag];
         }
 
         _mbglMap->removeAnnotation(annotationTag);
