@@ -212,13 +212,15 @@ public class MapView extends FrameLayout {
 
         nativeMapView = new NativeMapView(this);
 
+        // load transparent icon for MarkerView to trace actual markers, see #6352
+        loadIcon(IconFactory.recreate(IconFactory.ICON_MARKERVIEW_ID, IconFactory.ICON_MARKERVIEW_BITMAP));
+
         // Ensure this view is interactable
         setClickable(true);
         setLongClickable(true);
         setFocusable(true);
         setFocusableInTouchMode(true);
         requestFocus();
-
 
         // Touch gesture detectors
         gestureDetector = new GestureDetectorCompat(context, new GestureListener());
@@ -289,10 +291,10 @@ public class MapView extends FrameLayout {
         // MyLocationView
         MyLocationViewSettings myLocationViewSettings = mapboxMap.getMyLocationViewSettings();
         myLocationViewSettings.setForegroundDrawable(
-            options.getMyLocationForegroundDrawable(), options.getMyLocationForegroundBearingDrawable());
+                options.getMyLocationForegroundDrawable(), options.getMyLocationForegroundBearingDrawable());
         myLocationViewSettings.setForegroundTintColor(options.getMyLocationForegroundTintColor());
         myLocationViewSettings.setBackgroundDrawable(
-            options.getMyLocationBackgroundDrawable(), options.getMyLocationBackgroundPadding());
+                options.getMyLocationBackgroundDrawable(), options.getMyLocationBackgroundPadding());
         myLocationViewSettings.setBackgroundTintColor(options.getMyLocationBackgroundTintColor());
         myLocationViewSettings.setAccuracyAlpha(options.getMyLocationAccuracyAlpha());
         myLocationViewSettings.setAccuracyTintColor(options.getMyLocationAccuracyTintColor());
@@ -353,7 +355,7 @@ public class MapView extends FrameLayout {
 
         int attributionTintColor = options.getAttributionTintColor();
         uiSettings.setAttributionTintColor(attributionTintColor != -1
-            ? attributionTintColor : ColorUtils.getPrimaryColor(getContext()));
+                ? attributionTintColor : ColorUtils.getPrimaryColor(getContext()));
     }
 
     //
@@ -408,9 +410,9 @@ public class MapView extends FrameLayout {
             uiSettings.setCompassEnabled(savedInstanceState.getBoolean(MapboxConstants.STATE_COMPASS_ENABLED));
             uiSettings.setCompassGravity(savedInstanceState.getInt(MapboxConstants.STATE_COMPASS_GRAVITY));
             uiSettings.setCompassMargins(savedInstanceState.getInt(MapboxConstants.STATE_COMPASS_MARGIN_LEFT),
-                      savedInstanceState.getInt(MapboxConstants.STATE_COMPASS_MARGIN_TOP),
-                      savedInstanceState.getInt(MapboxConstants.STATE_COMPASS_MARGIN_RIGHT),
-                      savedInstanceState.getInt(MapboxConstants.STATE_COMPASS_MARGIN_BOTTOM));
+                    savedInstanceState.getInt(MapboxConstants.STATE_COMPASS_MARGIN_TOP),
+                    savedInstanceState.getInt(MapboxConstants.STATE_COMPASS_MARGIN_RIGHT),
+                    savedInstanceState.getInt(MapboxConstants.STATE_COMPASS_MARGIN_BOTTOM));
 
             // Logo
             uiSettings.setLogoEnabled(savedInstanceState.getBoolean(MapboxConstants.STATE_LOGO_ENABLED));
@@ -441,7 +443,7 @@ public class MapView extends FrameLayout {
             TrackingSettings trackingSettings = mapboxMap.getTrackingSettings();
             //noinspection ResourceType
             trackingSettings.setMyLocationTrackingMode(
-              savedInstanceState.getInt(MapboxConstants.STATE_MY_LOCATION_TRACKING_MODE, MyLocationTracking.TRACKING_NONE));
+                    savedInstanceState.getInt(MapboxConstants.STATE_MY_LOCATION_TRACKING_MODE, MyLocationTracking.TRACKING_NONE));
             //noinspection ResourceType
             trackingSettings.setMyBearingTrackingMode(
                     savedInstanceState.getInt(MapboxConstants.STATE_MY_BEARING_TRACKING_MODE, MyBearingTracking.NONE));
@@ -1314,7 +1316,7 @@ public class MapView extends FrameLayout {
             return;
         }
         nativeMapView.cancelTransitions();
-        nativeMapView.jumpTo(bearing, center, pitch, zoom);
+        nativeMapView.jumpTo(Math.toRadians(-bearing), center, Math.toRadians(pitch), zoom);
     }
 
     void easeTo(double bearing, LatLng center, long duration, double pitch, double zoom, boolean easingInterpolator, @Nullable final MapboxMap.CancelableCallback cancelableCallback) {
@@ -1338,7 +1340,7 @@ public class MapView extends FrameLayout {
             });
         }
 
-        nativeMapView.easeTo(bearing, center, duration, pitch, zoom, easingInterpolator);
+        nativeMapView.easeTo(Math.toRadians(-bearing), center, duration, Math.toRadians(pitch), zoom, easingInterpolator);
     }
 
     void flyTo(double bearing, LatLng center, long duration, double pitch, double zoom, @Nullable final MapboxMap.CancelableCallback cancelableCallback) {
@@ -1362,7 +1364,7 @@ public class MapView extends FrameLayout {
             });
         }
 
-        nativeMapView.flyTo(bearing, center, duration, pitch, zoom);
+        nativeMapView.flyTo(Math.toRadians(-bearing), center, duration, Math.toRadians(pitch), zoom);
     }
 
     private void adjustTopOffsetPixels() {
@@ -1539,7 +1541,7 @@ public class MapView extends FrameLayout {
         }
         CameraPosition position = new CameraPosition.Builder(nativeMapView.getCameraValues()).build();
         myLocationView.setCameraPosition(position);
-        mapboxMap.getMarkerViewManager().setTilt((float) Math.toDegrees(position.tilt));
+        mapboxMap.getMarkerViewManager().setTilt((float) position.tilt);
         return position;
     }
 
@@ -2503,6 +2505,7 @@ public class MapView extends FrameLayout {
                 if (mapboxMap.getUiSettings().isZoomControlsEnabled()) {
                     zoomButtonsController.setVisible(false);
                 }
+                return true;
 
             default:
                 // We are not interested in this event
