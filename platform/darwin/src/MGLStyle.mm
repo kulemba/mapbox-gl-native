@@ -21,6 +21,7 @@
 #import "MGLGeoJSONSource.h"
 
 #include <mbgl/util/default_styles.hpp>
+#include <mbgl/sprite/sprite_image.hpp>
 #include <mbgl/style/layers/fill_layer.hpp>
 #include <mbgl/style/layers/line_layer.hpp>
 #include <mbgl/style/layers/symbol_layer.hpp>
@@ -32,8 +33,15 @@
 #include <mbgl/style/sources/raster_source.hpp>
 #include <mbgl/mbgl.hpp>
 
+#if TARGET_OS_IPHONE
+    #import "UIImage+MGLAdditions.h"
+#else
+    #import "NSImage+MGLAdditions.h"
+#endif
+
 @interface MGLStyle()
 @property (nonatomic, weak) MGLMapView *mapView;
+@property (readonly, copy, nullable) NSURL *URL;
 @end
 
 @implementation MGLStyle
@@ -92,13 +100,17 @@ static NSURL *MGLStyleURL_emerald;
     return @(self.mapView.mbglMap->getStyleName().c_str());
 }
 
+- (NSURL *)URL {
+    return [NSURL URLWithString:@(self.mapView.mbglMap->getStyleURL().c_str())];
+}
+
 - (MGLStyleLayer *)layerWithIdentifier:(NSString *)identifier
 {
     auto mbglLayer = self.mapView.mbglMap->getLayer(identifier.UTF8String);
     if (!mbglLayer) {
         return nil;
     }
-    
+
     MGLStyleLayer *styleLayer;
     if (auto fillLayer = mbglLayer->as<mbgl::style::FillLayer>()) {
         MGLSource *source = [self sourceWithIdentifier:@(fillLayer->getSourceID().c_str())];
@@ -121,9 +133,9 @@ static NSURL *MGLStyleURL_emerald;
         NSAssert(NO, @"Unrecognized layer type");
         return nil;
     }
-    
+
     styleLayer.layer = mbglLayer;
-    
+
     return styleLayer;
 }
 
@@ -133,7 +145,7 @@ static NSURL *MGLStyleURL_emerald;
     if (!mbglSource) {
         return nil;
     }
-    
+
     // TODO: Fill in options specific to the respective source classes
     // https://github.com/mapbox/mapbox-gl-native/issues/6584
     MGLSource *source;
@@ -147,9 +159,9 @@ static NSURL *MGLStyleURL_emerald;
         NSAssert(NO, @"Unrecognized source type");
         return nil;
     }
-    
+
     source.source = mbglSource;
-    
+
     return source;
 }
 
@@ -166,7 +178,7 @@ static NSURL *MGLStyleURL_emerald;
          @"Make sure the style layer was created as a member of a concrete subclass of MGLStyleLayer.",
          NSStringFromClass(self)];
     }
-    
+
     self.mapView.mbglMap->addLayer(std::unique_ptr<mbgl::style::Layer>(layer.layer));
 }
 
@@ -186,7 +198,7 @@ static NSURL *MGLStyleURL_emerald;
          @"Make sure the style layer was created as a member of a concrete subclass of MGLStyleLayer.",
          NSStringFromClass(otherLayer)];
     }
-    
+
     const mbgl::optional<std::string> belowLayerId{otherLayer.identifier.UTF8String};
     self.mapView.mbglMap->addLayer(std::unique_ptr<mbgl::style::Layer>(layer.layer), belowLayerId);
 }
@@ -204,13 +216,13 @@ static NSURL *MGLStyleURL_emerald;
 - (NS_ARRAY_OF(NSString *) *)styleClasses
 {
     const std::vector<std::string> &appliedClasses = self.mapView.mbglMap->getClasses();
-    
+
     NSMutableArray *returnArray = [NSMutableArray arrayWithCapacity:appliedClasses.size()];
-    
+
     for (auto appliedClass : appliedClasses) {
        [returnArray addObject:@(appliedClass.c_str())];
     }
-    
+
     return returnArray;
 }
 
@@ -222,12 +234,12 @@ static NSURL *MGLStyleURL_emerald;
 - (void)setStyleClasses:(NS_ARRAY_OF(NSString *) *)appliedClasses transitionDuration:(NSTimeInterval)transitionDuration
 {
     std::vector<std::string> newAppliedClasses;
-    
+
     for (NSString *appliedClass in appliedClasses)
     {
         newAppliedClasses.push_back([appliedClass UTF8String]);
     }
-    
+
     mbgl::style::TransitionOptions transition { { MGLDurationInSeconds(transitionDuration) } };
     self.mapView.mbglMap->setTransitionOptions(transition);
     self.mapView.mbglMap->setClasses(newAppliedClasses);
@@ -254,5 +266,27 @@ static NSURL *MGLStyleURL_emerald;
     }
 }
 
+- (void)setImage:(MGLImage *)image forName:(NSString *)name
+{
+    NSAssert(image, @"image is null");
+    NSAssert(name, @"name is null");
+
+    self.mapView.mbglMap->addImage([name UTF8String], image.mgl_spriteImage);
+}
+
+- (void)removeImageForName:(NSString *)name
+{
+    NSAssert(name, @"name is null");
+
+    self.mapView.mbglMap->removeImage([name UTF8String]);
+}
+
+- (NSString *)description
+{
+    return [NSString stringWithFormat:@"<%@: %p; name = %@, URL = %@>",
+            NSStringFromClass([self class]), (void *)self,
+            self.name ? [NSString stringWithFormat:@"\"%@\"", self.name] : self.name,
+            self.URL ? [NSString stringWithFormat:@"\"%@\"", self.URL] : self.URL];
+}
 
 @end
