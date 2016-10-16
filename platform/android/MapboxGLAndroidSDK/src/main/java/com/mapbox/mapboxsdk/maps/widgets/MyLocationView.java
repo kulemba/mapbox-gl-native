@@ -36,7 +36,6 @@ import com.mapbox.mapboxsdk.location.LocationListener;
 import com.mapbox.mapboxsdk.location.LocationServices;
 import com.mapbox.mapboxsdk.maps.MapboxMap;
 import com.mapbox.mapboxsdk.maps.Projection;
-import com.mapbox.mapboxsdk.utils.MathUtils;
 
 import java.lang.ref.WeakReference;
 
@@ -322,7 +321,7 @@ public class MyLocationView extends View {
     }
 
     public void setCameraPosition(CameraPosition position) {
-        setTilt(MathUtils.clamp(Math.toDegrees(position.tilt), 0.0, 60.0));
+        setTilt(position.tilt);
         setBearing(position.bearing);
     }
 
@@ -692,7 +691,7 @@ public class MyLocationView extends View {
             // calculate interpolated location
             previousLocation = latLng;
             latLng = new LatLng(location);
-            interpolatedLocation = new LatLng((latLng.getLatitude() + previousLocation.getLatitude()) / 2, (latLng.getLongitude() + previousLocation.getLongitude()) / 2);
+            interpolatedLocation = new LatLng(latLng.getLatitude() , latLng.getLongitude());
 
             // build new camera
             CameraPosition.Builder builder = new CameraPosition.Builder().target(interpolatedLocation);
@@ -752,7 +751,7 @@ public class MyLocationView extends View {
             long locationUpdateDuration = (long) ((locationUpdateTimestamp - previousUpdateTimeStamp) * 1.3);
 
             // calculate interpolated entity
-            interpolatedLocation = new LatLng((latLng.getLatitude() + previousLocation.getLatitude()) / 2, (latLng.getLongitude() + previousLocation.getLongitude()) / 2);
+             interpolatedLocation = new LatLng(latLng.getLatitude() , latLng.getLongitude());
 
             // animate changes
             if (locationChangeAnimator != null) {
