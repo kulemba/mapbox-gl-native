@@ -8,30 +8,34 @@ NS_ASSUME_NONNULL_BEGIN
 
 /**
  Controls the translation reference point.
+ 
+ Values of this type are used in the `circleTranslateAnchor` property of `MGLCircleStyleLayer`.
  */
-typedef NS_ENUM(NSUInteger, MGLCircleStyleLayerCircleTranslateAnchor) {
+typedef NS_ENUM(NSUInteger, MGLCircleTranslateAnchor) {
     /**
      The circle is translated relative to the map.
      */
-    MGLCircleStyleLayerCircleTranslateAnchorMap,
+    MGLCircleTranslateAnchorMap,
     /**
      The circle is translated relative to the viewport.
      */
-    MGLCircleStyleLayerCircleTranslateAnchorViewport,
+    MGLCircleTranslateAnchorViewport,
 };
 
 /**
  Controls the scaling behavior of the circle when the map is pitched.
+ 
+ Values of this type are used in the `circlePitchScale` property of `MGLCircleStyleLayer`.
  */
-typedef NS_ENUM(NSUInteger, MGLCircleStyleLayerCirclePitchScale) {
+typedef NS_ENUM(NSUInteger, MGLCirclePitchScale) {
     /**
      Circles are scaled according to their apparent distance to the camera.
      */
-    MGLCircleStyleLayerCirclePitchScaleMap,
+    MGLCirclePitchScaleMap,
     /**
      Circles are not scaled.
      */
-    MGLCircleStyleLayerCirclePitchScaleViewport,
+    MGLCirclePitchScaleViewport,
 };
 
 /**
@@ -95,7 +99,7 @@ typedef NS_ENUM(NSUInteger, MGLCircleStyleLayerCirclePitchScale) {
 /**
  Controls the translation reference point.
  
- The default value of this property is an `NSValue` object containing `MGLCircleStyleLayerCircleTranslateAnchorMap`. Set this property to `nil` to reset it to the default value.
+ The default value of this property is an `NSValue` object containing `MGLCircleTranslateAnchorMap`. Set this property to `nil` to reset it to the default value.
 
  This property is only applied to the style if `circleTranslate` is non-`nil`. Otherwise, it is ignored.
  */
@@ -104,7 +108,7 @@ typedef NS_ENUM(NSUInteger, MGLCircleStyleLayerCirclePitchScale) {
 /**
  Controls the scaling behavior of the circle when the map is pitched.
  
- The default value of this property is an `NSValue` object containing `MGLCircleStyleLayerCirclePitchScaleMap`. Set this property to `nil` to reset it to the default value.
+ The default value of this property is an `NSValue` object containing `MGLCirclePitchScaleMap`. Set this property to `nil` to reset it to the default value.
  */
 @property (nonatomic, null_resettable) id <MGLStyleAttributeValue> circlePitchScale;
 
