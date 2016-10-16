@@ -21,13 +21,15 @@ NS_ASSUME_NONNULL_BEGIN
 <% if (property.type == "enum") { -%>
 /**
  <%- propertyDoc(property.name, property, type) %>
+ 
+ Values of this type are used in the `<%- camelizeWithLeadingLowercase(property.name) %>` property of `MGL<%- camelize(type) %>StyleLayer`.
  */
-typedef NS_ENUM(NSUInteger, MGL<%- camelize(type) %>StyleLayer<%- camelize(property.name) %>) {
+typedef NS_ENUM(NSUInteger, MGL<%- camelize(property.name) %>) {
 <% for (const value in property.values) { -%>
     /**
      <%- propertyDoc(property.name, property.values[value], type) %>
      */
-    MGL<%- camelize(type) %>StyleLayer<%- camelize(property.name) %><%- camelize(value) %>,
+    MGL<%- camelize(property.name) %><%- camelize(value) %>,
 <% } -%>
 };
 
@@ -37,13 +39,15 @@ typedef NS_ENUM(NSUInteger, MGL<%- camelize(type) %>StyleLayer<%- camelize(prope
 <% if (property.type == "enum") { -%>
 /**
  <%- propertyDoc(property.name, property, type) %>
+ 
+ Values of this type are used in the `<%- camelizeWithLeadingLowercase(property.name) %>` property of `MGL<%- camelize(type) %>StyleLayer`.
  */
-typedef NS_ENUM(NSUInteger, MGL<%- camelize(type) %>StyleLayer<%- camelize(property.name) %>) {
+typedef NS_ENUM(NSUInteger, MGL<%- camelize(property.name) %>) {
 <% for (const value in property.values) { -%>
     /**
      <%- propertyDoc(property.name, property.values[value], type) %>
      */
-    MGL<%- camelize(type) %>StyleLayer<%- camelize(property.name) %><%- camelize(value) %>,
+    MGL<%- camelize(property.name) %><%- camelize(value) %>,
 <% } -%>
 };
 
