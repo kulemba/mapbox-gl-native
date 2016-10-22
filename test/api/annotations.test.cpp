@@ -1,6 +1,7 @@
 #include <mbgl/test/util.hpp>
 #include <mbgl/test/stub_file_source.hpp>
 
+#include <mbgl/platform/default/thread_pool.hpp>
 #include <mbgl/annotation/annotation.hpp>
 #include <mbgl/sprite/sprite_image.hpp>
 #include <mbgl/map/map.hpp>
@@ -25,7 +26,8 @@ public:
     std::shared_ptr<HeadlessDisplay> display { std::make_shared<HeadlessDisplay>() };
     HeadlessView view { display, 1 };
     StubFileSource fileSource;
-    Map map { view, fileSource, MapMode::Still };
+    ThreadPool threadPool { 4 };
+    Map map { view, fileSource, threadPool, MapMode::Still };
 
     void checkRendering(const char * name) {
         test::checkImage(std::string("test/fixtures/annotations/") + name,
@@ -49,10 +51,7 @@ TEST(Annotations, SymbolAnnotation) {
     EXPECT_EQ(features.size(), 1u);
 
     test.map.setZoom(test.map.getMaxZoom());
-    // FIXME: https://github.com/mapbox/mapbox-gl-native/issues/5419
-    //test.map.setZoom(test.map.getMaxZoom());
-    //test.checkRendering("point_annotation");
-    test::render(test.map);
+    test.checkRendering("point_annotation");
 
     features = test.map.queryPointAnnotations(screenBox);
     EXPECT_EQ(features.size(), 1u);
@@ -369,10 +368,17 @@ TEST(Annotations, QueryFractionalZoomLevels) {
     }
 
     test.map.setLatLngZoom({ 5, 5 }, 0);
-    for (uint16_t zoomSteps = 0; zoomSteps <= 20; ++zoomSteps) {
+    for (uint16_t zoomSteps = 10; zoomSteps <= 20; ++zoomSteps) {
         test.map.setZoom(zoomSteps / 10.0);
         test::render(test.map);
         auto features = test.map.queryRenderedFeatures(box);
+
+        // Filter out repeated features.
+        // See 'edge-cases/null-island' query-test for reference.
+        auto sortID = [](const Feature& lhs, const Feature& rhs) { return lhs.id < rhs.id; };
+        auto sameID = [](const Feature& lhs, const Feature& rhs) { return lhs.id == rhs.id; };
+        std::sort(features.begin(), features.end(), sortID);
+        features.erase(std::unique(features.begin(), features.end(), sameID), features.end());
         EXPECT_EQ(features.size(), ids.size());
     }
 }
@@ -385,26 +391,31 @@ TEST(Annotations, VisibleFeatures) {
 
     test.map.setStyleJSON(util::read_file("test/fixtures/api/empty.json"));
     test.map.addAnnotationIcon("default_marker", namedMarker("default_marker.png"));
-    test.map.setZoom(3);
+    test.map.setLatLngZoom({ 5, 5 }, 3);
 
     std::vector<mbgl::AnnotationID> ids;
-    for (int longitude = -5; longitude <= 5; ++longitude) {
-        for (int latitude = -5; latitude <= 5; ++latitude) {
+    for (int longitude = 0; longitude < 10; ++longitude) {
+        for (int latitude = 0; latitude <= 10; ++latitude) {
             ids.push_back(test.map.addAnnotation(SymbolAnnotation { { double(latitude), double(longitude) }, "default_marker" }));
         }
     }
 
-    // Change bearing *after* adding annotations cause them to be reordered,
-    // and some annotations become occluded by others.
+    // Change bearing *after* adding annotations causes them to be reordered.
     test.map.setBearing(45);
     test::render(test.map);
 
     auto features = test.map.queryRenderedFeatures(box);
+    auto sortID = [](const Feature& lhs, const Feature& rhs) { return lhs.id < rhs.id; };
+    auto sameID = [](const Feature& lhs, const Feature& rhs) { return lhs.id == rhs.id; };
+    std::sort(features.begin(), features.end(), sortID);
+    features.erase(std::unique(features.begin(), features.end(), sameID), features.end());
     EXPECT_EQ(features.size(), ids.size());
 
     test.map.setBearing(0);
     test.map.setZoom(4);
     test::render(test.map);
     features = test.map.queryRenderedFeatures(box);
+    std::sort(features.begin(), features.end(), sortID);
+    features.erase(std::unique(features.begin(), features.end(), sameID), features.end());
     EXPECT_EQ(features.size(), ids.size());
 }

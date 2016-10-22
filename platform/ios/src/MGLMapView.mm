@@ -13,6 +13,7 @@
 #include <mbgl/map/mode.hpp>
 #include <mbgl/platform/platform.hpp>
 #include <mbgl/platform/darwin/reachability.h>
+#include <mbgl/platform/default/thread_pool.hpp>
 #include <mbgl/storage/default_file_source.hpp>
 #include <mbgl/storage/network_status.hpp>
 #include <mbgl/style/transition_options.hpp>
@@ -258,6 +259,7 @@ public:
 {
     mbgl::Map *_mbglMap;
     MBGLView *_mbglView;
+    mbgl::ThreadPool *_mbglThreadPool;
 
     BOOL _opaque;
 
@@ -413,7 +415,8 @@ public:
 
     // setup mbgl map
     mbgl::DefaultFileSource *mbglFileSource = [MGLOfflineStorage sharedOfflineStorage].mbglFileSource;
-    _mbglMap = new mbgl::Map(*_mbglView, *mbglFileSource, mbgl::MapMode::Continuous, mbgl::GLContextMode::Unique, mbgl::ConstrainMode::None, mbgl::ViewportMode::Default);
+    _mbglThreadPool = new mbgl::ThreadPool(4);
+    _mbglMap = new mbgl::Map(*_mbglView, *mbglFileSource, *_mbglThreadPool, mbgl::MapMode::Continuous, mbgl::GLContextMode::Unique, mbgl::ConstrainMode::None, mbgl::ViewportMode::Default);
     [self validateTileCacheSize];
 
     // start paused if in IB
@@ -668,6 +671,12 @@ public:
     {
         delete _mbglView;
         _mbglView = nullptr;
+    }
+
+    if (_mbglThreadPool)
+    {
+        delete _mbglThreadPool;
+        _mbglThreadPool = nullptr;
     }
 
     if ([[EAGLContext currentContext] isEqual:_context])
@@ -3124,7 +3133,7 @@ public:
     UIColor *color = (_delegateHasStrokeColorsForShapeAnnotations
                       ? [self.delegate mapView:self strokeColorForShapeAnnotation:annotation]
                       : self.tintColor);
-    return color.mbgl_color;
+    return color.mgl_color;
 }
 
 - (mbgl::Color)fillColorForPolygonAnnotation:(MGLPolygon *)annotation
@@ -3132,7 +3141,7 @@ public:
     UIColor *color = (_delegateHasFillColorsForShapeAnnotations
                       ? [self.delegate mapView:self fillColorForPolygonAnnotation:annotation]
                       : self.tintColor);
-    return color.mbgl_color;
+    return color.mgl_color;
 }
 
 - (CGFloat)lineWidthForPolylineAnnotation:(MGLPolyline *)annotation
