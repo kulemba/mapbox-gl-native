@@ -48,6 +48,9 @@ public:
     // re-placement of existing complete tiles.
     void updateTiles(const UpdateParameters&);
 
+    // Removes all tiles (by putting them into the cache).
+    void removeTiles();
+
     // Request that all loaded tiles re-run the layout operation on the existing source
     // data with fresh style information.
     void reloadTiles();
@@ -84,10 +87,12 @@ public:
 
 protected:
     void invalidateTiles();
+    void removeStaleTiles(const std::set<OverscaledTileID>&);
 
     Source& base;
     SourceObserver* observer = nullptr;
     std::map<OverscaledTileID, std::unique_ptr<Tile>> tiles;
+    TileCache cache;
 
 private:
     // TileObserver implementation.
@@ -99,7 +104,6 @@ private:
     virtual std::unique_ptr<Tile> createTile(const OverscaledTileID&, const UpdateParameters&) = 0;
 
     std::map<UnwrappedTileID, RenderTile> renderTiles;
-    TileCache cache;
 };
 
 } // namespace style
