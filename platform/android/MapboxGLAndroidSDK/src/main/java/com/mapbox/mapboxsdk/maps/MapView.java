@@ -329,6 +329,7 @@ public class MapView extends FrameLayout {
             int tenDp = (int) getResources().getDimension(R.dimen.ten_dp);
             uiSettings.setCompassMargins(tenDp, tenDp, tenDp, tenDp);
         }
+        uiSettings.setCompassFadeFacingNorth(options.getCompassFadeFacingNorth());
 
         // Logo
         uiSettings.setLogoEnabled(options.getLogoEnabled());
@@ -414,6 +415,7 @@ public class MapView extends FrameLayout {
                     savedInstanceState.getInt(MapboxConstants.STATE_COMPASS_MARGIN_TOP),
                     savedInstanceState.getInt(MapboxConstants.STATE_COMPASS_MARGIN_RIGHT),
                     savedInstanceState.getInt(MapboxConstants.STATE_COMPASS_MARGIN_BOTTOM));
+            uiSettings.setCompassFadeFacingNorth(savedInstanceState.getBoolean(MapboxConstants.STATE_COMPASS_FADE_WHEN_FACING_NORTH));
 
             // Logo
             uiSettings.setLogoEnabled(savedInstanceState.getBoolean(MapboxConstants.STATE_LOGO_ENABLED));
@@ -551,6 +553,7 @@ public class MapView extends FrameLayout {
         outState.putInt(MapboxConstants.STATE_COMPASS_MARGIN_TOP, uiSettings.getCompassMarginTop());
         outState.putInt(MapboxConstants.STATE_COMPASS_MARGIN_BOTTOM, uiSettings.getCompassMarginBottom());
         outState.putInt(MapboxConstants.STATE_COMPASS_MARGIN_RIGHT, uiSettings.getCompassMarginRight());
+        outState.putBoolean(MapboxConstants.STATE_COMPASS_FADE_WHEN_FACING_NORTH, uiSettings.isCompassFadeWhenFacingNorth());
 
         // UiSettings - Logo
         outState.putInt(MapboxConstants.STATE_LOGO_GRAVITY, uiSettings.getLogoGravity());
@@ -1014,17 +1017,38 @@ public class MapView extends FrameLayout {
             icon = IconFactory.getInstance(getContext()).defaultMarker();
             Bitmap bitmap = icon.getBitmap();
             averageIconHeight = averageIconHeight + (bitmap.getHeight() / 2 - averageIconHeight) / iconSize;
-            averageIconWidth = averageIconHeight + (bitmap.getWidth() - averageIconHeight) / iconSize;
+            averageIconWidth = averageIconWidth + (bitmap.getWidth() - averageIconWidth) / iconSize;
             marker.setIcon(icon);
         } else {
             Bitmap bitmap = icon.getBitmap();
             averageIconHeight = averageIconHeight + (bitmap.getHeight() - averageIconHeight) / iconSize;
-            averageIconWidth = averageIconHeight + (bitmap.getWidth() - averageIconHeight) / iconSize;
+            averageIconWidth = averageIconWidth + (bitmap.getWidth() - averageIconWidth) / iconSize;
         }
 
         if (!icons.contains(icon)) {
             icons.add(icon);
             loadIcon(icon);
+        } else {
+            Icon oldIcon = icons.get(icons.indexOf(icon));
+            if (!oldIcon.getBitmap().sameAs(icon.getBitmap())) {
+                throw new IconBitmapChangedException();
+            }
+        }
+        return icon;
+    }
+
+    Icon loadIconForMarkerView(MarkerView marker) {
+        Icon icon = marker.getIcon();
+        int iconSize = icons.size() + 1;
+        if (icon == null) {
+            icon = IconFactory.getInstance(getContext()).defaultMarkerView();
+            marker.setIcon(icon);
+        }
+        Bitmap bitmap = icon.getBitmap();
+        averageIconHeight = averageIconHeight + (bitmap.getHeight() - averageIconHeight) / iconSize;
+        averageIconWidth = averageIconWidth + (bitmap.getWidth() - averageIconWidth) / iconSize;
+        if (!icons.contains(icon)) {
+            icons.add(icon);
         } else {
             Icon oldIcon = icons.get(icons.indexOf(icon));
             if (!oldIcon.getBitmap().sameAs(icon.getBitmap())) {
@@ -1875,9 +1899,10 @@ public class MapView extends FrameLayout {
                     if (annotation instanceof Marker) {
                         if (annotation.getId() == newSelectedMarkerId) {
                             if (selectedMarkers.isEmpty() || !selectedMarkers.contains(annotation)) {
-                                // only handle click if no marker view is available
                                 if (!(annotation instanceof MarkerView)) {
                                     mapboxMap.selectMarker((Marker) annotation);
+                                } else {
+                                    mapboxMap.getMarkerViewManager().onClickMarkerView((MarkerView) annotation);
                                 }
                             }
                             break;
@@ -2527,7 +2552,7 @@ public class MapView extends FrameLayout {
         // Called when an action we are listening to in the manifest has been sent
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (intent.getAction().equals(ConnectivityManager.CONNECTIVITY_ACTION)) {
+            if (!destroyed && intent.getAction().equals(ConnectivityManager.CONNECTIVITY_ACTION)) {
                 boolean noConnectivity = intent.getBooleanExtra(ConnectivityManager.EXTRA_NO_CONNECTIVITY, false);
                 onConnectivityChanged(!noConnectivity);
             }
@@ -2712,6 +2737,10 @@ public class MapView extends FrameLayout {
 
     void setCompassMargins(int left, int top, int right, int bottom) {
         setWidgetMargins(compassView, left, top, right, bottom);
+    }
+
+    void setCompassFadeFacingNorth(boolean compassFadeFacingNorth) {
+        compassView.fadeCompassViewFacingNorth(compassFadeFacingNorth);
     }
 
     //
