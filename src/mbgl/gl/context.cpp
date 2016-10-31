@@ -1,10 +1,22 @@
+#include <mbgl/map/view.hpp>
 #include <mbgl/gl/context.hpp>
 #include <mbgl/gl/gl.hpp>
 #include <mbgl/gl/vertex_array.hpp>
 #include <mbgl/util/traits.hpp>
+#include <mbgl/util/std.hpp>
+
+#include <boost/functional/hash.hpp>
 
 namespace mbgl {
 namespace gl {
+
+static_assert(underlying_type(PrimitiveType::Points) == GL_POINTS, "OpenGL type mismatch");
+static_assert(underlying_type(PrimitiveType::Lines) == GL_LINES, "OpenGL type mismatch");
+static_assert(underlying_type(PrimitiveType::LineLoop) == GL_LINE_LOOP, "OpenGL type mismatch");
+static_assert(underlying_type(PrimitiveType::LineStrip) == GL_LINE_STRIP, "OpenGL type mismatch");
+static_assert(underlying_type(PrimitiveType::Triangles) == GL_TRIANGLES, "OpenGL type mismatch");
+static_assert(underlying_type(PrimitiveType::TriangleStrip) == GL_TRIANGLE_STRIP, "OpenGL type mismatch");
+static_assert(underlying_type(PrimitiveType::TriangleFan) == GL_TRIANGLE_FAN, "OpenGL type mismatch");
 
 static_assert(std::is_same<ProgramID, GLuint>::value, "OpenGL type mismatch");
 static_assert(std::is_same<ShaderID, GLuint>::value, "OpenGL type mismatch");
@@ -13,67 +25,6 @@ static_assert(std::is_same<TextureID, GLuint>::value, "OpenGL type mismatch");
 static_assert(std::is_same<VertexArrayID, GLuint>::value, "OpenGL type mismatch");
 static_assert(std::is_same<FramebufferID, GLuint>::value, "OpenGL type mismatch");
 static_assert(std::is_same<RenderbufferID, GLuint>::value, "OpenGL type mismatch");
-
-static_assert(std::is_same<StencilValue, GLint>::value, "OpenGL type mismatch");
-static_assert(std::is_same<StencilMaskValue, GLuint>::value, "OpenGL type mismatch");
-
-static_assert(underlying_type(StencilTestFunction::Never) == GL_NEVER, "OpenGL enum mismatch");
-static_assert(underlying_type(StencilTestFunction::Less) == GL_LESS, "OpenGL enum mismatch");
-static_assert(underlying_type(StencilTestFunction::Equal) == GL_EQUAL, "OpenGL enum mismatch");
-static_assert(underlying_type(StencilTestFunction::LessEqual) == GL_LEQUAL, "OpenGL enum mismatch");
-static_assert(underlying_type(StencilTestFunction::Greater) == GL_GREATER, "OpenGL enum mismatch");
-static_assert(underlying_type(StencilTestFunction::NotEqual) == GL_NOTEQUAL, "OpenGL enum mismatch");
-static_assert(underlying_type(StencilTestFunction::GreaterEqual) == GL_GEQUAL, "OpenGL enum mismatch");
-static_assert(underlying_type(StencilTestFunction::Always) == GL_ALWAYS, "OpenGL enum mismatch");
-
-static_assert(underlying_type(StencilTestOperation::Keep) == GL_KEEP, "OpenGL enum mismatch");
-static_assert(underlying_type(StencilTestOperation::Zero) == GL_ZERO, "OpenGL enum mismatch");
-static_assert(underlying_type(StencilTestOperation::Replace) == GL_REPLACE, "OpenGL enum mismatch");
-static_assert(underlying_type(StencilTestOperation::Increment) == GL_INCR, "OpenGL enum mismatch");
-static_assert(underlying_type(StencilTestOperation::IncrementWrap) == GL_INCR_WRAP, "OpenGL enum mismatch");
-static_assert(underlying_type(StencilTestOperation::Decrement) == GL_DECR, "OpenGL enum mismatch");
-static_assert(underlying_type(StencilTestOperation::DecrementWrap) == GL_DECR_WRAP, "OpenGL enum mismatch");
-static_assert(underlying_type(StencilTestOperation::Invert) == GL_INVERT, "OpenGL enum mismatch");
-
-static_assert(underlying_type(DepthTestFunction::Never) == GL_NEVER, "OpenGL enum mismatch");
-static_assert(underlying_type(DepthTestFunction::Less) == GL_LESS, "OpenGL enum mismatch");
-static_assert(underlying_type(DepthTestFunction::Equal) == GL_EQUAL, "OpenGL enum mismatch");
-static_assert(underlying_type(DepthTestFunction::LessEqual) == GL_LEQUAL, "OpenGL enum mismatch");
-static_assert(underlying_type(DepthTestFunction::Greater) == GL_GREATER, "OpenGL enum mismatch");
-static_assert(underlying_type(DepthTestFunction::NotEqual) == GL_NOTEQUAL, "OpenGL enum mismatch");
-static_assert(underlying_type(DepthTestFunction::GreaterEqual) == GL_GEQUAL, "OpenGL enum mismatch");
-static_assert(underlying_type(DepthTestFunction::Always) == GL_ALWAYS, "OpenGL enum mismatch");
-
-static_assert(underlying_type(BlendSourceFactor::Zero) == GL_ZERO, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendSourceFactor::One) == GL_ONE, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendSourceFactor::SrcColor) == GL_SRC_COLOR, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendSourceFactor::OneMinusSrcColor) == GL_ONE_MINUS_SRC_COLOR, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendSourceFactor::DstColor) == GL_DST_COLOR, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendSourceFactor::OneMinusDstColor) == GL_ONE_MINUS_DST_COLOR, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendSourceFactor::SrcAlpha) == GL_SRC_ALPHA, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendSourceFactor::OneMinusSrcAlpha) == GL_ONE_MINUS_SRC_ALPHA, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendSourceFactor::DstAlpha) == GL_DST_ALPHA, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendSourceFactor::OneMinusDstAlpha) == GL_ONE_MINUS_DST_ALPHA, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendSourceFactor::ConstantColor) == GL_CONSTANT_COLOR, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendSourceFactor::OneMinusConstantColor) == GL_ONE_MINUS_CONSTANT_COLOR, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendSourceFactor::ConstantAlpha) == GL_CONSTANT_ALPHA, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendSourceFactor::OneMinusConstantAlpha) == GL_ONE_MINUS_CONSTANT_ALPHA, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendSourceFactor::SrcAlphaSaturate) == GL_SRC_ALPHA_SATURATE, "OpenGL enum mismatch");
-
-static_assert(underlying_type(BlendDestinationFactor::Zero) == GL_ZERO, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendDestinationFactor::One) == GL_ONE, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendDestinationFactor::SrcColor) == GL_SRC_COLOR, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendDestinationFactor::OneMinusSrcColor) == GL_ONE_MINUS_SRC_COLOR, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendDestinationFactor::DstColor) == GL_DST_COLOR, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendDestinationFactor::OneMinusDstColor) == GL_ONE_MINUS_DST_COLOR, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendDestinationFactor::SrcAlpha) == GL_SRC_ALPHA, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendDestinationFactor::OneMinusSrcAlpha) == GL_ONE_MINUS_SRC_ALPHA, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendDestinationFactor::DstAlpha) == GL_DST_ALPHA, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendDestinationFactor::OneMinusDstAlpha) == GL_ONE_MINUS_DST_ALPHA, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendDestinationFactor::ConstantColor) == GL_CONSTANT_COLOR, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendDestinationFactor::OneMinusConstantColor) == GL_ONE_MINUS_CONSTANT_COLOR, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendDestinationFactor::ConstantAlpha) == GL_CONSTANT_ALPHA, "OpenGL enum mismatch");
-static_assert(underlying_type(BlendDestinationFactor::OneMinusConstantAlpha) == GL_ONE_MINUS_CONSTANT_ALPHA, "OpenGL enum mismatch");
 
 Context::~Context() {
     reset();
@@ -109,16 +60,6 @@ UniqueBuffer Context::createIndexBuffer(const void* data, std::size_t size) {
     return result;
 }
 
-void Context::bindAttribute(const AttributeBinding& binding, std::size_t stride, const int8_t* offset) {
-    MBGL_CHECK_ERROR(glEnableVertexAttribArray(binding.location));
-    MBGL_CHECK_ERROR(glVertexAttribPointer(binding.location,
-                                           binding.count,
-                                           static_cast<GLenum>(binding.type),
-                                           false,
-                                           static_cast<GLsizei>(stride),
-                                           offset + binding.offset));
-}
-
 UniqueTexture Context::createTexture() {
     if (pooledTextures.empty()) {
         pooledTextures.resize(TextureMax);
@@ -130,20 +71,119 @@ UniqueTexture Context::createTexture() {
     return UniqueTexture{ std::move(id), { this } };
 }
 
-UniqueVertexArray Context::createVertexArray() {
-    VertexArrayID id = 0;
-    MBGL_CHECK_ERROR(gl::GenVertexArrays(1, &id));
-    return UniqueVertexArray{ std::move(id), { this } };
-}
-
 UniqueFramebuffer Context::createFramebuffer() {
     FramebufferID id = 0;
     MBGL_CHECK_ERROR(glGenFramebuffers(1, &id));
     return UniqueFramebuffer{ std::move(id), { this } };
 }
 
+UniqueRenderbuffer Context::createRenderbuffer(const RenderbufferType type, const Size size) {
+    RenderbufferID id = 0;
+    MBGL_CHECK_ERROR(glGenRenderbuffers(1, &id));
+    UniqueRenderbuffer renderbuffer{ std::move(id), { this } };
+
+    bindRenderbuffer = renderbuffer;
+    MBGL_CHECK_ERROR(
+        glRenderbufferStorage(GL_RENDERBUFFER, static_cast<GLenum>(type), size.width, size.height));
+    return renderbuffer;
+}
+
+namespace {
+
+void checkFramebuffer() {
+    GLenum status = MBGL_CHECK_ERROR(glCheckFramebufferStatus(GL_FRAMEBUFFER));
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        switch (status) {
+        case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+            throw std::runtime_error("Couldn't create framebuffer: incomplete attachment");
+        case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
+            throw std::runtime_error("Couldn't create framebuffer: incomplete missing attachment");
+#ifdef GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER
+        case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER:
+            throw std::runtime_error("Couldn't create framebuffer: incomplete draw buffer");
+#endif
+#ifdef GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER
+        case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER:
+            throw std::runtime_error("Couldn't create framebuffer: incomplete read buffer");
+#endif
+#ifdef GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS
+        case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS:
+            throw std::runtime_error("Couldn't create framebuffer: incomplete dimensions");
+#endif
+
+        case GL_FRAMEBUFFER_UNSUPPORTED:
+            throw std::runtime_error("Couldn't create framebuffer: unsupported");
+        default:
+            throw std::runtime_error("Couldn't create framebuffer: other");
+        }
+    }
+}
+
+void bindDepthStencilRenderbuffer(
+    const Renderbuffer<RenderbufferType::DepthStencil>& depthStencil) {
+#ifdef GL_DEPTH_STENCIL_ATTACHMENT
+    MBGL_CHECK_ERROR(glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                                               GL_RENDERBUFFER, depthStencil.renderbuffer));
+#else
+    MBGL_CHECK_ERROR(glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER,
+                                               depthStencil.renderbuffer));
+    MBGL_CHECK_ERROR(glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT,
+                                               GL_RENDERBUFFER, depthStencil.renderbuffer));
+#endif
+}
+
+} // namespace
+
+Framebuffer
+Context::createFramebuffer(const Renderbuffer<RenderbufferType::RGBA>& color,
+                           const Renderbuffer<RenderbufferType::DepthStencil>& depthStencil) {
+    if (color.size != depthStencil.size) {
+        throw new std::runtime_error("Renderbuffer size mismatch");
+    }
+    auto fbo = createFramebuffer();
+    bindFramebuffer = fbo;
+    MBGL_CHECK_ERROR(glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                               GL_RENDERBUFFER, color.renderbuffer));
+    bindDepthStencilRenderbuffer(depthStencil);
+    checkFramebuffer();
+    return { color.size, std::move(fbo) };
+}
+
+Framebuffer Context::createFramebuffer(const Renderbuffer<RenderbufferType::RGBA>& color) {
+    auto fbo = createFramebuffer();
+    bindFramebuffer = fbo;
+    MBGL_CHECK_ERROR(glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                               GL_RENDERBUFFER, color.renderbuffer));
+    checkFramebuffer();
+    return { color.size, std::move(fbo) };
+}
+
+Framebuffer
+Context::createFramebuffer(const Texture& color,
+                           const Renderbuffer<RenderbufferType::DepthStencil>& depthStencil) {
+    if (color.size != depthStencil.size) {
+        throw new std::runtime_error("Renderbuffer size mismatch");
+    }
+    auto fbo = createFramebuffer();
+    bindFramebuffer = fbo;
+    MBGL_CHECK_ERROR(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                                            color.texture, 0));
+    bindDepthStencilRenderbuffer(depthStencil);
+    checkFramebuffer();
+    return { color.size, std::move(fbo) };
+}
+
+Framebuffer Context::createFramebuffer(const Texture& color) {
+    auto fbo = createFramebuffer();
+    bindFramebuffer = fbo;
+    MBGL_CHECK_ERROR(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                                            color.texture, 0));
+    checkFramebuffer();
+    return { color.size, std::move(fbo) };
+}
+
 UniqueTexture
-Context::createTexture(uint16_t width, uint16_t height, const void* data, TextureUnit unit) {
+Context::createTexture(const Size size, const void* data, TextureUnit unit) {
     auto obj = createTexture();
     activeTexture = unit;
     texture[unit] = obj;
@@ -151,8 +191,8 @@ Context::createTexture(uint16_t width, uint16_t height, const void* data, Textur
     MBGL_CHECK_ERROR(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
     MBGL_CHECK_ERROR(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
     MBGL_CHECK_ERROR(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
-    MBGL_CHECK_ERROR(
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data));
+    MBGL_CHECK_ERROR(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, size.width, size.height, 0, GL_RGBA,
+                                  GL_UNSIGNED_BYTE, data));
     return obj;
 }
 
@@ -186,50 +226,220 @@ void Context::reset() {
     performCleanup();
 }
 
-namespace {
-
-template <typename Fn>
-void applyStateFunction(Context& context, Fn&& fn) {
-    fn(context.stencilFunc);
-    fn(context.stencilMask);
-    fn(context.stencilTest);
-    fn(context.stencilOp);
-    fn(context.depthRange);
-    fn(context.depthMask);
-    fn(context.depthTest);
-    fn(context.depthFunc);
-    fn(context.blend);
-    fn(context.blendFunc);
-    fn(context.blendColor);
-    fn(context.colorMask);
-    fn(context.clearDepth);
-    fn(context.clearColor);
-    fn(context.clearStencil);
-    fn(context.program);
-    fn(context.lineWidth);
-    fn(context.activeTexture);
-    fn(context.bindFramebuffer);
-    fn(context.viewport);
-#if not MBGL_USE_GLES2
-    fn(context.pixelZoom);
-    fn(context.rasterPos);
-#endif // MBGL_USE_GLES2
-    for (auto& tex : context.texture) {
-        fn(tex);
-    }
-    fn(context.vertexBuffer);
-    fn(context.elementBuffer);
-    fn(context.vertexArrayObject);
-}
-
-} // namespace
-
-void Context::resetState() {
-    applyStateFunction(*this, [](auto& state) { state.reset(); });
-}
-
 void Context::setDirtyState() {
-    applyStateFunction(*this, [](auto& state) { state.setDirty(); });
+    // Note: does not set viewport/bindFramebuffer to dirty since they are handled separately in
+    // the view object.
+    stencilFunc.setDirty();
+    stencilMask.setDirty();
+    stencilTest.setDirty();
+    stencilOp.setDirty();
+    depthRange.setDirty();
+    depthMask.setDirty();
+    depthTest.setDirty();
+    depthFunc.setDirty();
+    blend.setDirty();
+    blendEquation.setDirty();
+    blendFunc.setDirty();
+    blendColor.setDirty();
+    colorMask.setDirty();
+    clearDepth.setDirty();
+    clearColor.setDirty();
+    clearStencil.setDirty();
+    program.setDirty();
+    lineWidth.setDirty();
+    activeTexture.setDirty();
+#if not MBGL_USE_GLES2
+    pointSize.setDirty();
+    pixelZoom.setDirty();
+    rasterPos.setDirty();
+#endif // MBGL_USE_GLES2
+    for (auto& tex : texture) {
+       tex.setDirty();
+    }
+    vertexBuffer.setDirty();
+    elementBuffer.setDirty();
+    vertexArrayObject.setDirty();
+}
+
+void Context::clear(optional<mbgl::Color> color,
+                    optional<float> depth,
+                    optional<int32_t> stencil) {
+    GLbitfield mask = 0;
+
+    if (color) {
+        mask |= GL_COLOR_BUFFER_BIT;
+        clearColor = *color;
+        colorMask = { true, true, true, true };
+    }
+
+    if (depth) {
+        mask |= GL_DEPTH_BUFFER_BIT;
+        clearDepth = *depth;
+        depthMask = true;
+    }
+
+    if (stencil) {
+        mask |= GL_STENCIL_BUFFER_BIT;
+        clearStencil = *stencil;
+        stencilMask = 0xFF;
+    }
+
+    MBGL_CHECK_ERROR(glClear(mask));
+}
+
+#if not MBGL_USE_GLES2
+PrimitiveType Context::operator()(const Points& points) {
+    pointSize = points.pointSize;
+    return PrimitiveType::Points;
+}
+#else
+PrimitiveType Context::operator()(const Points&) {
+    return PrimitiveType::Points;
+}
+#endif // MBGL_USE_GLES2
+
+PrimitiveType Context::operator()(const Lines& lines) {
+    lineWidth = lines.lineWidth;
+    return PrimitiveType::Lines;
+}
+
+PrimitiveType Context::operator()(const LineStrip& lineStrip) {
+    lineWidth = lineStrip.lineWidth;
+    return PrimitiveType::LineStrip;
+}
+
+PrimitiveType Context::operator()(const Triangles&) {
+    return PrimitiveType::Triangles;
+}
+
+PrimitiveType Context::operator()(const TriangleStrip&) {
+    return PrimitiveType::TriangleStrip;
+}
+
+std::size_t Context::VertexArrayObjectHash::operator()(const VertexArrayObjectKey& key) const {
+    std::size_t seed = 0;
+    boost::hash_combine(seed, std::get<0>(key));
+    boost::hash_combine(seed, std::get<1>(key));
+    boost::hash_combine(seed, std::get<2>(key));
+    boost::hash_combine(seed, std::get<3>(key));
+    return seed;
+}
+
+void Context::setDepthMode(const DepthMode& depth) {
+    if (depth.func == DepthMode::Always && !depth.mask) {
+        depthTest = false;
+    } else {
+        depthTest = true;
+        depthFunc = depth.func;
+        depthMask = depth.mask;
+        depthRange = depth.range;
+    }
+}
+
+void Context::setStencilMode(const StencilMode& stencil) {
+    if (stencil.test.is<StencilMode::Always>() && !stencil.mask) {
+        stencilTest = false;
+    } else {
+        stencilTest = true;
+        stencilMask = stencil.mask;
+        stencilOp = { stencil.fail, stencil.depthFail, stencil.pass };
+        apply_visitor([&] (const auto& test) {
+            stencilFunc = { test.func, stencil.ref, test.mask };
+        }, stencil.test);
+    }
+}
+
+void Context::setColorMode(const ColorMode& color) {
+    if (color.blendFunction.is<ColorMode::Replace>()) {
+        blend = false;
+    } else {
+        blend = true;
+        blendColor = color.blendColor;
+        apply_visitor([&] (const auto& blendFunction) {
+            blendEquation = ColorMode::BlendEquation(blendFunction.equation);
+            blendFunc = { blendFunction.srcFactor, blendFunction.dstFactor };
+        }, color.blendFunction);
+    }
+
+    colorMask = color.mask;
+}
+
+void Context::draw(const Drawable& drawable) {
+    if (drawable.segments.empty()) {
+        return;
+    }
+
+    PrimitiveType primitiveType = apply_visitor([&] (auto m) { return (*this)(m); }, drawable.drawMode);
+
+    setDepthMode(drawable.depthMode);
+    setStencilMode(drawable.stencilMode);
+    setColorMode(drawable.colorMode);
+
+    program = drawable.program;
+
+    drawable.bindUniforms();
+
+    for (const auto& segment : drawable.segments) {
+        auto needAttributeBindings = [&] () {
+            if (!gl::GenVertexArrays || !gl::BindVertexArray) {
+                return true;
+            }
+
+            VertexArrayObjectKey vaoKey {
+                drawable.program,
+                drawable.vertexBuffer,
+                drawable.indexBuffer,
+                segment.vertexOffset
+            };
+
+            auto it = vaos.find(vaoKey);
+            if (it != vaos.end()) {
+                vertexArrayObject = it->second;
+                return false;
+            }
+
+            VertexArrayID id = 0;
+            MBGL_CHECK_ERROR(gl::GenVertexArrays(1, &id));
+            vertexArrayObject = id;
+            vaos.emplace(vaoKey, UniqueVertexArray(std::move(id), { this }));
+
+            // If we are initializing a new VAO, we need to force the buffers
+            // to be rebound. VAOs don't inherit the existing buffer bindings.
+            vertexBuffer.setDirty();
+            elementBuffer.setDirty();
+
+            return true;
+        };
+
+        if (needAttributeBindings()) {
+            vertexBuffer = drawable.vertexBuffer;
+            elementBuffer = drawable.indexBuffer;
+
+            for (const auto& binding : drawable.attributeBindings) {
+                MBGL_CHECK_ERROR(glEnableVertexAttribArray(binding.location));
+                MBGL_CHECK_ERROR(glVertexAttribPointer(
+                    binding.location,
+                    binding.count,
+                    static_cast<GLenum>(binding.type),
+                    GL_FALSE,
+                    static_cast<GLsizei>(drawable.vertexSize),
+                    reinterpret_cast<GLvoid*>(binding.offset + (drawable.vertexSize * segment.vertexOffset))));
+            }
+        }
+
+        if (drawable.indexBuffer) {
+            MBGL_CHECK_ERROR(glDrawElements(
+                static_cast<GLenum>(primitiveType),
+                static_cast<GLsizei>(drawable.primitiveSize / sizeof(uint16_t) * segment.primitiveLength),
+                GL_UNSIGNED_SHORT,
+                reinterpret_cast<GLvoid*>(drawable.primitiveSize * segment.primitiveOffset)));
+        } else {
+            MBGL_CHECK_ERROR(glDrawArrays(
+                static_cast<GLenum>(primitiveType),
+                static_cast<GLint>(segment.vertexOffset),
+                static_cast<GLsizei>(segment.vertexLength)));
+        }
+    }
 }
 
 void Context::performCleanup() {
@@ -237,6 +447,9 @@ void Context::performCleanup() {
         if (program == id) {
             program.setDirty();
         }
+        mbgl::util::erase_if(vaos, [&] (const VertexArrayObjectMap::value_type& kv) {
+            return std::get<0>(kv.first) == id;
+        });
         MBGL_CHECK_ERROR(glDeleteProgram(id));
     }
     abandonedPrograms.clear();
@@ -253,6 +466,10 @@ void Context::performCleanup() {
             } else if (elementBuffer == id) {
                 elementBuffer.setDirty();
             }
+            mbgl::util::erase_if(vaos, [&] (const VertexArrayObjectMap::value_type& kv) {
+                return std::get<1>(kv.first) == id
+                    || std::get<2>(kv.first) == id;
+            });
         }
         MBGL_CHECK_ERROR(glDeleteBuffers(int(abandonedBuffers.size()), abandonedBuffers.data()));
         abandonedBuffers.clear();
@@ -288,6 +505,12 @@ void Context::performCleanup() {
         MBGL_CHECK_ERROR(
             glDeleteFramebuffers(int(abandonedFramebuffers.size()), abandonedFramebuffers.data()));
         abandonedFramebuffers.clear();
+    }
+
+    if (!abandonedRenderbuffers.empty()) {
+        MBGL_CHECK_ERROR(glDeleteRenderbuffers(int(abandonedRenderbuffers.size()),
+                                               abandonedRenderbuffers.data()));
+        abandonedRenderbuffers.clear();
     }
 }
 
