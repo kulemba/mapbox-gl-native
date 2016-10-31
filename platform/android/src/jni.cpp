@@ -358,7 +358,7 @@ void nativeDestroySurface(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr
 void nativeUpdate(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr) {
     assert(nativeMapViewPtr != 0);
     NativeMapView *nativeMapView = reinterpret_cast<NativeMapView *>(nativeMapViewPtr);
-    nativeMapView->getMap().update(mbgl::Update::Repaint);
+    nativeMapView->invalidate();
 }
 
 void nativeRender(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr) {
@@ -833,9 +833,10 @@ void nativeAddAnnotationIcon(JNIEnv *env, jni::jobject* obj, jlong nativeMapView
 
     NullCheck(*env, jpixels);
     std::size_t size = jni::GetArrayLength(*env, *jpixels);
-    mbgl::PremultipliedImage premultipliedImage(width, height);
+    mbgl::PremultipliedImage premultipliedImage(
+        { static_cast<uint32_t>(width), static_cast<uint32_t>(height) });
 
-    if (premultipliedImage.size() != uint32_t(size)) {
+    if (premultipliedImage.bytes() != uint32_t(size)) {
         throw mbgl::util::SpriteImageException("Sprite image pixel count mismatch");
     }
 
@@ -1151,7 +1152,7 @@ void nativeRemoveSource(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr, 
     try {
         nativeMapView->getMap().removeSource(std_string_from_jstring(env, id));
     } catch (const std::runtime_error& error) {
-        jni::ThrowNew(*env, jni::FindClass(*env, "com/mapbox/mapboxsdk/style/layers/NoSuchSourceException"), error.what());
+        jni::ThrowNew(*env, jni::FindClass(*env, "com/mapbox/mapboxsdk/style/sources/NoSuchSourceException"), error.what());
     }
 }
 
@@ -1162,9 +1163,10 @@ void nativeAddImage(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr, jni:
     // Create Pre-multiplied image from byte[]
     NullCheck(*env, data);
     std::size_t size = jni::GetArrayLength(*env, *data);
-    mbgl::PremultipliedImage premultipliedImage(width, height);
+    mbgl::PremultipliedImage premultipliedImage(
+        { static_cast<uint32_t>(width), static_cast<uint32_t>(height) });
 
-    if (premultipliedImage.size() != uint32_t(size)) {
+    if (premultipliedImage.bytes() != uint32_t(size)) {
         throw mbgl::util::SpriteImageException("Sprite image pixel count mismatch");
     }
 
