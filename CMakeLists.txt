@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.1)
 project(mbgl LANGUAGES CXX C)
+set(CMAKE_CXX_STANDARD 14)
 
 include(cmake/mbgl.cmake)
 
@@ -38,10 +39,15 @@ endif(WITH_COVERAGE)
 
 set(CMAKE_CONFIGURATION_TYPES Debug Release)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall -Wextra -Wshadow -Werror -Wno-variadic-macros -Wno-unknown-pragmas")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -ftemplate-depth=1024 -Wall -Wextra -Wshadow -Werror -Wno-variadic-macros -Wno-unknown-pragmas")
 if(APPLE)
     # -Wno-error=unused-command-line-argument is required due to https://llvm.org/bugs/show_bug.cgi?id=7798
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=unused-command-line-argument")
+endif()
+
+if(CMAKE_COMPILER_IS_GNUCXX)
+    # https://svn.boost.org/trac/boost/ticket/9240
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fext-numeric-literals")
 endif()
 
 if(NOT EXISTS ${CMAKE_SOURCE_DIR}/platform/${MBGL_PLATFORM}/config.cmake)
