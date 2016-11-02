@@ -1623,6 +1623,10 @@ MGL_EXPORT IB_DESIGNABLE
 
 - (void)emptyMemoryCache __attribute__((unavailable));
 
++ (void)setForcedOffline:(BOOL)forceOffline;
+
++ (BOOL)isForcedOffline;
+
 @end
 
 NS_ASSUME_NONNULL_END
