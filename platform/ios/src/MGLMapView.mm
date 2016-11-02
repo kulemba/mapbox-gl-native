@@ -1995,6 +1995,16 @@ public:
     _mbglMap->onLowMemory();
 }
 
++ (void)setForcedOffline:(BOOL)forceOffline
+{
+    mbgl::NetworkStatus::Set(forceOffline ? mbgl::NetworkStatus::Status::Offline: mbgl::NetworkStatus::Status::Online);
+}
+
++ (BOOL)isForcedOffline
+{
+    return mbgl::NetworkStatus::Get() == mbgl::NetworkStatus::Status::Offline ? YES: NO;
+}
+
 - (BOOL)isReachable
 {
     return _isReachable;

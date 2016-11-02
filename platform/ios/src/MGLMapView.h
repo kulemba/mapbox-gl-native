@@ -1207,6 +1207,10 @@ IB_DESIGNABLE
 
 - (void)emptyMemoryCache __attribute__((deprecated));
 
++ (void)setForcedOffline:(BOOL)forceOffline;
+
++ (BOOL)isForcedOffline;
+
 @property (nonatomic, readonly, getter=isReachable) BOOL reachable;
 
 @end
