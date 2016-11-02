@@ -504,7 +504,8 @@ public:
                                                object:nil];
 
     _reachability = [MGLReachability reachabilityForInternetConnection];
-    if ([_reachability isReachable])
+    _isReachable = [_reachability isReachable];
+    if (_isReachable)
     {
         _isWaitingForRedundantReachableNotification = YES;
     }
@@ -2732,6 +2733,16 @@ public:
 - (BOOL)prefetchesTiles
 {
     return _mbglMap->getPrefetchZoomDelta() > 0 ? YES : NO;
+}
+
++ (void)setForcedOffline:(BOOL)forceOffline
+{
+    mbgl::NetworkStatus::Set(forceOffline ? mbgl::NetworkStatus::Status::Offline: mbgl::NetworkStatus::Status::Online);
+}
+
++ (BOOL)isForcedOffline
+{
+    return mbgl::NetworkStatus::Get() == mbgl::NetworkStatus::Status::Offline ? YES: NO;
 }
 
 #pragma mark - Accessibility -
