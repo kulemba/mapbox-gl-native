@@ -5,7 +5,6 @@
 #include "qt_geojson.hpp"
 
 #include <mbgl/annotation/annotation.hpp>
-#include <mbgl/gl/gl.hpp>
 #include <mbgl/gl/context.hpp>
 #include <mbgl/map/camera.hpp>
 #include <mbgl/map/map.hpp>
@@ -854,6 +853,7 @@ void QMapboxGLPrivate::updateFramebufferBinding(QOpenGLFramebufferObject *fbo_)
             0, 0, { static_cast<uint32_t>(fbo->width()), static_cast<uint32_t>(fbo->height()) } };
     } else {
         getContext().bindFramebuffer.setCurrentValue(0);
+        assert(mbgl::gl::value::BindFramebuffer::Get() == getContext().bindFramebuffer.getCurrentValue());
         getContext().viewport = {
             0, 0, { static_cast<uint32_t>(fbSize.width()), static_cast<uint32_t>(fbSize.height()) } };
     }
