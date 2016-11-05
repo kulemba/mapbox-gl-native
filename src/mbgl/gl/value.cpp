@@ -389,8 +389,63 @@ RasterPos::Type RasterPos::Get() {
     return { pos[0], pos[1], pos[2], pos[3] };
 }
 
-#endif // MBGL_USE_GLES2
+const constexpr PixelStorePack::Type PixelStorePack::Default;
 
+void PixelStorePack::Set(const Type& value) {
+    assert(value.alignment == 1 || value.alignment == 2 || value.alignment == 4 ||
+           value.alignment == 8);
+    MBGL_CHECK_ERROR(glPixelStorei(GL_PACK_ALIGNMENT, value.alignment));
+}
+
+PixelStorePack::Type PixelStorePack::Get() {
+    Type value;
+    MBGL_CHECK_ERROR(glGetIntegerv(GL_PACK_ALIGNMENT, &value.alignment));
+    return value;
+}
+
+const constexpr PixelStoreUnpack::Type PixelStoreUnpack::Default;
+
+void PixelStoreUnpack::Set(const Type& value) {
+    assert(value.alignment == 1 || value.alignment == 2 || value.alignment == 4 ||
+           value.alignment == 8);
+    MBGL_CHECK_ERROR(glPixelStorei(GL_UNPACK_ALIGNMENT, value.alignment));
+}
+
+PixelStoreUnpack::Type PixelStoreUnpack::Get() {
+    Type value;
+    MBGL_CHECK_ERROR(glGetIntegerv(GL_UNPACK_ALIGNMENT, &value.alignment));
+    return value;
+}
+
+const constexpr PixelTransferDepth::Type PixelTransferDepth::Default;
+
+void PixelTransferDepth::Set(const Type& value) {
+    MBGL_CHECK_ERROR(glPixelTransferf(GL_DEPTH_SCALE, value.scale));
+    MBGL_CHECK_ERROR(glPixelTransferf(GL_DEPTH_BIAS, value.bias));
+}
+
+PixelTransferDepth::Type PixelTransferDepth::Get() {
+    Type value;
+    MBGL_CHECK_ERROR(glGetFloatv(GL_DEPTH_SCALE, &value.scale));
+    MBGL_CHECK_ERROR(glGetFloatv(GL_DEPTH_BIAS, &value.bias));
+    return value;
+}
+
+const constexpr PixelTransferStencil::Type PixelTransferStencil::Default;
+
+void PixelTransferStencil::Set(const Type& value) {
+    MBGL_CHECK_ERROR(glPixelTransferf(GL_INDEX_SHIFT, value.shift));
+    MBGL_CHECK_ERROR(glPixelTransferf(GL_INDEX_OFFSET, value.offset));
+}
+
+PixelTransferStencil::Type PixelTransferStencil::Get() {
+    Type value;
+    MBGL_CHECK_ERROR(glGetIntegerv(GL_INDEX_SHIFT, &value.shift));
+    MBGL_CHECK_ERROR(glGetIntegerv(GL_INDEX_OFFSET, &value.offset));
+    return value;
+}
+
+#endif // MBGL_USE_GLES2
 
 } // namespace value
 } // namespace gl

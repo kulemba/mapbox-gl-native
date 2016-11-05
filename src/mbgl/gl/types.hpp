@@ -46,6 +46,15 @@ enum class RenderbufferType : uint32_t {
 
 enum class TextureMipMap : bool { No = false, Yes = true };
 enum class TextureFilter : bool { Nearest = false, Linear = true };
+enum class TextureWrap : bool { Clamp, Repeat };
+enum class TextureFormat : uint32_t {
+    RGBA = 0x1908,
+    Alpha = 0x1906,
+#if not MBGL_USE_GLES2
+    Stencil = 0x1901,
+    Depth = 0x1902,
+#endif // MBGL_USE_GLES2
+};
 
 enum class PrimitiveType {
     Points = 0x0000,
@@ -56,6 +65,18 @@ enum class PrimitiveType {
     TriangleStrip = 0x0005,
     TriangleFan = 0x0006
 };
+
+#if not MBGL_USE_GLES2
+
+struct PixelStorageType {
+    int32_t alignment;
+};
+
+constexpr bool operator!=(const PixelStorageType& a, const PixelStorageType& b) {
+    return a.alignment != b.alignment;
+}
+
+#endif // MBGL_USE_GLES2
 
 } // namespace gl
 } // namespace mbgl
