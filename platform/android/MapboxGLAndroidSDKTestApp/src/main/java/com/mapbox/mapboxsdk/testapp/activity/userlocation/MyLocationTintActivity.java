@@ -78,7 +78,7 @@ public class MyLocationTintActivity extends AppCompatActivity implements Locatio
                     @Override
                     public void onClick(View view) {
                         myLocationViewSettings.setAccuracyTintColor(ContextCompat.getColor(
-                            MyLocationTintActivity.this, R.color.my_location_ring));
+                            MyLocationTintActivity.this, R.color.mapbox_my_location_ring));
                         myLocationViewSettings.setForegroundTintColor(ContextCompat.getColor(
                             MyLocationTintActivity.this, R.color.mapbox_blue));
                     }
@@ -127,6 +127,7 @@ public class MyLocationTintActivity extends AppCompatActivity implements Locatio
     @Override
     protected void onStart() {
         super.onStart();
+        mapView.onStart();
         LocationServices.getLocationServices(this).addLocationListener(this);
     }
 
@@ -146,6 +147,7 @@ public class MyLocationTintActivity extends AppCompatActivity implements Locatio
     protected void onStop() {
         super.onStop();
         LocationServices.getLocationServices(this).removeLocationListener(this);
+        mapView.onStop();
     }
 
     @Override
