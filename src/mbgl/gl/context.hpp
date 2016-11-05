@@ -62,21 +62,50 @@ public:
                                   const Renderbuffer<RenderbufferType::DepthStencil>&);
     Framebuffer createFramebuffer(const Texture&);
 
+    template <typename Image,
+              TextureFormat format = Image::channels == 4 ? TextureFormat::RGBA
+                                                          : TextureFormat::Alpha>
+    Image readFramebuffer(const Size size, bool flip = true) {
+        static_assert(Image::channels == (format == TextureFormat::RGBA ? 4 : 1),
+                      "image format mismatch");
+        return { size, readFramebuffer(size, format, flip) };
+    }
+
+#if not MBGL_USE_GLES2
+    template <typename Image>
+    void drawPixels(const Image& image) {
+        auto format = image.channels == 4 ? TextureFormat::RGBA : TextureFormat::Alpha;
+        drawPixels(image.size, image.data.get(), format);
+    }
+#endif // MBGL_USE_GLES2
+
     // Create a texture from an image with data.
     template <typename Image>
     Texture createTexture(const Image& image, TextureUnit unit = 0) {
-        return { image.size, createTexture(image.size, image.data.get(), unit) };
+        auto format = image.channels == 4 ? TextureFormat::RGBA : TextureFormat::Alpha;
+        return { image.size, createTexture(image.size, image.data.get(), format, unit) };
+    }
+
+    template <typename Image>
+    void updateTexture(Texture& obj, const Image& image, TextureUnit unit = 0) {
+        auto format = image.channels == 4 ? TextureFormat::RGBA : TextureFormat::Alpha;
+        updateTexture(obj.texture.get(), image.size, image.data.get(), format, unit);
+        obj.size = image.size;
     }
 
     // Creates an empty texture with the specified dimensions.
-    Texture createTexture(const Size size, TextureUnit unit = 0) {
-        return { size, createTexture(size, nullptr, unit) };
+    Texture createTexture(const Size size,
+                          TextureFormat format = TextureFormat::RGBA,
+                          TextureUnit unit = 0) {
+        return { size, createTexture(size, nullptr, format, unit) };
     }
 
     void bindTexture(Texture&,
                      TextureUnit = 0,
                      TextureFilter = TextureFilter::Nearest,
-                     TextureMipMap = TextureMipMap::No);
+                     TextureMipMap = TextureMipMap::No,
+                     TextureWrap wrapX = TextureWrap::Clamp,
+                     TextureWrap wrapY = TextureWrap::Clamp);
 
     void clear(optional<mbgl::Color> color,
                optional<float> depth,
@@ -118,6 +147,10 @@ public:
 #if not MBGL_USE_GLES2
     State<value::PixelZoom> pixelZoom;
     State<value::RasterPos> rasterPos;
+    State<value::PixelStorePack> pixelStorePack;
+    State<value::PixelStoreUnpack> pixelStoreUnpack;
+    State<value::PixelTransferDepth> pixelTransferDepth;
+    State<value::PixelTransferStencil> pixelTransferStencil;
 #endif // MBGL_USE_GLES2
 
 private:
@@ -147,9 +180,14 @@ private:
 
     UniqueBuffer createVertexBuffer(const void* data, std::size_t size);
     UniqueBuffer createIndexBuffer(const void* data, std::size_t size);
-    UniqueTexture createTexture(Size size, const void* data, TextureUnit);
+    UniqueTexture createTexture(Size size, const void* data, TextureFormat, TextureUnit);
+    void updateTexture(TextureID, Size size, const void* data, TextureFormat, TextureUnit);
     UniqueFramebuffer createFramebuffer();
     UniqueRenderbuffer createRenderbuffer(RenderbufferType, Size size);
+    std::unique_ptr<uint8_t[]> readFramebuffer(Size, TextureFormat, bool flip);
+#if not MBGL_USE_GLES2
+    void drawPixels(Size size, const void* data, TextureFormat);
+#endif // MBGL_USE_GLES2
 
     PrimitiveType operator()(const Points&);
     PrimitiveType operator()(const Lines&);

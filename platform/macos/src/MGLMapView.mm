@@ -24,7 +24,6 @@
 #import <mbgl/platform/darwin/reachability.h>
 #import <mbgl/platform/default/thread_pool.hpp>
 #import <mbgl/gl/extension.hpp>
-#import <mbgl/gl/gl.hpp>
 #import <mbgl/gl/context.hpp>
 #import <mbgl/map/backend.hpp>
 #import <mbgl/sprite/sprite_image.hpp>
@@ -108,7 +107,7 @@ enum { MGLAnnotationTagNotFound = UINT32_MAX };
 
 /// Mapping from an annotation tag to metadata about that annotation, including
 /// the annotation itself.
-typedef std::unordered_map<MGLAnnotationTag, MGLAnnotationContext> MGLAnnotationContextMap;
+typedef std::unordered_map<MGLAnnotationTag, MGLAnnotationContext> MGLAnnotationTagContextMap;
 
 /// Returns an NSImage for the default marker image.
 NSImage *MGLDefaultMarkerImage() {
@@ -171,7 +170,7 @@ public:
     CGFloat _pitchAtBeginningOfGesture;
     BOOL _didHideCursorDuringGesture;
 
-    MGLAnnotationContextMap _annotationContextsByAnnotationTag;
+    MGLAnnotationTagContextMap _annotationContextsByAnnotationTag;
     MGLAnnotationTag _selectedAnnotationTag;
     MGLAnnotationTag _lastSelectedAnnotationTag;
     /// Size of the rectangle formed by unioning the maximum slop area around every annotation image.
@@ -309,6 +308,11 @@ public:
 - (mbgl::Size)size {
     return { static_cast<uint32_t>(self.bounds.size.width),
              static_cast<uint32_t>(self.bounds.size.height) };
+}
+
+- (mbgl::Size)framebufferSize {
+    NSRect bounds = [self convertRectToBacking:self.bounds];
+    return { static_cast<uint32_t>(bounds.size.width), static_cast<uint32_t>(bounds.size.height) };
 }
 
 /// Adds zoom controls to the lower-right corner.
@@ -1618,6 +1622,35 @@ public:
     return [NSArray arrayWithObjects:&annotations[0] count:annotations.size()];
 }
 
+- (nullable NS_ARRAY_OF(id <MGLAnnotation>) *)visibleAnnotations
+{
+    return [self visibleFeaturesInRect:self.bounds];
+}
+
+- (nullable NS_ARRAY_OF(id <MGLAnnotation>) *)visibleAnnotationsInRect:(CGRect)rect
+{
+    if (_annotationContextsByAnnotationTag.empty())
+    {
+        return nil;
+    }
+    
+    std::vector<MGLAnnotationTag> annotationTags = [self annotationTagsInRect:rect];
+    if (annotationTags.size())
+    {
+        NSMutableArray *annotations = [NSMutableArray arrayWithCapacity:annotationTags.size()];
+        
+        for (auto const& annotationTag: annotationTags)
+        {
+            MGLAnnotationContext annotationContext = _annotationContextsByAnnotationTag[annotationTag];
+            [annotations addObject:annotationContext.annotation];
+        }
+        
+        return [annotations copy];
+    }
+    
+    return nil;
+}
+
 /// Returns the annotation assigned the given tag. Cheap.
 - (id <MGLAnnotation>)annotationWithTag:(MGLAnnotationTag)tag {
     if (!_annotationContextsByAnnotationTag.count(tag)) {
@@ -1661,12 +1694,6 @@ public:
         NSAssert([annotation conformsToProtocol:@protocol(MGLAnnotation)], @"Annotation does not conform to MGLAnnotation");
 
         if ([annotation isKindOfClass:[MGLMultiPoint class]]) {
-            // Actual multipoints aren’t supported as annotations.
-            if ([annotation isMemberOfClass:[MGLMultiPoint class]]
-                || [annotation isMemberOfClass:[MGLMultiPointFeature class]]) {
-                continue;
-            }
-
             // The multipoint knows how to style itself (with the map view’s help).
             MGLMultiPoint *multiPoint = (MGLMultiPoint *)annotation;
             if (!multiPoint.pointCount) {
@@ -1680,8 +1707,9 @@ public:
 
             [(NSObject *)annotation addObserver:self forKeyPath:@"coordinates" options:0 context:(void *)(NSUInteger)annotationTag];
         } else if (![annotation isKindOfClass:[MGLMultiPolyline class]]
-                   || ![annotation isKindOfClass:[MGLMultiPolygon class]]
-                   || ![annotation isKindOfClass:[MGLShapeCollection class]]) {
+                   && ![annotation isKindOfClass:[MGLMultiPolygon class]]
+                   && ![annotation isKindOfClass:[MGLShapeCollection class]]
+                   && ![annotation isKindOfClass:[MGLPointCollection class]]) {
             MGLAnnotationImage *annotationImage = nil;
             if (delegateHasImagesForAnnotations) {
                 annotationImage = [self.delegate mapView:self imageForAnnotation:annotation];
@@ -2563,13 +2591,14 @@ public:
     }
 
     mbgl::gl::value::Viewport::Type getViewport() const {
-        return { 0, 0, nativeView.size };
+        return { 0, 0, nativeView.framebufferSize };
     }
 
     void updateViewBinding() {
         fbo = mbgl::gl::value::BindFramebuffer::Get();
         getContext().bindFramebuffer.setCurrentValue(fbo);
         getContext().viewport.setCurrentValue(getViewport());
+        assert(mbgl::gl::value::Viewport::Get() == getContext().viewport.getCurrentValue());
     }
 
     void bind() override {
@@ -2578,23 +2607,7 @@ public:
     }
 
     mbgl::PremultipliedImage readStillImage() {
-        NSRect bounds = [nativeView convertRectToBacking:nativeView.bounds];
-        const uint32_t width = bounds.size.width;
-        const uint32_t height = bounds.size.height;
-        mbgl::PremultipliedImage image({ width, height });
-        MBGL_CHECK_ERROR(
-            glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, image.data.get()));
-
-        const size_t stride = image.stride();
-        auto tmp = std::make_unique<uint8_t[]>(stride);
-        uint8_t *rgba = image.data.get();
-        for (int i = 0, j = height - 1; i < j; i++, j--) {
-            std::memcpy(tmp.get(), rgba + i * stride, stride);
-            std::memcpy(rgba + i * stride, rgba + j * stride, stride);
-            std::memcpy(rgba + j * stride, tmp.get(), stride);
-        }
-
-        return image;
+        return getContext().readFramebuffer<mbgl::PremultipliedImage>(nativeView.framebufferSize);
     }
 
 private:

@@ -8,7 +8,6 @@
 #include <mbgl/shader/fill_uniforms.hpp>
 #include <mbgl/util/string.hpp>
 #include <mbgl/gl/debugging.hpp>
-#include <mbgl/gl/gl.hpp>
 #include <mbgl/util/color.hpp>
 
 namespace mbgl {
@@ -68,33 +67,25 @@ void Painter::renderClipMasks(PaintParameters&) {
     context.program = 0;
 
 #if not MBGL_USE_GLES2
-    context.pixelZoom = { 1, 1 };
-    context.rasterPos = { -1, -1, 0, 0 };
+    // Reset the value in case someone else changed it, or it's dirty.
+    context.pixelTransferStencil = gl::value::PixelTransferStencil::Default;
 
     // Read the stencil buffer
     const auto viewport = context.viewport.getCurrentValue();
-    auto pixels = std::make_unique<uint8_t[]>(viewport.size.width * viewport.size.height);
-    MBGL_CHECK_ERROR(glReadPixels(
-                viewport.x,           // GLint x
-                viewport.y,           // GLint y
-                viewport.size.width,  // GLsizei width
-                viewport.size.height, // GLsizei height
-                GL_STENCIL_INDEX,     // GLenum format
-                GL_UNSIGNED_BYTE,     // GLenum type
-                pixels.get()          // GLvoid * data
-                ));
+    auto image =
+        context.readFramebuffer<AlphaImage, gl::TextureFormat::Stencil>(viewport.size, false);
 
     // Scale the Stencil buffer to cover the entire color space.
-    auto it = pixels.get();
+    auto it = image.data.get();
     auto end = it + viewport.size.width * viewport.size.height;
     const auto factor = 255.0f / *std::max_element(it, end);
     for (; it != end; ++it) {
         *it *= factor;
     }
 
-    MBGL_CHECK_ERROR(glWindowPos2i(viewport.x, viewport.y));
-    MBGL_CHECK_ERROR(glDrawPixels(viewport.size.width, viewport.size.height, GL_LUMINANCE,
-                                  GL_UNSIGNED_BYTE, pixels.get()));
+    context.pixelZoom = { 1, 1 };
+    context.rasterPos = { -1, -1, 0, 1 };
+    context.drawPixels(image);
 #endif // MBGL_USE_GLES2
 }
 
@@ -105,30 +96,19 @@ void Painter::renderDepthBuffer(PaintParameters&) {
     context.program = 0;
 
 #if not MBGL_USE_GLES2
-    context.pixelZoom = { 1, 1 };
-    context.rasterPos = { -1, -1, 0, 0 };
+    // Scales the values in the depth buffer so that they cover the entire grayscale range. This
+    // makes it easier to spot tiny differences.
+    const float base = 1.0f / (1.0f - depthRangeSize);
+    context.pixelTransferDepth = { base, 1.0f - base };
 
     // Read the stencil buffer
-    const auto viewport = context.viewport.getCurrentValue();
-    auto pixels = std::make_unique<uint8_t[]>(viewport.size.width * viewport.size.height);
+    auto viewport = context.viewport.getCurrentValue();
+    auto image =
+        context.readFramebuffer<AlphaImage, gl::TextureFormat::Depth>(viewport.size, false);
 
-    const double base = 1.0 / (1.0 - depthRangeSize);
-    glPixelTransferf(GL_DEPTH_SCALE, base);
-    glPixelTransferf(GL_DEPTH_BIAS, 1.0 - base);
-
-    MBGL_CHECK_ERROR(glReadPixels(
-                viewport.x,           // GLint x
-                viewport.y,           // GLint y
-                viewport.size.width,  // GLsizei width
-                viewport.size.height, // GLsizei height
-                GL_DEPTH_COMPONENT,   // GLenum format
-                GL_UNSIGNED_BYTE,     // GLenum type
-                pixels.get()          // GLvoid * data
-                ));
-
-    MBGL_CHECK_ERROR(glWindowPos2i(viewport.x, viewport.y));
-    MBGL_CHECK_ERROR(glDrawPixels(viewport.size.width, viewport.size.height, GL_LUMINANCE,
-                                  GL_UNSIGNED_BYTE, pixels.get()));
+    context.pixelZoom = { 1, 1 };
+    context.rasterPos = { -1, -1, 0, 1 };
+    context.drawPixels(image);
 #endif // MBGL_USE_GLES2
 }
 #endif // NDEBUG
