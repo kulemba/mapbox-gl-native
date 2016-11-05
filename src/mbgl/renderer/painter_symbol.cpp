@@ -10,6 +10,7 @@
 #include <mbgl/shader/symbol_uniforms.hpp>
 #include <mbgl/shader/collision_box_uniforms.hpp>
 #include <mbgl/util/math.hpp>
+#include <mbgl/tile/tile.hpp>
 
 #include <cmath>
 
@@ -71,7 +72,7 @@ void Painter::renderSymbol(PaintParameters& parameters,
         const bool iconTransformed = values.rotationAlignment == AlignmentType::Map || state.getPitch() != 0;
         atlas.bind(bucket.sdfIcons || state.isChanging() || iconScaled || iconTransformed, context, 0);
 
-        std::array<uint16_t, 2> texsize {{ atlas.getWidth(), atlas.getHeight() }};
+        const Size texsize = atlas.getSize();
 
         if (bucket.sdfIcons) {
             if (values.hasHalo()) {
@@ -100,7 +101,7 @@ void Painter::renderSymbol(PaintParameters& parameters,
 
         auto values = layer.impl->textPropertyValues(layout);
 
-        std::array<uint16_t, 2> texsize {{ glyphAtlas->width, glyphAtlas->height }};
+        const Size texsize = glyphAtlas->getSize();
 
         if (values.hasHalo()) {
             draw(parameters.shaders.symbolGlyph,
@@ -125,7 +126,7 @@ void Painter::renderSymbol(PaintParameters& parameters,
             shaders->collisionBox,
             CollisionBoxUniforms::values(
                 tile.matrix,
-                std::pow(2, state.getZoom() - tile.id.canonical.z),
+                std::pow(2.0f, state.getZoom() - tile.tile.id.overscaledZ),
                 state.getZoom() * 10,
                 (tile.id.canonical.z + 1) * 10
             ),

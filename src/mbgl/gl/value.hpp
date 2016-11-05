@@ -183,6 +183,10 @@ constexpr bool operator!=(const Viewport::Type& a, const Viewport::Type& b) {
     return a.x != b.x || a.y != b.y || a.size != b.size;
 }
 
+constexpr bool operator==(const Viewport::Type& a, const Viewport::Type& b) {
+    return !(a != b);
+}
+
 struct BindFramebuffer {
     using Type = FramebufferID;
     static const constexpr Type Default = 0;
@@ -255,13 +259,55 @@ struct RasterPos {
         double z;
         double w;
     };
-    static const constexpr Type Default = { 0, 0, 0, 0 };
+    static const constexpr Type Default = { 0, 0, 0, 1 };
     static void Set(const Type&);
     static Type Get();
 };
 
 constexpr bool operator!=(const RasterPos::Type& a, const RasterPos::Type& b) {
     return a.x != b.x || a.y != b.y || a.z != b.z || a.w != b.w;
+}
+
+struct PixelStorePack {
+    using Type = PixelStorageType;
+    static const constexpr Type Default = { 4 };
+    static void Set(const Type&);
+    static Type Get();
+};
+
+struct PixelStoreUnpack {
+    using Type = PixelStorageType;
+    static const constexpr Type Default = { 4 };
+    static void Set(const Type&);
+    static Type Get();
+};
+
+struct PixelTransferDepth {
+    struct Type {
+        float scale;
+        float bias;
+    };
+    static const constexpr Type Default = { 1, 0 };
+    static void Set(const Type&);
+    static Type Get();
+};
+
+constexpr bool operator!=(const PixelTransferDepth::Type& a, const PixelTransferDepth::Type& b) {
+    return a.scale != b.scale || a.bias != b.bias;
+}
+
+struct PixelTransferStencil {
+    struct Type {
+        int32_t shift;
+        int32_t offset;
+    };
+    static const constexpr Type Default = { 0, 0 };
+    static void Set(const Type&);
+    static Type Get();
+};
+
+constexpr bool operator!=(const PixelTransferStencil::Type& a, const PixelTransferStencil::Type& b) {
+    return a.shift != b.shift || a.offset != b.offset;
 }
 
 #endif // MBGL_USE_GLES2
