@@ -10,13 +10,10 @@
 
 #include <sys/system_properties.h>
 
-#include <GLES2/gl2.h>
-
 #include <mbgl/platform/platform.hpp>
 #include <mbgl/platform/event.hpp>
 #include <mbgl/platform/log.hpp>
 #include <mbgl/gl/extension.hpp>
-#include <mbgl/gl/gl.hpp>
 #include <mbgl/gl/context.hpp>
 #include <mbgl/util/constants.hpp>
 #include <mbgl/util/image.hpp>
@@ -36,23 +33,6 @@ void log_egl_string(EGLDisplay display, EGLint name, const char *label) {
             strncpy(buf, str + pos, 512);
             buf[512] = 0;
             mbgl::Log::Info(mbgl::Event::OpenGL, "EGL %s: %s", label, buf);
-        }
-    }
-}
-
-void log_gl_string(GLenum name, const char *label) {
-    const GLubyte *str = glGetString(name);
-    if (str == nullptr) {
-        mbgl::Log::Error(mbgl::Event::OpenGL, "glGetString(%d) returned error %d", name,
-                         glGetError());
-        throw std::runtime_error("glGetString() failed");
-    } else {
-        char buf[513];
-        for (int len = std::strlen(reinterpret_cast<const char *>(str)), pos = 0; len > 0;
-             len -= 512, pos += 512) {
-            strncpy(buf, reinterpret_cast<const char *>(str) + pos, 512);
-            buf[512] = 0;
-            mbgl::Log::Info(mbgl::Event::OpenGL, "GL %s: %s", label, buf);
         }
     }
 }
@@ -116,17 +96,20 @@ NativeMapView::~NativeMapView() {
     vm = nullptr;
 }
 
+mbgl::Size NativeMapView::getFramebufferSize() const {
+    return { static_cast<uint32_t>(fbWidth), static_cast<uint32_t>(fbHeight) };
+}
+
 void NativeMapView::updateViewBinding() {
     getContext().bindFramebuffer.setCurrentValue(0);
-    getContext().viewport.setCurrentValue(
-        { 0, 0, { static_cast<uint32_t>(fbWidth), static_cast<uint32_t>(fbHeight) } });
+    assert(mbgl::gl::value::BindFramebuffer::Get() == getContext().bindFramebuffer.getCurrentValue());
+    getContext().viewport.setCurrentValue({ 0, 0, getFramebufferSize() });
+    assert(mbgl::gl::value::Viewport::Get() == getContext().viewport.getCurrentValue());
 }
 
 void NativeMapView::bind() {
     getContext().bindFramebuffer = 0;
-    getContext().viewport = { 0,
-                              0,
-                              { static_cast<uint32_t>(fbWidth), static_cast<uint32_t>(fbHeight) } };
+    getContext().viewport = { 0, 0, getFramebufferSize() };
 }
 
 void NativeMapView::activate() {
@@ -201,18 +184,7 @@ void NativeMapView::render() {
          snapshot = false;
 
          // take snapshot
-         const unsigned int w = fbWidth;
-         const unsigned int h = fbHeight;
-         mbgl::PremultipliedImage image({ w, h });
-         MBGL_CHECK_ERROR(glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, image.data.get()));
-         const size_t stride = image.stride();
-         auto tmp = std::make_unique<uint8_t[]>(stride);
-         uint8_t *rgba = image.data.get();
-         for (int i = 0, j = h - 1; i < j; i++, j--) {
-            std::memcpy(tmp.get(), rgba + i * stride, stride);
-            std::memcpy(rgba + i * stride, rgba + j * stride, stride);
-            std::memcpy(rgba + j * stride, tmp.get(), stride);
-         }
+         auto image = getContext().readFramebuffer<mbgl::PremultipliedImage>(getFramebufferSize());
 
          // encode and convert to jbytes
          std::string string = encodePNG(image);
@@ -431,16 +403,6 @@ void NativeMapView::createSurface(ANativeWindow *window_) {
             throw std::runtime_error("eglMakeCurrent() failed");
         }
 
-        log_gl_string(GL_VENDOR, "Vendor");
-        log_gl_string(GL_RENDERER, "Renderer");
-        log_gl_string(GL_VERSION, "Version");
-        if (!inEmulator()) {
-            log_gl_string(GL_SHADING_LANGUAGE_VERSION,
-                        "SL Version"); // In the emulator this returns NULL with error code 0?
-                                        // https://code.google.com/p/android/issues/detail?id=78977
-        }
-
-        log_gl_string(GL_EXTENSIONS, "Extensions");
         mbgl::gl::InitializeExtensions([] (const char * name) {
              return reinterpret_cast<mbgl::gl::glProc>(eglGetProcAddress(name));
         });
