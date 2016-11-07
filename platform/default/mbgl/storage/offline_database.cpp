@@ -10,6 +10,7 @@
 #include "merge_sideloaded.hpp"
 
 #include "sqlite3.hpp"
+#include <sqlite3.h>
 
 namespace mbgl {
 
@@ -255,7 +256,8 @@ optional<std::pair<Response, uint64_t>> OfflineDatabase::getResource(const Resou
         accessedQuery.run();
     } catch (const mapbox::sqlite::Exception& ex) {
         if (ex.code == mapbox::sqlite::ResultCode::NotADB ||
-            ex.code == mapbox::sqlite::ResultCode::Corrupt) {
+            ex.code == mapbox::sqlite::ResultCode::Corrupt ||
+            ex.code != mapbox::sqlite::ResultCode::ReadOnly) {
             throw;
         }
 
@@ -416,7 +418,7 @@ optional<std::pair<Response, uint64_t>> OfflineDatabase::getTile(const Resource:
         accessedQuery.bind(6, tile.z);
         accessedQuery.run();
     } catch (const mapbox::sqlite::Exception& ex) {
-        if (ex.code == mapbox::sqlite::ResultCode::NotADB || ex.code == mapbox::sqlite::ResultCode::Corrupt) {
+        if (ex.code == mapbox::sqlite::ResultCode::NotADB || ex.code == mapbox::sqlite::ResultCode::Corrupt || ex.code != mapbox::sqlite::ResultCode::ReadOnly) {
             throw;
         }
 
