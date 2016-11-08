@@ -288,6 +288,46 @@ NSString * const MGLOfflinePackMaximumCountUserInfoKey = @"MaximumCount";
     return attributes.fileSize;
 }
 
+- (void)addSupplementaryOfflineDatabase:(NSString *)cachePath forResourceKind:(MGLResourceKind)resourceKind {
+    auto addSupplementaryOfflineDatabase = [self,cachePath](mbgl::Resource::Kind kind) {
+        _mbglFileSource->addSupplementaryOfflineDatabase(kind, mbgl::optional<mbgl::LatLngBounds>(), cachePath.UTF8String);
+    };
+    if (resourceKind & MGLResourceStyle)
+        addSupplementaryOfflineDatabase(mbgl::Resource::Style);
+    if (resourceKind & MGLResourceSource)
+        addSupplementaryOfflineDatabase(mbgl::Resource::Source);
+    if (resourceKind & MGLResourceTile)
+        addSupplementaryOfflineDatabase(mbgl::Resource::Tile);
+    if (resourceKind & MGLResourceGlyphs)
+        addSupplementaryOfflineDatabase(mbgl::Resource::Glyphs);
+    if (resourceKind & MGLResourceSpriteImage)
+        addSupplementaryOfflineDatabase(mbgl::Resource::SpriteImage);
+    if (resourceKind & MGLResourceSpriteJSON)
+        addSupplementaryOfflineDatabase(mbgl::Resource::SpriteJSON);
+}
+
+- (void)addSupplementaryOfflineDatabase:(NSString *)cachePath forResourceKind:(MGLResourceKind)resourceKind andCoordinateBounds:(MGLCoordinateBounds)coordinateBounds {
+    auto addSupplementaryOfflineDatabase = [self,cachePath,coordinateBounds](mbgl::Resource::Kind kind) {
+        _mbglFileSource->addSupplementaryOfflineDatabase(kind, mbgl::optional<mbgl::LatLngBounds>(MGLLatLngBoundsFromCoordinateBounds(coordinateBounds)), cachePath.UTF8String);
+    };
+    if (resourceKind & MGLResourceStyle)
+        addSupplementaryOfflineDatabase(mbgl::Resource::Style);
+    if (resourceKind & MGLResourceSource)
+        addSupplementaryOfflineDatabase(mbgl::Resource::Source);
+    if (resourceKind & MGLResourceTile)
+        addSupplementaryOfflineDatabase(mbgl::Resource::Tile);
+    if (resourceKind & MGLResourceGlyphs)
+        addSupplementaryOfflineDatabase(mbgl::Resource::Glyphs);
+    if (resourceKind & MGLResourceSpriteImage)
+        addSupplementaryOfflineDatabase(mbgl::Resource::SpriteImage);
+    if (resourceKind & MGLResourceSpriteJSON)
+        addSupplementaryOfflineDatabase(mbgl::Resource::SpriteJSON);
+}
+
+- (void)removeSupplementaryOfflineDatabases:(NSString *)cachePath {
+    _mbglFileSource->removeSupplementaryOfflineDatabases(cachePath.UTF8String);
+}
+
 #pragma mark MGLOfflinePackDelegate methods
 
 - (void)offlinePack:(MGLOfflinePack *)pack progressDidChange:(__unused MGLOfflinePackProgress)progress {
