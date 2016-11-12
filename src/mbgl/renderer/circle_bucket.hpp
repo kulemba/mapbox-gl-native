@@ -6,7 +6,7 @@
 #include <mbgl/gl/vertex_buffer.hpp>
 #include <mbgl/gl/index_buffer.hpp>
 #include <mbgl/gl/segment.hpp>
-#include <mbgl/shader/circle_vertex.hpp>
+#include <mbgl/programs/circle_program.hpp>
 
 namespace mbgl {
 
@@ -20,12 +20,12 @@ public:
     bool hasData() const override;
     void addGeometry(const GeometryCollection&);
 
-    std::vector<CircleVertex> vertices;
-    std::vector<gl::Triangle> triangles;
+    gl::VertexVector<CircleVertex> vertices;
+    gl::IndexVector<gl::Triangles> triangles;
     std::vector<gl::Segment> segments;
 
     optional<gl::VertexBuffer<CircleVertex>> vertexBuffer;
-    optional<gl::IndexBuffer<gl::Triangle>> indexBuffer;
+    optional<gl::IndexBuffer<gl::Triangles>> indexBuffer;
 
     const MapMode mode;
 };
