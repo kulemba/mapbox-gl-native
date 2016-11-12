@@ -81,7 +81,7 @@ public final class CameraUpdateFactory {
      * @param zoom   Zoom level to change to
      * @return CameraUpdate Final Camera Position
      */
-    public static CameraUpdate newLatLngZoom(@NonNull LatLng latLng, float zoom) {
+    public static CameraUpdate newLatLngZoom(@NonNull LatLng latLng, double zoom) {
         return new CameraPositionUpdate(-1, latLng, -1, zoom);
     }
 
@@ -104,7 +104,7 @@ public final class CameraUpdateFactory {
      * @param focus  Focus point of zoom
      * @return CameraUpdate Final Camera Position
      */
-    public static CameraUpdate zoomBy(float amount, Point focus) {
+    public static CameraUpdate zoomBy(double amount, Point focus) {
         return new ZoomUpdate(amount, focus.x, focus.y);
     }
 
@@ -114,7 +114,7 @@ public final class CameraUpdateFactory {
      * @param amount Amount of zoom level to change with
      * @return CameraUpdate Final Camera Position
      */
-    public static CameraUpdate zoomBy(float amount) {
+    public static CameraUpdate zoomBy(double amount) {
         return new ZoomUpdate(ZoomUpdate.ZOOM_BY, amount);
     }
 
@@ -142,7 +142,7 @@ public final class CameraUpdateFactory {
      * @param zoom Zoom level to change to
      * @return CameraUpdate Final Camera Position
      */
-    public static CameraUpdate zoomTo(float zoom) {
+    public static CameraUpdate zoomTo(double zoom) {
         return new ZoomUpdate(ZoomUpdate.ZOOM_TO, zoom);
     }
 
@@ -184,10 +184,7 @@ public final class CameraUpdateFactory {
         public CameraPosition getCameraPosition(@NonNull MapboxMap mapboxMap) {
             CameraPosition previousPosition = mapboxMap.getCameraPosition();
             if (target == null) {
-                return new CameraPosition.Builder()
-                        .tilt(tilt)
-                        .zoom(zoom)
-                        .bearing(bearing)
+                return new CameraPosition.Builder(this)
                         .target(previousPosition.target)
                         .build();
             }
@@ -259,7 +256,7 @@ public final class CameraUpdateFactory {
                 float scaleY = (uiSettings.getHeight() - padding.top - padding.bottom) / height;
                 minScale = scaleX < scaleY ? scaleX : scaleY;
                 zoom = projection.calculateZoom(minScale);
-                zoom = MathUtils.clamp(zoom, (float) mapboxMap.getMinZoom(), (float) mapboxMap.getMaxZoom());
+                zoom = MathUtils.clamp(zoom, mapboxMap.getMinZoom(), mapboxMap.getMaxZoom());
             }
 
             // Calculate the center point
@@ -271,7 +268,7 @@ public final class CameraUpdateFactory {
 
             return new CameraPosition.Builder()
                     .target(center)
-                    .zoom((float) zoom)
+                    .zoom(zoom)
                     .tilt(0)
                     .bearing(0)
                     .build();
@@ -335,12 +332,12 @@ public final class CameraUpdateFactory {
             this.zoom = 0;
         }
 
-        ZoomUpdate(@Type int type, float zoom) {
+        ZoomUpdate(@Type int type, double zoom) {
             this.type = type;
             this.zoom = zoom;
         }
 
-        ZoomUpdate(float zoom, float x, float y) {
+        ZoomUpdate(double zoom, float x, float y) {
             this.type = ZOOM_TO_POINT;
             this.zoom = zoom;
             this.x = x;

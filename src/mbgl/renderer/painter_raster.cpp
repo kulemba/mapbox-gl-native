@@ -4,8 +4,8 @@
 #include <mbgl/renderer/raster_bucket.hpp>
 #include <mbgl/style/layers/raster_layer.hpp>
 #include <mbgl/style/layers/raster_layer_impl.hpp>
-#include <mbgl/shader/shaders.hpp>
-#include <mbgl/shader/raster_uniforms.hpp>
+#include <mbgl/programs/programs.hpp>
+#include <mbgl/programs/raster_program.hpp>
 
 namespace mbgl {
 
@@ -54,28 +54,29 @@ void Painter::renderRaster(PaintParameters& parameters,
     context.bindTexture(*bucket.texture, 0, gl::TextureFilter::Linear);
     context.bindTexture(*bucket.texture, 1, gl::TextureFilter::Linear);
 
-    context.draw({
+    parameters.programs.raster.draw(
+        context,
+        gl::TriangleStrip(),
         depthModeForSublayer(0, gl::DepthMode::ReadOnly),
         gl::StencilMode::disabled(),
         colorModeForRenderPass(),
-        parameters.shaders.raster,
-        RasterUniforms::values(
-            tile.matrix,
-            0,
-            1,
-            properties.rasterOpacity.value,
-            0,
-            properties.rasterBrightnessMin.value,
-            properties.rasterBrightnessMax.value,
-            saturationFactor(properties.rasterSaturation.value),
-            contrastFactor(properties.rasterContrast.value),
-            spinWeights(properties.rasterHueRotate.value),
-            1.0f,
-            1.0f,
-            std::array<float, 2> {{ 0.0f, 0.0f }}
-        ),
-        gl::Unindexed<gl::TriangleStrip>(rasterVertexBuffer)
-    });
+        RasterProgram::UniformValues {
+            uniforms::u_matrix::Value{ tile.matrix },
+            uniforms::u_image0::Value{ 0 },
+            uniforms::u_image1::Value{ 1 },
+            uniforms::u_opacity0::Value{ properties.rasterOpacity.value },
+            uniforms::u_opacity1::Value{ 0 },
+            uniforms::u_brightness_low::Value{ properties.rasterBrightnessMin.value },
+            uniforms::u_brightness_high::Value{ properties.rasterBrightnessMax.value },
+            uniforms::u_saturation_factor::Value{ saturationFactor(properties.rasterSaturation.value) },
+            uniforms::u_contrast_factor::Value{ contrastFactor(properties.rasterContrast.value) },
+            uniforms::u_spin_weights::Value{ spinWeights(properties.rasterHueRotate.value) },
+            uniforms::u_buffer_scale::Value{ 1.0f },
+            uniforms::u_scale_parent::Value{ 1.0f },
+            uniforms::u_tl_parent::Value{ std::array<float, 2> {{ 0.0f, 0.0f }} },
+        },
+        rasterVertexBuffer
+    );
 }
 
 } // namespace mbgl
