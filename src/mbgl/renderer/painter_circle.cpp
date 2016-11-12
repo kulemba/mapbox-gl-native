@@ -4,8 +4,8 @@
 #include <mbgl/renderer/render_tile.hpp>
 #include <mbgl/style/layers/circle_layer.hpp>
 #include <mbgl/style/layers/circle_layer_impl.hpp>
-#include <mbgl/shader/shaders.hpp>
-#include <mbgl/shader/circle_uniforms.hpp>
+#include <mbgl/programs/programs.hpp>
+#include <mbgl/programs/circle_program.hpp>
 #include <mbgl/gl/context.hpp>
 
 namespace mbgl {
@@ -21,37 +21,37 @@ void Painter::renderCircle(PaintParameters& parameters,
     }
 
     const CirclePaintProperties& properties = layer.impl->paint;
+    const bool scaleWithMap = properties.circlePitchScale.value == CirclePitchScaleType::Map;
 
-    context.draw({
+    parameters.programs.circle.draw(
+        context,
+        gl::Triangles(),
         depthModeForSublayer(0, gl::DepthMode::ReadOnly),
         frame.mapMode == MapMode::Still
             ? stencilModeForClipping(tile.clip)
             : gl::StencilMode::disabled(),
         colorModeForRenderPass(),
-        parameters.shaders.circle,
-        CircleUniforms::values(
-            tile.translatedMatrix(properties.circleTranslate.value,
-                                  properties.circleTranslateAnchor.value,
-                                  state),
-            properties.circleOpacity.value,
-            properties.circleColor.value,
-            properties.circleRadius.value,
-            properties.circleBlur.value,
-            properties.circlePitchScale.value == CirclePitchScaleType::Map,
-            properties.circlePitchScale.value == CirclePitchScaleType::Map
+        CircleProgram::UniformValues {
+            uniforms::u_matrix::Value{ tile.translatedMatrix(properties.circleTranslate.value,
+                                       properties.circleTranslateAnchor.value,
+                                       state) },
+            uniforms::u_opacity::Value{ properties.circleOpacity.value },
+            uniforms::u_color::Value{ properties.circleColor.value },
+            uniforms::u_radius::Value{ properties.circleRadius.value },
+            uniforms::u_blur::Value{ properties.circleBlur.value },
+            uniforms::u_scale_with_map::Value{ scaleWithMap },
+            uniforms::u_extrude_scale::Value{ scaleWithMap
                 ? std::array<float, 2> {{
                     pixelsToGLUnits[0] * state.getAltitude(),
                     pixelsToGLUnits[1] * state.getAltitude()
                   }}
-                : pixelsToGLUnits,
-            frame.pixelRatio
-        ),
-        gl::Segmented<gl::Triangles>(
-            *bucket.vertexBuffer,
-            *bucket.indexBuffer,
-            bucket.segments
-        )
-    });
+                : pixelsToGLUnits },
+            uniforms::u_devicepixelratio::Value{ frame.pixelRatio },
+        },
+        *bucket.vertexBuffer,
+        *bucket.indexBuffer,
+        bucket.segments
+    );
 }
 
 } // namespace mbgl
