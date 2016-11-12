@@ -1,7 +1,6 @@
 #include <mbgl/renderer/debug_bucket.hpp>
 #include <mbgl/renderer/painter.hpp>
-#include <mbgl/shader/fill_shader.hpp>
-#include <mbgl/shader/fill_vertex.hpp>
+#include <mbgl/programs/fill_program.hpp>
 #include <mbgl/geometry/debug_font_data.hpp>
 #include <mbgl/util/string.hpp>
 
@@ -11,13 +10,14 @@
 
 namespace mbgl {
 
-std::vector<FillVertex> buildTextVertices(const OverscaledTileID& id,
-                                                     const bool renderable,
-                                                     const bool complete,
-                                                     optional<Timestamp> modified,
-                                                     optional<Timestamp> expires,
-                                                     MapDebugOptions debugMode) {
-    std::vector<FillVertex> textPoints;
+gl::VertexVector<FillVertex, gl::Lines>
+buildTextVertices(const OverscaledTileID& id,
+                  const bool renderable,
+                  const bool complete,
+                  optional<Timestamp> modified,
+                  optional<Timestamp> expires,
+                  MapDebugOptions debugMode) {
+    gl::VertexVector<FillVertex, gl::Lines> textLines;
 
     auto addText = [&] (const std::string& text, double left, double baseline, double scale) {
         for (uint8_t c : text) {
@@ -37,8 +37,8 @@ std::vector<FillVertex> buildTextVertices(const OverscaledTileID& id,
                     };
 
                     if (prev) {
-                        textPoints.emplace_back(prev->x, prev->y);
-                        textPoints.emplace_back(p.x, p.y);
+                        textLines.emplace_back(FillAttributes::vertex(*prev),
+                                               FillAttributes::vertex(p));
                     }
 
                     prev = p;
@@ -65,7 +65,7 @@ std::vector<FillVertex> buildTextVertices(const OverscaledTileID& id,
         addText(expiresText, 50, baseline + 200, 5);
     }
 
-    return textPoints;
+    return textLines;
 }
 
 DebugBucket::DebugBucket(const OverscaledTileID& id,

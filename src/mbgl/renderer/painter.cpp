@@ -21,7 +21,7 @@
 #include <mbgl/geometry/line_atlas.hpp>
 #include <mbgl/text/glyph_atlas.hpp>
 
-#include <mbgl/shader/shaders.hpp>
+#include <mbgl/programs/programs.hpp>
 
 #include <mbgl/algorithm/generate_clip_ids.hpp>
 #include <mbgl/algorithm/generate_clip_ids_impl.hpp>
@@ -41,37 +41,51 @@ namespace mbgl {
 
 using namespace style;
 
+static gl::VertexVector<FillVertex, gl::Triangles> tileTriangles() {
+    gl::VertexVector<FillVertex, gl::Triangles> result;
+    result.emplace_back(
+            FillAttributes::vertex({ 0,            0 }),
+            FillAttributes::vertex({ util::EXTENT, 0 }),
+            FillAttributes::vertex({ 0, util::EXTENT }));
+    result.emplace_back(
+            FillAttributes::vertex({ util::EXTENT, 0 }),
+            FillAttributes::vertex({ 0, util::EXTENT }),
+            FillAttributes::vertex({ util::EXTENT, util::EXTENT }));
+    return result;
+}
+
+static gl::VertexVector<FillVertex, gl::LineStrip> tileLineStrip() {
+    gl::VertexVector<FillVertex, gl::LineStrip> result;
+    result.emplace_back(FillAttributes::vertex({ 0, 0 }));
+    result.emplace_back(FillAttributes::vertex({ util::EXTENT, 0 }));
+    result.emplace_back(FillAttributes::vertex({ util::EXTENT, util::EXTENT }));
+    result.emplace_back(FillAttributes::vertex({ 0, util::EXTENT }));
+    result.emplace_back(FillAttributes::vertex({ 0, 0 }));
+    return result;
+}
+
+static gl::VertexVector<RasterVertex, gl::TriangleStrip> rasterTriangleStrip() {
+    gl::VertexVector<RasterVertex, gl::TriangleStrip> result;
+    result.emplace_back(RasterProgram::vertex({ 0, 0 }, { 0, 0 }));
+    result.emplace_back(RasterProgram::vertex({ util::EXTENT, 0 }, { 32767, 0 }));
+    result.emplace_back(RasterProgram::vertex({ 0, util::EXTENT }, { 0, 32767 }));
+    result.emplace_back(RasterProgram::vertex({ util::EXTENT, util::EXTENT }, { 32767, 32767 }));
+    return result;
+}
+
 Painter::Painter(gl::Context& context_, const TransformState& state_)
     : context(context_),
       state(state_),
-      tileTriangleVertexBuffer(context.createVertexBuffer(std::vector<FillVertex> {{
-            { 0,            0 },
-            { util::EXTENT, 0 },
-            { 0, util::EXTENT },
-            { util::EXTENT, 0 },
-            { 0, util::EXTENT },
-            { util::EXTENT, util::EXTENT }
-      }})),
-      tileLineStripVertexBuffer(context.createVertexBuffer(std::vector<FillVertex> {{
-            { 0, 0 },
-            { util::EXTENT, 0 },
-            { util::EXTENT, util::EXTENT },
-            { 0, util::EXTENT },
-            { 0, 0 }
-      }})),
-      rasterVertexBuffer(context.createVertexBuffer(std::vector<RasterVertex> {{
-            { 0, 0, 0, 0 },
-            { util::EXTENT, 0, 32767, 0 },
-            { 0, util::EXTENT, 0, 32767 },
-            { util::EXTENT, util::EXTENT, 32767, 32767 }
-      }})) {
+      tileTriangleVertexBuffer(context.createVertexBuffer(tileTriangles())),
+      tileLineStripVertexBuffer(context.createVertexBuffer(tileLineStrip())),
+      rasterVertexBuffer(context.createVertexBuffer(rasterTriangleStrip())) {
 #ifndef NDEBUG
     gl::debugging::enable();
 #endif
 
-    shaders = std::make_unique<Shaders>(context);
+    programs = std::make_unique<Programs>(context);
 #ifndef NDEBUG
-    overdrawShaders = std::make_unique<Shaders>(context, gl::Shader::Overdraw);
+    overdrawPrograms = std::make_unique<Programs>(context, ProgramDefines::Overdraw);
 #endif
 }
 
@@ -93,9 +107,9 @@ void Painter::render(const Style& style, const FrameData& frame_, View& view, Sp
 
     PaintParameters parameters {
 #ifndef NDEBUG
-        paintMode() == PaintMode::Overdraw ? *overdrawShaders : *shaders,
+        paintMode() == PaintMode::Overdraw ? *overdrawPrograms : *programs,
 #else
-        *shaders,
+        *programs,
 #endif
         view
     };
