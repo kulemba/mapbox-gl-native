@@ -273,8 +273,10 @@ ideploy:
 idocument:
 	OUTPUT=$(OUTPUT) ./platform/ios/scripts/document.sh
 
-style-code-darwin:
+.PHONY: darwin-style-code
+darwin-style-code:
 	node platform/darwin/scripts/generate-style-code.js
+style-code: darwin-style-code
 endif
 
 #### Linux targets #####################################################
@@ -292,6 +294,7 @@ $(LINUX_BUILD): $(BUILD_DEPS)
 		-DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
 		-DWITH_CXX11ABI=$(shell scripts/check-cxx11abi.sh) \
 		-DWITH_COVERAGE=${WITH_COVERAGE} \
+		-DIS_CI_BUILD=${CI} \
 		-DWITH_OSMESA=${WITH_OSMESA})
 
 .PHONY: linux
@@ -387,7 +390,8 @@ $(QT_BUILD): $(BUILD_DEPS)
 		-DWITH_QT_DECODERS=${WITH_QT_DECODERS} \
 		-DWITH_QT_4=${WITH_QT_4} \
 		-DWITH_CXX11ABI=$(shell scripts/check-cxx11abi.sh) \
-		-DWITH_COVERAGE=${WITH_COVERAGE})
+		-DWITH_COVERAGE=${WITH_COVERAGE} \
+		-DIS_CI_BUILD=${CI})
 
 ifeq ($(HOST_PLATFORM), macos)
 
@@ -401,7 +405,8 @@ $(MACOS_QT_PROJ_PATH): $(BUILD_DEPS)
 		-DWITH_QT_DECODERS=${WITH_QT_DECODERS} \
 		-DWITH_QT_4=${WITH_QT_4} \
 		-DWITH_CXX11ABI=$(shell scripts/check-cxx11abi.sh) \
-		-DWITH_COVERAGE=${WITH_COVERAGE})
+		-DWITH_COVERAGE=${WITH_COVERAGE} \
+		-DIS_CI_BUILD=${CI})
 
 	@# Create Xcode schemes so that we can use xcodebuild from the command line. CMake doesn't
 	@# create these automatically.
@@ -464,13 +469,14 @@ test-node: node
 ANDROID_ENV = platform/android/scripts/toolchain.sh
 ANDROID_ABIS = arm-v5 arm-v7 arm-v8 x86 x86-64 mips
 
-.PHONY: style-code-android
-style-code-android: $(BUILD_DEPS)
+.PHONY: android-style-code
+android-style-code:
 	node platform/android/scripts/generate-style-code.js
+style-code: android-style-code
 
 define ANDROID_RULES
 
-build/android-$1/$(BUILDTYPE): style-code-android
+build/android-$1/$(BUILDTYPE): $(BUILD_DEPS)
 	mkdir -p build/android-$1/$(BUILDTYPE)
 
 build/android-$1/$(BUILDTYPE)/toolchain.cmake: platform/android/scripts/toolchain.sh build/android-$1/$(BUILDTYPE)
@@ -491,6 +497,10 @@ android-lib-$1: build/android-$1/$(BUILDTYPE)/Makefile
 android-$1: android-lib-$1
 	cd platform/android && ./gradlew --parallel --max-workers=$(JOBS) assemble$(BUILDTYPE)
 
+.PHONY: run-android-$1
+run-android-$1: android-$1
+	cd platform/android  && ./gradlew :MapboxGLAndroidSDKTestApp:installDebug && adb shell am start -n com.mapbox.mapboxsdk.testapp/.activity.FeatureOverviewActivity	
+
 apackage: android-lib-$1
 endef
 
@@ -499,21 +509,32 @@ $(foreach abi,$(ANDROID_ABIS),$(eval $(call ANDROID_RULES,$(abi))))
 .PHONY: android
 android: android-arm-v7
 
-.PHONY: android-test
-android-test:
-	cd platform/android && ./gradlew testDebugUnitTest --continue
+.PHONY: run-android
+run-android: run-android-arm-v7
+	 
+.PHONY: run-android-unit-test
+run-android-unit-test:
+	cd platform/android && ./gradlew :MapboxGLAndroidSDKTestApp:testDebugUnitTest --continue
 
-.PHONY: android-test-apk
-android-test-apk:
-	cd platform/android && ./gradlew assembleDebug --continue && ./gradlew assembleAndroidTest --continue
+.PHONY: android-ui-test
+android-ui-test:
+	cd platform/android && ./gradlew :MapboxGLAndroidSDKTestApp:assembleDebug --continue && ./gradlew :MapboxGLAndroidSDKTestApp:assembleAndroidTest --continue
+
+.PHONY: run-android-ui-test
+run-android-ui-test:
+	cd platform/android && ./gradlew :MapboxGLAndroidSDKTestApp:connectedAndroidTest -i	
 
 .PHONY: apackage
 apackage:
 	cd platform/android && ./gradlew --parallel-threads=$(JOBS) assemble$(BUILDTYPE)
 
-.PHONY: android-generate-test
-android-generate-test:
+.PHONY: test-code-android
+test-code-android:
 	node platform/android/scripts/generate-test-code.js
+
+.PHONY: android-ndk-stack
+android-ndk-stack:
+	adb logcat | ndk-stack -sym build/android-arm-v7/Debug	
 
 #### Miscellaneous targets #####################################################
 
@@ -526,6 +547,8 @@ clean:
 	-rm -rf ./build \
 	        ./platform/android/MapboxGLAndroidSDK/build \
 	        ./platform/android/MapboxGLAndroidSDKTestApp/build \
+	        ./platform/android/MapboxGLAndroidSDKWearTestApp/build \
+	        ./platform/android/MapboxGLAndroidSDKTestApp/src/androidTest/java/com/mapbox/mapboxsdk/testapp/activity/gen \
 	        ./platform/android/MapboxGLAndroidSDK/src/main/jniLibs \
 	        ./platform/android/MapboxGLAndroidSDKTestApp/src/main/jniLibs \
 	        ./platform/android/MapboxGLAndroidSDK/src/main/assets

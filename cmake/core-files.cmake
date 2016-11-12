@@ -54,7 +54,7 @@ set(MBGL_CORE_FILES
 
     # gl
     include/mbgl/gl/gl.hpp
-    include/mbgl/gl/implementation.hpp
+    src/mbgl/gl/attribute.cpp
     src/mbgl/gl/attribute.hpp
     src/mbgl/gl/color_mode.cpp
     src/mbgl/gl/color_mode.hpp
@@ -65,7 +65,6 @@ set(MBGL_CORE_FILES
     src/mbgl/gl/depth_mode.cpp
     src/mbgl/gl/depth_mode.hpp
     src/mbgl/gl/draw_mode.hpp
-    src/mbgl/gl/drawable.hpp
     src/mbgl/gl/extension.cpp
     src/mbgl/gl/extension.hpp
     src/mbgl/gl/framebuffer.hpp
@@ -73,10 +72,10 @@ set(MBGL_CORE_FILES
     src/mbgl/gl/index_buffer.hpp
     src/mbgl/gl/object.cpp
     src/mbgl/gl/object.hpp
+    src/mbgl/gl/primitives.hpp
+    src/mbgl/gl/program.hpp
     src/mbgl/gl/renderbuffer.hpp
     src/mbgl/gl/segment.hpp
-    src/mbgl/gl/shader.cpp
-    src/mbgl/gl/shader.hpp
     src/mbgl/gl/state.hpp
     src/mbgl/gl/stencil_mode.cpp
     src/mbgl/gl/stencil_mode.hpp
@@ -149,6 +148,25 @@ set(MBGL_CORE_FILES
     include/mbgl/platform/default/settings_json.hpp
     include/mbgl/platform/default/thread_pool.hpp
 
+    # programs
+    src/mbgl/programs/attributes.hpp
+    src/mbgl/programs/circle_program.cpp
+    src/mbgl/programs/circle_program.hpp
+    src/mbgl/programs/collision_box_program.cpp
+    src/mbgl/programs/collision_box_program.hpp
+    src/mbgl/programs/debug_program.hpp
+    src/mbgl/programs/fill_program.cpp
+    src/mbgl/programs/fill_program.hpp
+    src/mbgl/programs/line_program.cpp
+    src/mbgl/programs/line_program.hpp
+    src/mbgl/programs/program.hpp
+    src/mbgl/programs/programs.hpp
+    src/mbgl/programs/raster_program.cpp
+    src/mbgl/programs/raster_program.hpp
+    src/mbgl/programs/symbol_program.cpp
+    src/mbgl/programs/symbol_program.hpp
+    src/mbgl/programs/uniforms.hpp
+
     # renderer
     src/mbgl/renderer/bucket.hpp
     src/mbgl/renderer/circle_bucket.cpp
@@ -180,55 +198,6 @@ set(MBGL_CORE_FILES
     src/mbgl/renderer/render_tile.hpp
     src/mbgl/renderer/symbol_bucket.cpp
     src/mbgl/renderer/symbol_bucket.hpp
-
-    # shader
-    src/mbgl/shader/circle_shader.cpp
-    src/mbgl/shader/circle_shader.hpp
-    src/mbgl/shader/circle_uniforms.hpp
-    src/mbgl/shader/circle_vertex.cpp
-    src/mbgl/shader/circle_vertex.hpp
-    src/mbgl/shader/collision_box_shader.cpp
-    src/mbgl/shader/collision_box_shader.hpp
-    src/mbgl/shader/collision_box_uniforms.hpp
-    src/mbgl/shader/collision_box_vertex.cpp
-    src/mbgl/shader/collision_box_vertex.hpp
-    src/mbgl/shader/fill_outline_pattern_shader.cpp
-    src/mbgl/shader/fill_outline_pattern_shader.hpp
-    src/mbgl/shader/fill_outline_shader.cpp
-    src/mbgl/shader/fill_outline_shader.hpp
-    src/mbgl/shader/fill_pattern_shader.cpp
-    src/mbgl/shader/fill_pattern_shader.hpp
-    src/mbgl/shader/fill_shader.cpp
-    src/mbgl/shader/fill_shader.hpp
-    src/mbgl/shader/fill_uniforms.cpp
-    src/mbgl/shader/fill_uniforms.hpp
-    src/mbgl/shader/fill_vertex.cpp
-    src/mbgl/shader/fill_vertex.hpp
-    src/mbgl/shader/line_pattern_shader.cpp
-    src/mbgl/shader/line_pattern_shader.hpp
-    src/mbgl/shader/line_sdf_shader.cpp
-    src/mbgl/shader/line_sdf_shader.hpp
-    src/mbgl/shader/line_shader.cpp
-    src/mbgl/shader/line_shader.hpp
-    src/mbgl/shader/line_uniforms.cpp
-    src/mbgl/shader/line_uniforms.hpp
-    src/mbgl/shader/line_vertex.cpp
-    src/mbgl/shader/line_vertex.hpp
-    src/mbgl/shader/raster_shader.cpp
-    src/mbgl/shader/raster_shader.hpp
-    src/mbgl/shader/raster_uniforms.hpp
-    src/mbgl/shader/raster_vertex.cpp
-    src/mbgl/shader/raster_vertex.hpp
-    src/mbgl/shader/shaders.hpp
-    src/mbgl/shader/symbol_icon_shader.cpp
-    src/mbgl/shader/symbol_icon_shader.hpp
-    src/mbgl/shader/symbol_sdf_shader.cpp
-    src/mbgl/shader/symbol_sdf_shader.hpp
-    src/mbgl/shader/symbol_uniforms.cpp
-    src/mbgl/shader/symbol_uniforms.hpp
-    src/mbgl/shader/symbol_vertex.cpp
-    src/mbgl/shader/symbol_vertex.hpp
-    src/mbgl/shader/uniforms.hpp
 
     # sprite
     include/mbgl/sprite/sprite_image.hpp
