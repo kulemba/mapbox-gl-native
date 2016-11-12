@@ -34,14 +34,6 @@ import java.util.List;
 // Class that wraps the native methods for convenience
 final class NativeMapView {
 
-    //
-    // Static members
-    //
-
-    //
-    // Instance members
-    //
-
     boolean destroyed = false;
 
     // Holds the pointer to JNI NativeMapView
@@ -496,7 +488,6 @@ final class NativeMapView {
 
     public void addLayer(@NonNull Layer layer, @Nullable String before) {
         nativeAddLayer(nativeMapViewPtr, layer.getNativePtr(), before);
-        layer.invalidate();
     }
 
     public void removeLayer(@NonNull String layerId) throws NoSuchLayerException {
@@ -547,7 +538,7 @@ final class NativeMapView {
     @NonNull
     public List<Feature> queryRenderedFeatures(RectF coordinates, String... layerIds) {
         Feature[] features = nativeQueryRenderedFeaturesForBox(
-          nativeMapViewPtr,
+                nativeMapViewPtr,
                 coordinates.left / pixelRatio,
                 coordinates.top / pixelRatio,
                 coordinates.right / pixelRatio,
@@ -562,6 +553,14 @@ final class NativeMapView {
 
     public void setApiBaseUrl(String baseUrl) {
         nativeSetAPIBaseURL(nativeMapViewPtr, baseUrl);
+    }
+
+    public float getPixelRatio() {
+        return pixelRatio;
+    }
+
+    public Context getContext() {
+        return mapView.getContext();
     }
 
     //
