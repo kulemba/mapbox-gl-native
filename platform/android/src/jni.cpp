@@ -498,7 +498,7 @@ jdoubleArray nativeGetCameraValues(JNIEnv *env, jni::jobject* obj, jlong nativeM
     jdouble buf[5];
     buf[0] = latLng.latitude;
     buf[1] = latLng.longitude;
-    buf[2] = -(nativeMapView->getMap().getBearing()-360);
+    buf[2] = -nativeMapView->getMap().getBearing();
     buf[3] = nativeMapView->getMap().getPitch();
     buf[4] = nativeMapView->getMap().getZoom();
     env->SetDoubleArrayRegion(output, start, leng, buf);
@@ -1008,7 +1008,7 @@ void nativeJumpTo(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr, jdoubl
 
     mbgl::CameraOptions options;
     if (angle != -1) {
-        options.angle = angle * M_PI / 180;
+        options.angle = (-angle * M_PI) / 180;
     }
     options.center = mbgl::LatLng(latitude, longitude);
     options.padding = nativeMapView->getInsets();
@@ -1028,7 +1028,7 @@ void nativeEaseTo(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr, jdoubl
 
     mbgl::CameraOptions cameraOptions;
     if (angle != -1) {
-        cameraOptions.angle = angle * M_PI / 180;
+        cameraOptions.angle = (-angle * M_PI) / 180;
     }
     cameraOptions.center = mbgl::LatLng(latitude, longitude);
     cameraOptions.padding = nativeMapView->getInsets();
@@ -1061,7 +1061,7 @@ void nativeFlyTo(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr, jdouble
 
     mbgl::CameraOptions cameraOptions;
     if (angle != -1) {
-        cameraOptions.angle = angle * M_PI / 180 ;
+        cameraOptions.angle = (-angle * M_PI) / 180 ;
     }
     cameraOptions.center = mbgl::LatLng(latitude, longitude);
     cameraOptions.padding = nativeMapView->getInsets();
@@ -1100,12 +1100,13 @@ void nativeAddLayer(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr, jlon
     assert(nativeLayerPtr != 0);
 
     NativeMapView *nativeMapView = reinterpret_cast<NativeMapView *>(nativeMapViewPtr);
-    Layer *layer = reinterpret_cast<Layer *>(nativeLayerPtr);
 
-    nativeMapView->getMap().addLayer(
-        layer->releaseCoreLayer(),
-        before ? mbgl::optional<std::string>(std_string_from_jstring(env, before)) : mbgl::optional<std::string>()
-    );
+    Layer *layer = reinterpret_cast<Layer *>(nativeLayerPtr);
+    try {
+        layer->addToMap(nativeMapView->getMap(), before ? mbgl::optional<std::string>(std_string_from_jstring(env, before)) : mbgl::optional<std::string>());
+    } catch (const std::runtime_error& error) {
+        jni::ThrowNew(*env, jni::FindClass(*env, "com/mapbox/mapboxsdk/style/layers/CannotAddLayerException"), error.what());
+    }
 }
 
 void nativeRemoveLayer(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr, jni::jstring* id) {
@@ -1141,9 +1142,13 @@ void nativeAddSource(JNIEnv *env, jni::jobject* obj, jni::jlong nativeMapViewPtr
     assert(nativeSourcePtr != 0);
 
     NativeMapView *nativeMapView = reinterpret_cast<NativeMapView *>(nativeMapViewPtr);
-    Source *source = reinterpret_cast<Source *>(nativeSourcePtr);
 
-    nativeMapView->getMap().addSource(source->releaseCoreSource());
+    Source *source = reinterpret_cast<Source *>(nativeSourcePtr);
+    try {
+        source->addToMap(nativeMapView->getMap());
+    } catch (const std::runtime_error& error) {
+        jni::ThrowNew(*env, jni::FindClass(*env, "com/mapbox/mapboxsdk/style/sources/CannotAddSourceException"), error.what());
+    }
 }
 
 void nativeRemoveSource(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr, jni::jstring* id) {
