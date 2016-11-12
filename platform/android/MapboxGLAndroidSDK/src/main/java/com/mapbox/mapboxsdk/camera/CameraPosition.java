@@ -9,10 +9,14 @@ import com.mapbox.mapboxsdk.constants.MapboxConstants;
 import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.utils.MathUtils;
 
+import static com.mapbox.mapboxsdk.utils.MathUtils.convertNativeBearing;
+
 /**
  * Resembles the position, angle, zoom and tilt of the user's viewpoint.
  */
 public final class CameraPosition implements Parcelable {
+
+    public static final CameraPosition DEFAULT = new CameraPosition(new LatLng(), 0, 0, 0);
 
     public static final Parcelable.Creator<CameraPosition> CREATOR
             = new Parcelable.Creator<CameraPosition>() {
@@ -40,12 +44,12 @@ public final class CameraPosition implements Parcelable {
     public final LatLng target;
 
     /**
-     * The angle, in degrees, of the camera angle from the nadir (directly facing the Earth). See tilt(float) for details of restrictions on the range of values.
+     * The angle, in degrees, of the camera angle from the nadir (directly facing the Earth). See tilt(double) for details of restrictions on the range of values.
      */
     public final double tilt;
 
     /**
-     * Zoom level near the center of the screen. See zoom(float) for the definition of the camera's zoom level.
+     * Zoom level near the center of the screen. See zoom(double) for the definition of the camera's zoom level.
      */
     public final double zoom;
 
@@ -53,8 +57,8 @@ public final class CameraPosition implements Parcelable {
      * Constructs a CameraPosition.
      *
      * @param target  The target location to align with the center of the screen.
-     * @param zoom    Zoom level at target. See zoom(float) for details of restrictions.
-     * @param tilt    The camera angle, in degrees, from the nadir (directly down). See tilt(float) for details of restrictions.
+     * @param zoom    Zoom level at target. See zoom(double) for details of restrictions.
+     * @param tilt    The camera angle, in degrees, from the nadir (directly down). See tilt(double) for details of restrictions.
      * @param bearing Direction that the camera is pointing in, in degrees clockwise from north. This value will be normalized to be within 0 degrees inclusive and 360 degrees exclusive.
      * @throws NullPointerException     if target is null
      * @throws IllegalArgumentException if tilt is outside the range of 0 to 90 degrees inclusive.
@@ -154,12 +158,12 @@ public final class CameraPosition implements Parcelable {
         public Builder(TypedArray typedArray) {
             super();
             if (typedArray != null) {
-                this.bearing = typedArray.getFloat(R.styleable.mapbox_MapView_mapbox_direction, 0.0f);
-                double lat = typedArray.getFloat(R.styleable.mapbox_MapView_mapbox_center_latitude, 0.0f);
-                double lng = typedArray.getFloat(R.styleable.mapbox_MapView_mapbox_center_longitude, 0.0f);
+                this.bearing = typedArray.getFloat(R.styleable.mapbox_MapView_mapbox_cameraBearing, 0.0f);
+                double lat = typedArray.getFloat(R.styleable.mapbox_MapView_mapbox_cameraTargetLat, 0.0f);
+                double lng = typedArray.getFloat(R.styleable.mapbox_MapView_mapbox_cameraTargetLng, 0.0f);
                 this.target = new LatLng(lat, lng);
-                this.tilt = typedArray.getFloat(R.styleable.mapbox_MapView_mapbox_tilt, 0.0f);
-                this.zoom = typedArray.getFloat(R.styleable.mapbox_MapView_mapbox_zoom, 0.0f);
+                this.tilt = typedArray.getFloat(R.styleable.mapbox_MapView_mapbox_cameraTilt, 0.0f);
+                this.zoom = typedArray.getFloat(R.styleable.mapbox_MapView_mapbox_cameraZoom, 0.0f);
             }
         }
 
@@ -202,9 +206,9 @@ public final class CameraPosition implements Parcelable {
             super();
             if (nativeCameraValues != null && nativeCameraValues.length == 5) {
                 target(new LatLng(nativeCameraValues[0], nativeCameraValues[1]));
-                bearing(nativeCameraValues[2]);
+                bearing(convertNativeBearing(nativeCameraValues[2]));
                 tilt(nativeCameraValues[3]);
-                zoom((float) nativeCameraValues[4]);
+                zoom(nativeCameraValues[4]);
             }
         }
 
@@ -258,7 +262,7 @@ public final class CameraPosition implements Parcelable {
          * @return Builder
          */
         public Builder tilt(double tilt) {
-            this.tilt = (float) MathUtils.clamp(tilt, MapboxConstants.MINIMUM_TILT, MapboxConstants.MAXIMUM_TILT);
+            this.tilt = MathUtils.clamp(tilt, MapboxConstants.MINIMUM_TILT, MapboxConstants.MAXIMUM_TILT);
             return this;
         }
 
