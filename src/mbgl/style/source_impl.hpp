@@ -43,10 +43,13 @@ public:
     virtual void loadDescription(FileSource&) = 0;
     bool isLoaded() const;
 
-    // Called when the camera has changed or icons or glyphs are loaded. May load new
-    // tiles, unload obsolete tiles, and trigger further parsing of incomplete tiles or
-    // re-placement of existing complete tiles.
+    // Called when the camera has changed. May load new tiles, unload obsolete tiles, or
+    // trigger re-placement of existing complete tiles.
     void updateTiles(const UpdateParameters&);
+
+    // Called when icons or glyphs are loaded. Triggers further processing of tiles which
+    // were waiting on such dependencies.
+    void updateSymbolDependentTiles();
 
     // Removes all tiles (by putting them into the cache).
     void removeTiles();
@@ -60,7 +63,7 @@ public:
                      const TransformState&);
     void finishRender(Painter&);
 
-    const std::map<UnwrappedTileID, RenderTile>& getRenderTiles() const;
+    std::map<UnwrappedTileID, RenderTile>& getRenderTiles();
 
     std::unordered_map<std::string, std::vector<Feature>>
     queryRenderedFeatures(const QueryParameters&) const;

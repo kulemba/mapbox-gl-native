@@ -2,7 +2,7 @@
 #include <mbgl/renderer/painter.hpp>
 #include <mbgl/gl/context.hpp>
 
-#include <mbgl/shader/circle_shader.hpp>
+#include <mbgl/programs/circle_program.hpp>
 #include <mbgl/style/layers/circle_layer.hpp>
 #include <mbgl/util/constants.hpp>
 
@@ -34,9 +34,9 @@ void CircleBucket::addGeometry(const GeometryCollection& geometryCollection) {
     constexpr const uint16_t vertexLength = 4;
 
     for (auto& circle : geometryCollection) {
-        for(auto & geometry : circle) {
-            auto x = geometry.x;
-            auto y = geometry.y;
+        for(auto& point : circle) {
+            auto x = point.x;
+            auto y = point.y;
 
             // Do not include points that are outside the tile boundaries.
             // Include all points in Still mode. You need to include points from
@@ -46,7 +46,7 @@ void CircleBucket::addGeometry(const GeometryCollection& geometryCollection) {
 
             if (segments.empty() || segments.back().vertexLength + vertexLength > std::numeric_limits<uint16_t>::max()) {
                 // Move to a new segments because the old one can't hold the geometry.
-                segments.emplace_back(vertices.size(), triangles.size());
+                segments.emplace_back(vertices.vertexSize(), triangles.indexSize());
             }
 
             // this geometry will be of the Point type, and we'll derive
@@ -58,10 +58,10 @@ void CircleBucket::addGeometry(const GeometryCollection& geometryCollection) {
             // │ 1     2 │
             // └─────────┘
             //
-            vertices.emplace_back(x, y, -1, -1); // 1
-            vertices.emplace_back(x, y, 1, -1); // 2
-            vertices.emplace_back(x, y, 1, 1); // 3
-            vertices.emplace_back(x, y, -1, 1); // 4
+            vertices.emplace_back(CircleProgram::vertex(point, -1, -1)); // 1
+            vertices.emplace_back(CircleProgram::vertex(point,  1, -1)); // 2
+            vertices.emplace_back(CircleProgram::vertex(point,  1,  1)); // 3
+            vertices.emplace_back(CircleProgram::vertex(point, -1,  1)); // 4
 
             auto& segment = segments.back();
             assert(segment.vertexLength <= std::numeric_limits<uint16_t>::max());
@@ -73,7 +73,7 @@ void CircleBucket::addGeometry(const GeometryCollection& geometryCollection) {
             triangles.emplace_back(index, index + 3, index + 2);
 
             segment.vertexLength += vertexLength;
-            segment.primitiveLength += 2;
+            segment.indexLength += 6;
         }
     }
 }

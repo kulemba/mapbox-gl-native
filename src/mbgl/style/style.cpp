@@ -51,6 +51,12 @@ Style::~Style() {
         source->baseImpl->setObserver(nullptr);
     }
 
+    for (const auto& layer : layers) {
+        if (CustomLayer* customLayer = layer->as<CustomLayer>()) {
+            customLayer->impl->deinitialize();
+        }
+    }
+
     glyphAtlas->setObserver(nullptr);
     spriteAtlas->setObserver(nullptr);
 }
@@ -135,7 +141,7 @@ void Style::addSource(std::unique_ptr<Source> source) {
     sources.emplace_back(std::move(source));
 }
 
-void Style::removeSource(const std::string& id) {
+std::unique_ptr<Source> Style::removeSource(const std::string& id) {
     auto it = std::find_if(sources.begin(), sources.end(), [&](const auto& source) {
         return source->getID() == id;
     });
@@ -144,8 +150,11 @@ void Style::removeSource(const std::string& id) {
         throw std::runtime_error("no such source");
     }
 
+    auto source = std::move(*it);
     sources.erase(it);
     updateBatch.sourceIDs.erase(id);
+
+    return source;
 }
 
 std::vector<const Layer*> Style::getLayers() const {
@@ -186,11 +195,22 @@ Layer* Style::addLayer(std::unique_ptr<Layer> layer, optional<std::string> befor
     return layers.emplace(before ? findLayer(*before) : layers.end(), std::move(layer))->get();
 }
 
-void Style::removeLayer(const std::string& id) {
-    auto it = findLayer(id);
+std::unique_ptr<Layer> Style::removeLayer(const std::string& id) {
+    auto it = std::find_if(layers.begin(), layers.end(), [&](const auto& layer) {
+        return layer->baseImpl->id == id;
+    });
+
     if (it == layers.end())
         throw std::runtime_error("no such layer");
+
+    auto layer = std::move(*it);
+
+    if (CustomLayer* customLayer = layer->as<CustomLayer>()) {
+        customLayer->impl->deinitialize();
+    }
+
     layers.erase(it);
+    return layer;
 }
 
 std::string Style::getName() const {
@@ -218,6 +238,12 @@ void Style::updateTiles(const UpdateParameters& parameters) {
         if (source->baseImpl->enabled) {
             source->baseImpl->updateTiles(parameters);
         }
+    }
+}
+
+void Style::updateSymbolDependentTiles() {
+    for (const auto& source : sources) {
+        source->baseImpl->updateSymbolDependentTiles();
     }
 }
 
@@ -399,6 +425,7 @@ RenderData Style::getRenderData(MapDebugOptions debugOptions) const {
             auto bucket = tile.tile.getBucket(*layer);
             if (bucket) {
                 result.order.emplace_back(*layer, &tile, bucket);
+                tile.used = true;
             }
         }
     }
@@ -476,7 +503,7 @@ void Style::setObserver(style::Observer* observer_) {
 
 void Style::onGlyphsLoaded(const FontStack& fontStack, const GlyphRange& glyphRange) {
     observer->onGlyphsLoaded(fontStack, glyphRange);
-    observer->onUpdate(Update::Repaint);
+    updateSymbolDependentTiles();
 }
 
 void Style::onGlyphsError(const FontStack& fontStack, const GlyphRange& glyphRange, std::exception_ptr error) {
@@ -527,7 +554,8 @@ void Style::onTileError(Source& source, const OverscaledTileID& tileID, std::exc
 
 void Style::onSpriteLoaded() {
     observer->onSpriteLoaded();
-    observer->onUpdate(Update::Repaint);
+    observer->onUpdate(Update::Repaint); // For *-pattern properties.
+    updateSymbolDependentTiles();
 }
 
 void Style::onSpriteError(std::exception_ptr error) {
@@ -566,9 +594,17 @@ void Style::onLayerPaintPropertyChanged(Layer&) {
     observer->onUpdate(Update::RecalculateStyle | Update::Classes);
 }
 
-void Style::onLayerLayoutPropertyChanged(Layer& layer) {
+void Style::onLayerLayoutPropertyChanged(Layer& layer, const char * property) {
     layer.accept(QueueSourceReloadVisitor { updateBatch });
-    observer->onUpdate(Update::Layout);
+
+    auto update = Update::Layout;
+
+    //Recalculate the style for certain properties
+    bool needsRecalculation = strcmp(property, "icon-size") == 0 || strcmp(property, "text-size") == 0;
+    if (needsRecalculation) {
+        update |= Update::RecalculateStyle;
+    }
+    observer->onUpdate(update);
 }
 
 void Style::dumpDebugLogs() const {

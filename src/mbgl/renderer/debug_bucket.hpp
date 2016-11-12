@@ -6,7 +6,7 @@
 #include <mbgl/util/optional.hpp>
 #include <mbgl/util/noncopyable.hpp>
 #include <mbgl/gl/vertex_buffer.hpp>
-#include <mbgl/shader/fill_vertex.hpp>
+#include <mbgl/programs/fill_program.hpp>
 
 namespace mbgl {
 
@@ -32,7 +32,7 @@ public:
     const optional<Timestamp> expires;
     const MapDebugOptions debugMode;
 
-    gl::VertexBuffer<FillVertex> vertexBuffer;
+    gl::VertexBuffer<FillVertex, gl::Lines> vertexBuffer;
 };
 
 } // namespace mbgl
