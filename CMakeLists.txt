@@ -15,13 +15,21 @@ include(.mason/mason.cmake)
 option(WITH_CXX11ABI "Use cxx11abi mason packages" OFF)
 option(WITH_COVERAGE "Enable coverage reports" OFF)
 option(WITH_OSMESA   "Use OSMesa headless backend" OFF)
+option(IS_CI_BUILD   "Continuous integration build" OFF)
 
 if(WITH_CXX11ABI)
     set(MASON_CXXABI_SUFFIX -cxx11abi)
 endif()
 
 if(WITH_OSMESA)
-    add_compile_options(-D__OSMESA__)
+    # Default mesa mason binary is OSMesa.
+    set(MASON_MESA_SUFFIX "")
+else()
+    set(MASON_MESA_SUFFIX "-glx")
+endif()
+
+if(IS_CI_BUILD)
+    add_compile_options(-DCI_BUILD=1)
 endif()
 
 mason_use(geometry VERSION 0.8.0 HEADER_ONLY)
