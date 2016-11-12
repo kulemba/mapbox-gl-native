@@ -5,8 +5,8 @@
 #include <mbgl/style/layers/fill_layer.hpp>
 #include <mbgl/style/layers/fill_layer_impl.hpp>
 #include <mbgl/sprite/sprite_atlas.hpp>
-#include <mbgl/shader/shaders.hpp>
-#include <mbgl/shader/fill_uniforms.hpp>
+#include <mbgl/programs/programs.hpp>
+#include <mbgl/programs/fill_program.hpp>
 #include <mbgl/util/convert.hpp>
 
 namespace mbgl {
@@ -35,12 +35,18 @@ void Painter::renderFill(PaintParameters& parameters,
 
         spriteAtlas->bind(true, context, 0);
 
-        auto draw = [&] (uint8_t sublayer, auto& shader, const auto& subject) {
-            context.draw({
+        auto draw = [&] (uint8_t sublayer,
+                         auto& program,
+                         const auto& drawMode,
+                         const auto& vertexBuffer,
+                         const auto& indexBuffer,
+                         const auto& segments) {
+            program.draw(
+                context,
+                drawMode,
                 depthModeForSublayer(sublayer, gl::DepthMode::ReadWrite),
                 stencilModeForClipping(tile.clip),
                 colorModeForRenderPass(),
-                shader,
                 FillPatternUniforms::values(
                     tile.translatedMatrix(properties.fillTranslate.value,
                                           properties.fillTranslateAnchor.value,
@@ -53,80 +59,88 @@ void Painter::renderFill(PaintParameters& parameters,
                     tile.id,
                     state
                 ),
-                subject
-            });
+                vertexBuffer,
+                indexBuffer,
+                segments
+            );
         };
 
         draw(0,
-             parameters.shaders.fillPattern,
-             gl::Segmented<gl::Triangles>(
-                 *bucket.vertexBuffer,
-                 *bucket.triangleIndexBuffer,
-                 bucket.triangleSegments));
+             parameters.programs.fillPattern,
+             gl::Triangles(),
+             *bucket.vertexBuffer,
+             *bucket.triangleIndexBuffer,
+             bucket.triangleSegments);
 
         if (!properties.fillAntialias.value || !properties.fillOutlineColor.isUndefined()) {
             return;
         }
 
         draw(2,
-             parameters.shaders.fillOutlinePattern,
-             gl::Segmented<gl::Lines>(
-                 *bucket.vertexBuffer,
-                 *bucket.lineIndexBuffer,
-                 bucket.lineSegments,
-                 2.0f));
+             parameters.programs.fillOutlinePattern,
+             gl::Lines { 2.0f },
+             *bucket.vertexBuffer,
+             *bucket.lineIndexBuffer,
+             bucket.lineSegments);
     } else {
-        auto draw = [&] (uint8_t sublayer, auto& shader, Color outlineColor, const auto& subject) {
-            context.draw({
+        auto draw = [&] (uint8_t sublayer,
+                         auto& program,
+                         Color outlineColor,
+                         const auto& drawMode,
+                         const auto& vertexBuffer,
+                         const auto& indexBuffer,
+                         const auto& segments) {
+            program.draw(
+                context,
+                drawMode,
                 depthModeForSublayer(sublayer, gl::DepthMode::ReadWrite),
                 stencilModeForClipping(tile.clip),
                 colorModeForRenderPass(),
-                shader,
-                FillColorUniforms::values(
-                    tile.translatedMatrix(properties.fillTranslate.value,
-                                          properties.fillTranslateAnchor.value,
-                                          state),
-                    properties.fillOpacity.value,
-                    properties.fillColor.value,
-                    outlineColor,
-                    context.viewport.getCurrentValue().size
-                ),
-                subject
-            });
+                FillProgram::UniformValues {
+                    uniforms::u_matrix::Value{ tile.translatedMatrix(properties.fillTranslate.value,
+                                               properties.fillTranslateAnchor.value,
+                                               state) },
+                    uniforms::u_opacity::Value{ properties.fillOpacity.value },
+                    uniforms::u_color::Value{ properties.fillColor.value },
+                    uniforms::u_outline_color::Value{ outlineColor },
+                    uniforms::u_world::Value{ context.viewport.getCurrentValue().size },
+                },
+                vertexBuffer,
+                indexBuffer,
+                segments
+            );
         };
 
         if (properties.fillAntialias.value && !properties.fillOutlineColor.isUndefined() && pass == RenderPass::Translucent) {
             draw(2,
-                 parameters.shaders.fillOutline,
+                 parameters.programs.fillOutline,
                  properties.fillOutlineColor.value,
-                 gl::Segmented<gl::Lines>(
-                     *bucket.vertexBuffer,
-                     *bucket.lineIndexBuffer,
-                     bucket.lineSegments,
-                     2.0f));
+                 gl::Lines { 2.0f },
+                 *bucket.vertexBuffer,
+                 *bucket.lineIndexBuffer,
+                 bucket.lineSegments);
         }
 
         // Only draw the fill when it's opaque and we're drawing opaque fragments,
         // or when it's translucent and we're drawing translucent fragments.
         if ((properties.fillColor.value.a >= 1.0f && properties.fillOpacity.value >= 1.0f) == (pass == RenderPass::Opaque)) {
             draw(1,
-                 parameters.shaders.fill,
+                 parameters.programs.fill,
                  properties.fillOutlineColor.value,
-                 gl::Segmented<gl::Triangles>(
-                     *bucket.vertexBuffer,
-                     *bucket.triangleIndexBuffer,
-                     bucket.triangleSegments));
+                 gl::Triangles(),
+                 *bucket.vertexBuffer,
+                 *bucket.triangleIndexBuffer,
+                 bucket.triangleSegments);
         }
 
         if (properties.fillAntialias.value && properties.fillOutlineColor.isUndefined() && pass == RenderPass::Translucent) {
             draw(2,
-                 parameters.shaders.fillOutline,
+                 parameters.programs.fillOutline,
                  properties.fillColor.value,
-                 gl::Segmented<gl::Lines>(
-                     *bucket.vertexBuffer,
-                     *bucket.lineIndexBuffer,
-                     bucket.lineSegments,
-                     2.0f));
+                 gl::Lines { 2.0f },
+                 *bucket.vertexBuffer,
+                 *bucket.lineIndexBuffer,
+                 bucket.lineSegments);
         }
     }
 }

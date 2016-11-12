@@ -5,8 +5,8 @@
 #include <mbgl/gl/vertex_buffer.hpp>
 #include <mbgl/gl/index_buffer.hpp>
 #include <mbgl/gl/segment.hpp>
-#include <mbgl/shader/symbol_vertex.hpp>
-#include <mbgl/shader/collision_box_vertex.hpp>
+#include <mbgl/programs/symbol_program.hpp>
+#include <mbgl/programs/collision_box_program.hpp>
 #include <mbgl/text/glyph_range.hpp>
 #include <mbgl/style/layers/symbol_layer_properties.hpp>
 
@@ -34,26 +34,26 @@ public:
     const bool iconsNeedLinear;
 
     struct TextBuffer {
-        std::vector<SymbolVertex> vertices;
-        std::vector<gl::Triangle> triangles;
+        gl::VertexVector<SymbolVertex> vertices;
+        gl::IndexVector<gl::Triangles> triangles;
         std::vector<gl::Segment> segments;
 
         optional<gl::VertexBuffer<SymbolVertex>> vertexBuffer;
-        optional<gl::IndexBuffer<gl::Triangle>> indexBuffer;
+        optional<gl::IndexBuffer<gl::Triangles>> indexBuffer;
     } text;
 
     struct IconBuffer {
-        std::vector<SymbolVertex> vertices;
-        std::vector<gl::Triangle> triangles;
+        gl::VertexVector<SymbolVertex> vertices;
+        gl::IndexVector<gl::Triangles> triangles;
         std::vector<gl::Segment> segments;
 
         optional<gl::VertexBuffer<SymbolVertex>> vertexBuffer;
-        optional<gl::IndexBuffer<gl::Triangle>> indexBuffer;
+        optional<gl::IndexBuffer<gl::Triangles>> indexBuffer;
     } icon;
 
     struct CollisionBoxBuffer {
-        std::vector<CollisionBoxVertex> vertices;
-        optional<gl::VertexBuffer<CollisionBoxVertex>> vertexBuffer;
+        gl::VertexVector<CollisionBoxVertex, gl::Lines> vertices;
+        optional<gl::VertexBuffer<CollisionBoxVertex, gl::Lines>> vertexBuffer;
     } collisionBox;
 };
 
