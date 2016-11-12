@@ -172,6 +172,24 @@ public class MarkerViewActivity extends AppCompatActivity {
                         .icon(IconFactory.getInstance(mapView.getContext())
                                 .fromResource(R.drawable.ic_arsenal))
                 );
+
+                // allow more open infowindows at the same time
+                mapboxMap.setAllowConcurrentMultipleOpenInfoWindows(true);
+
+                // add offscreen markers
+                Marker markerRightOffScreen = mapboxMap.addMarker(new MarkerOptions()
+                        .setPosition(new LatLng(38.892846, -76.909399))
+                        .title("InfoWindow")
+                        .snippet("Offscreen, to the right of the Map."));
+
+                Marker markerRightBottomOffScreen = mapboxMap.addMarker(new MarkerOptions()
+                        .setPosition(new LatLng(38.791645, -77.039006))
+                        .title("InfoWindow")
+                        .snippet("Offscreen, to the bottom of the Map"));
+
+                // open infowindow offscreen markers
+                mapboxMap.selectMarker(markerRightOffScreen);
+                mapboxMap.selectMarker(markerRightBottomOffScreen);
             }
         });
     }
@@ -309,12 +327,12 @@ public class MarkerViewActivity extends AppCompatActivity {
     /**
      * Adapts a MarkerView to display text  in a TextView.
      */
-    private static class TextAdapter extends MapboxMap.MarkerViewAdapter<TextMarkerView> {
+    public static class TextAdapter extends MapboxMap.MarkerViewAdapter<TextMarkerView> {
 
         private LayoutInflater inflater;
         private MapboxMap mapboxMap;
 
-        TextAdapter(@NonNull Context context, @NonNull MapboxMap mapboxMap) {
+        public TextAdapter(@NonNull Context context, @NonNull MapboxMap mapboxMap) {
             super(context);
             this.inflater = LayoutInflater.from(context);
             this.mapboxMap = mapboxMap;

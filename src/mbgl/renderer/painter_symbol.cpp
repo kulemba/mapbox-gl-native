@@ -6,9 +6,9 @@
 #include <mbgl/style/layers/symbol_layer_impl.hpp>
 #include <mbgl/text/glyph_atlas.hpp>
 #include <mbgl/sprite/sprite_atlas.hpp>
-#include <mbgl/shader/shaders.hpp>
-#include <mbgl/shader/symbol_uniforms.hpp>
-#include <mbgl/shader/collision_box_uniforms.hpp>
+#include <mbgl/programs/programs.hpp>
+#include <mbgl/programs/symbol_program.hpp>
+#include <mbgl/programs/collision_box_program.hpp>
 #include <mbgl/util/math.hpp>
 #include <mbgl/tile/tile.hpp>
 
@@ -30,7 +30,7 @@ void Painter::renderSymbol(PaintParameters& parameters,
 
     frameHistory.bind(context, 1);
 
-    auto draw = [&] (auto& shader,
+    auto draw = [&] (auto& program,
                      auto&& uniformValues,
                      const auto& buffers,
                      const SymbolPropertyValues& values_)
@@ -46,7 +46,9 @@ void Painter::renderSymbol(PaintParameters& parameters,
         const bool drawAcrossEdges = (frame.mapMode == MapMode::Continuous) && (true || !(layout.textAllowOverlap || layout.iconAllowOverlap ||
               layout.textIgnorePlacement || layout.iconIgnorePlacement));
 
-        context.draw({
+        program.draw(
+            context,
+            gl::Triangles(),
             values_.pitchAlignment == AlignmentType::Map
                 ? depthModeForSublayer(0, gl::DepthMode::ReadOnly)
                 : gl::DepthMode::disabled(),
@@ -54,14 +56,11 @@ void Painter::renderSymbol(PaintParameters& parameters,
                 ? gl::StencilMode::disabled()
                 : stencilModeForClipping(tile.clip),
             colorModeForRenderPass(),
-            shader,
             std::move(uniformValues),
-            gl::Segmented<gl::Triangles>(
-                *buffers.vertexBuffer,
-                *buffers.indexBuffer,
-                buffers.segments
-            )
-        });
+            *buffers.vertexBuffer,
+            *buffers.indexBuffer,
+            buffers.segments
+        );
     };
 
     if (bucket.hasIconData()) {
@@ -76,21 +75,21 @@ void Painter::renderSymbol(PaintParameters& parameters,
 
         if (bucket.sdfIcons) {
             if (values.hasHalo()) {
-                draw(parameters.shaders.symbolIconSDF,
-                     SymbolSDFUniforms::haloValues(values, texsize, pixelsToGLUnits, tile, state, frame.pixelRatio),
+                draw(parameters.programs.symbolIconSDF,
+                     SymbolSDFProgram::haloUniformValues(values, texsize, pixelsToGLUnits, tile, state, frame.pixelRatio),
                      bucket.icon,
                      values);
             }
 
             if (values.hasForeground()) {
-                draw(parameters.shaders.symbolIconSDF,
-                     SymbolSDFUniforms::foregroundValues(values, texsize, pixelsToGLUnits, tile, state, frame.pixelRatio),
+                draw(parameters.programs.symbolIconSDF,
+                     SymbolSDFProgram::foregroundUniformValues(values, texsize, pixelsToGLUnits, tile, state, frame.pixelRatio),
                      bucket.icon,
                      values);
             }
         } else {
-            draw(parameters.shaders.symbolIcon,
-                 SymbolIconUniforms::values(values, texsize, pixelsToGLUnits, tile, state),
+            draw(parameters.programs.symbolIcon,
+                 SymbolIconProgram::uniformValues(values, texsize, pixelsToGLUnits, tile, state),
                  bucket.icon,
                  values);
         }
@@ -104,37 +103,35 @@ void Painter::renderSymbol(PaintParameters& parameters,
         const Size texsize = glyphAtlas->getSize();
 
         if (values.hasHalo()) {
-            draw(parameters.shaders.symbolGlyph,
-                 SymbolSDFUniforms::haloValues(values, texsize, pixelsToGLUnits, tile, state, frame.pixelRatio),
+            draw(parameters.programs.symbolGlyph,
+                 SymbolSDFProgram::haloUniformValues(values, texsize, pixelsToGLUnits, tile, state, frame.pixelRatio),
                  bucket.text,
                  values);
         }
 
         if (values.hasForeground()) {
-            draw(parameters.shaders.symbolGlyph,
-                 SymbolSDFUniforms::foregroundValues(values, texsize, pixelsToGLUnits, tile, state, frame.pixelRatio),
+            draw(parameters.programs.symbolGlyph,
+                 SymbolSDFProgram::foregroundUniformValues(values, texsize, pixelsToGLUnits, tile, state, frame.pixelRatio),
                  bucket.text,
                  values);
         }
     }
 
     if (bucket.hasCollisionBoxData()) {
-        context.draw({
+        programs->collisionBox.draw(
+            context,
+            gl::Lines { 1.0f },
             gl::DepthMode::disabled(),
             gl::StencilMode::disabled(),
             colorModeForRenderPass(),
-            shaders->collisionBox,
-            CollisionBoxUniforms::values(
-                tile.matrix,
-                std::pow(2.0f, state.getZoom() - tile.tile.id.overscaledZ),
-                state.getZoom() * 10,
-                (tile.id.canonical.z + 1) * 10
-            ),
-            gl::Unindexed<gl::Lines>(
-                *bucket.collisionBox.vertexBuffer,
-                1.0f
-            )
-        });
+            CollisionBoxProgram::UniformValues {
+                uniforms::u_matrix::Value{ tile.matrix },
+                uniforms::u_scale::Value{ std::pow(2.0f, float(state.getZoom() - tile.tile.id.overscaledZ)) },
+                uniforms::u_zoom::Value{ float(state.getZoom() * 10) },
+                uniforms::u_maxzoom::Value{ float((tile.id.canonical.z + 1) * 10) },
+            },
+            *bucket.collisionBox.vertexBuffer
+        );
     }
 }
 
