@@ -20,7 +20,8 @@ OfflineDatabase::Statement::~Statement() {
 
 OfflineDatabase::OfflineDatabase(const std::string& path_, uint64_t maximumCacheSize_)
     : path(path_),
-      maximumCacheSize(maximumCacheSize_) {
+      maximumCacheSize(maximumCacheSize_),
+      nonIndexedURLTemplates(false) {
     ensureSchema();
 }
 
@@ -50,7 +51,7 @@ void OfflineDatabase::ensureSchema() {
             case 0: break; // cache-only database; ok to delete
             case 1: break; // cache-only database; ok to delete
             case 2: migrateToVersion3(); // fall through
-            case 3: return;
+            case 3: checkURLTemplateIndexing(); return;
             default: throw std::runtime_error("unknown schema version");
             }
 
@@ -300,14 +301,24 @@ bool OfflineDatabase::putResource(const Resource& resource,
 }
 
 optional<std::pair<Response, uint64_t>> OfflineDatabase::getTile(const Resource::TileData& tile) {
-    Statement accessedStmt = getStatement(
+    Statement accessedStmt = getStatement(nonIndexedURLTemplates ?
         "UPDATE tiles "
         "SET accessed       = ?1 "
         "WHERE url_template = ?2 "
         "  AND pixel_ratio  = ?3 "
         "  AND x            = ?4 "
         "  AND y            = ?5 "
-        "  AND z            = ?6 ");
+        "  AND z            = ?6 ":
+        "UPDATE tiles "
+        "SET accessed           = ?1 "
+        "WHERE url_template_id  = ( "
+        "    SELECT id "
+        "    FROM url_templates "
+        "    WHERE url_template = ?2 ) "
+        "  AND pixel_ratio      = ?3 "
+        "  AND x                = ?4 "
+        "  AND y                = ?5 "
+        "  AND z                = ?6 ");
 
     accessedStmt->bind(1, util::now());
     accessedStmt->bind(2, tile.urlTemplate);
@@ -317,7 +328,7 @@ optional<std::pair<Response, uint64_t>> OfflineDatabase::getTile(const Resource:
     accessedStmt->bind(6, tile.z);
     accessedStmt->run();
 
-    Statement stmt = getStatement(
+    Statement stmt = getStatement(nonIndexedURLTemplates ?
         //        0      1        2       3        4
         "SELECT etag, expires, modified, data, compressed "
         "FROM tiles "
@@ -325,7 +336,17 @@ optional<std::pair<Response, uint64_t>> OfflineDatabase::getTile(const Resource:
         "  AND pixel_ratio  = ?2 "
         "  AND x            = ?3 "
         "  AND y            = ?4 "
-        "  AND z            = ?5 ");
+        "  AND z            = ?5 ":
+        //        0      1        2       3        4
+        "SELECT etag, expires, modified, data, compressed "
+        "FROM tiles "
+        "INNER JOIN url_templates "
+        "ON url_template_id = url_templates.id "
+        "WHERE url_templates.url_template = ?1 "
+        "  AND pixel_ratio                = ?2 "
+        "  AND x                          = ?3 "
+        "  AND y                          = ?4 "
+        "  AND z                          = ?5 ");
 
     stmt->bind(1, tile.urlTemplate);
     stmt->bind(2, tile.pixelRatio);
@@ -363,7 +384,7 @@ bool OfflineDatabase::putTile(const Resource::TileData& tile,
                               const std::string& data,
                               bool compressed) {
     if (response.notModified) {
-        Statement update = getStatement(
+        Statement update = getStatement(nonIndexedURLTemplates ?
             "UPDATE tiles "
             "SET accessed       = ?1, "
             "    expires        = ?2 "
@@ -371,7 +392,18 @@ bool OfflineDatabase::putTile(const Resource::TileData& tile,
             "  AND pixel_ratio  = ?4 "
             "  AND x            = ?5 "
             "  AND y            = ?6 "
-            "  AND z            = ?7 ");
+            "  AND z            = ?7 ":
+            "UPDATE tiles "
+            "SET accessed           = ?1, "
+            "    expires            = ?2 "
+            "WHERE url_template_id  = ( "
+            "    SELECT id "
+            "    FROM url_templates "
+            "    WHERE url_template = ?3 ) "
+            "  AND pixel_ratio      = ?4 "
+            "  AND x                = ?5 "
+            "  AND y                = ?6 "
+            "  AND z                = ?7 ");
 
         update->bind(1, util::now());
         update->bind(2, response.expires);
@@ -390,7 +422,7 @@ bool OfflineDatabase::putTile(const Resource::TileData& tile,
     // to INSERT a resource at the same moment.
     Transaction transaction(*db, Transaction::Immediate);
 
-    Statement update = getStatement(
+    Statement update = getStatement(nonIndexedURLTemplates ?
         "UPDATE tiles "
         "SET modified       = ?1, "
         "    etag           = ?2, "
@@ -402,7 +434,22 @@ bool OfflineDatabase::putTile(const Resource::TileData& tile,
         "  AND pixel_ratio  = ?8 "
         "  AND x            = ?9 "
         "  AND y            = ?10 "
-        "  AND z            = ?11 ");
+        "  AND z            = ?11 ":
+        "UPDATE tiles "
+        "SET modified           = ?1, "
+        "    etag               = ?2, "
+        "    expires            = ?3, "
+        "    accessed           = ?4, "
+        "    data               = ?5, "
+        "    compressed         = ?6 "
+        "WHERE url_template_id  = ( "
+        "    SELECT id "
+        "    FROM url_templates "
+        "    WHERE url_template = ?7 ) "
+        "  AND pixel_ratio      = ?8 "
+        "  AND x                = ?9 "
+        "  AND y                = ?10 "
+        "  AND z                = ?11 ");
 
     update->bind(1, response.modified);
     update->bind(2, response.etag);
@@ -428,9 +475,25 @@ bool OfflineDatabase::putTile(const Resource::TileData& tile,
         return false;
     }
 
-    Statement insert = getStatement(
+    if (! nonIndexedURLTemplates) {
+        Statement insert = getStatement(
+            "INSERT OR IGNORE INTO url_templates (url_template) "
+            "VALUES                              (?1) ");
+        
+        insert->bind(1, tile.urlTemplate);
+        
+        insert->run();
+    }
+
+    Statement insert = getStatement(nonIndexedURLTemplates ?
         "INSERT INTO tiles (url_template, pixel_ratio, x,  y,  z,  modified,  etag,  expires,  accessed,  data, compressed) "
-        "VALUES            (?1,           ?2,          ?3, ?4, ?5, ?6,        ?7,    ?8,       ?9,        ?10,  ?11) ");
+        "VALUES            (?1,           ?2,          ?3, ?4, ?5, ?6,        ?7,    ?8,       ?9,        ?10,  ?11) ":
+        "INSERT INTO tiles (url_template_id, pixel_ratio, x,  y,  z,  modified,  etag,  expires,  accessed,  data, compressed) "
+        "VALUES            (( "
+        "                   SELECT id "
+        "                   FROM url_templates "
+        "                   WHERE url_template = ?1 ), "
+        "                                    ?2,          ?3, ?4, ?5, ?6,        ?7,    ?8,       ?9,        ?10,  ?11) ");
 
     insert->bind(1, tile.urlTemplate);
     insert->bind(2, tile.pixelRatio);
@@ -525,7 +588,7 @@ uint64_t OfflineDatabase::putRegionResource(int64_t regionID, const Resource& re
 
 bool OfflineDatabase::markUsed(int64_t regionID, const Resource& resource) {
     if (resource.kind == Resource::Kind::Tile) {
-        Statement insert = getStatement(
+        Statement insert = getStatement(nonIndexedURLTemplates ?
             "INSERT OR IGNORE INTO region_tiles (region_id, tile_id) "
             "SELECT                              ?1,        tiles.id "
             "FROM tiles "
@@ -533,7 +596,17 @@ bool OfflineDatabase::markUsed(int64_t regionID, const Resource& resource) {
             "  AND pixel_ratio  = ?3 "
             "  AND x            = ?4 "
             "  AND y            = ?5 "
-            "  AND z            = ?6 ");
+            "  AND z            = ?6 ":
+            "INSERT OR IGNORE INTO region_tiles (region_id, tile_id) "
+            "SELECT                              ?1,        tiles.id "
+            "FROM tiles "
+            "INNER JOIN url_templates "
+            "ON url_template_id = url_templates.id "
+            "WHERE url_templates.url_template = ?2 "
+            "  AND pixel_ratio                = ?3 "
+            "  AND x                          = ?4 "
+            "  AND y                          = ?5 "
+            "  AND z                          = ?6 ");
 
         const Resource::TileData& tile = *resource.tileData;
         insert->bind(1, regionID);
@@ -548,7 +621,7 @@ bool OfflineDatabase::markUsed(int64_t regionID, const Resource& resource) {
             return false;
         }
 
-        Statement select = getStatement(
+        Statement select = getStatement(nonIndexedURLTemplates ?
             "SELECT region_id "
             "FROM region_tiles, tiles "
             "WHERE region_id   != ?1 "
@@ -557,6 +630,17 @@ bool OfflineDatabase::markUsed(int64_t regionID, const Resource& resource) {
             "  AND x            = ?4 "
             "  AND y            = ?5 "
             "  AND z            = ?6 "
+            "LIMIT 1 ":
+            "SELECT region_id "
+            "FROM region_tiles, tiles "
+            "INNER JOIN url_templates "
+            "ON url_template_id = url_templates.id "
+            "WHERE region_id                 != ?1 "
+            "  AND url_templates.url_template = ?2 "
+            "  AND pixel_ratio                = ?3 "
+            "  AND x                          = ?4 "
+            "  AND y                          = ?5 "
+            "  AND z                          = ?6 "
             "LIMIT 1 ");
 
         select->bind(1, regionID);
@@ -727,16 +811,46 @@ uint64_t OfflineDatabase::getOfflineMapboxTileCount() {
         return *offlineMapboxTileCount;
     }
 
-    Statement stmt = getStatement(
+    Statement stmt = getStatement(nonIndexedURLTemplates ?
         "SELECT COUNT(DISTINCT id) "
         "FROM region_tiles, tiles "
         "WHERE tile_id = tiles.id "
-        "AND url_template LIKE 'mapbox://%' ");
+        "AND url_template LIKE 'mapbox://%' ":
+        "SELECT COUNT(DISTINCT tiles.id) "
+        "FROM region_tiles, tiles "
+        "INNER JOIN url_templates "
+        "ON url_template_id = url_templates.id "
+        "WHERE tile_id = tiles.id "
+        "AND url_templates.url_template LIKE 'mapbox://%' ");
 
     stmt->run();
 
     offlineMapboxTileCount = stmt->get<int64_t>(0);
     return *offlineMapboxTileCount;
 }
+    
+void OfflineDatabase::checkURLTemplateIndexing()
+{
+    Statement checkTiles = getStatement("PRAGMA table_info(tiles)");
+    Statement checkURLTemplates = getStatement("PRAGMA table_info(url_templates)");
+    bool urlTemplatesPresent = checkURLTemplates->run();
+    bool urlTemplatePresent = false;
+    bool urlTemplateIDPresent = false;
 
+    while (checkTiles->run()) {
+        std::string columnName = checkTiles->get<std::string>(1);
+        if (columnName == "url_template") {
+            urlTemplatePresent = true;
+        } else if (columnName == "url_template_id") {
+            urlTemplateIDPresent = true;
+        }
+    }
+    
+    nonIndexedURLTemplates = urlTemplatePresent && ! urlTemplateIDPresent;
+    
+    if (nonIndexedURLTemplates ? urlTemplatesPresent: ! (urlTemplatesPresent && ! urlTemplatePresent && urlTemplateIDPresent)) {
+        Log::Warning(Event::Database, "Unexpected result from database schema inspection");
+    }
+}
+    
 } // namespace mbgl
