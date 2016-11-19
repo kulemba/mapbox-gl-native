@@ -155,6 +155,17 @@ public class MapboxMap {
         getMapView().getNativeMapView().removeLayer(layerId);
     }
 
+    /**
+     * Removes the layer. The reference is re-usable after this and can be re-added
+     *
+     * @param layer the layer to remove
+     * @throws NoSuchLayerException
+     */
+    @UiThread
+    public void removeLayer(@NonNull Layer layer) throws NoSuchLayerException {
+        getMapView().getNativeMapView().removeLayer(layer);
+    }
+
     @Nullable
     @UiThread
     public Source getSource(@NonNull String sourceId) {
@@ -199,6 +210,17 @@ public class MapboxMap {
     @UiThread
     public void removeSource(@NonNull String sourceId) throws NoSuchSourceException {
         getMapView().getNativeMapView().removeSource(sourceId);
+    }
+
+    /**
+     * Removes the source, preserving the reverence for re-use
+     *
+     * @param source the source to remove
+     * @throws NoSuchSourceException
+     */
+    @UiThread
+    public void removeSource(@NonNull Source source) throws NoSuchSourceException {
+        getMapView().getNativeMapView().removeSource(source);
     }
 
     /**
