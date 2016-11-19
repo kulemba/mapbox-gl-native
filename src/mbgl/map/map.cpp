@@ -43,7 +43,7 @@ public:
     void update();
     void render();
 
-    void loadStyleJSON(const std::string&);
+    void loadStyleJSON(const std::string&, uint8_t);
 
     View& view;
     FileSource& fileSource;
@@ -282,7 +282,7 @@ void Map::Impl::render() {
 
 #pragma mark - Style
 
-void Map::setStyleURL(const std::string& url) {
+void Map::setStyleURL(const std::string& url, uint8_t maxZoomLimit) {
     if (impl->styleURL == url) {
         return;
     }
@@ -297,7 +297,7 @@ void Map::setStyleURL(const std::string& url) {
 
     impl->style = std::make_unique<Style>(impl->fileSource, impl->pixelRatio);
 
-    impl->styleRequest = impl->fileSource.request(Resource::style(impl->styleURL), [this](Response res) {
+    impl->styleRequest = impl->fileSource.request(Resource::style(impl->styleURL), [this, maxZoomLimit](Response res) {
         if (res.error) {
             if (res.error->reason == Response::Error::Reason::NotFound &&
                 util::mapbox::isMapboxURL(impl->styleURL)) {
@@ -308,12 +308,12 @@ void Map::setStyleURL(const std::string& url) {
         } else if (res.notModified || res.noContent) {
             return;
         } else {
-            impl->loadStyleJSON(*res.data);
+            impl->loadStyleJSON(*res.data, maxZoomLimit);
         }
     });
 }
 
-void Map::setStyleJSON(const std::string& json) {
+void Map::setStyleJSON(const std::string& json, uint8_t maxZoomLimit) {
     if (impl->styleJSON == json) {
         return;
     }
@@ -326,11 +326,11 @@ void Map::setStyleJSON(const std::string& json) {
     impl->styleJSON.clear();
     impl->style = std::make_unique<Style>(impl->fileSource, impl->pixelRatio);
 
-    impl->loadStyleJSON(json);
+    impl->loadStyleJSON(json, maxZoomLimit);
 }
 
-void Map::Impl::loadStyleJSON(const std::string& json) {
-    style->setJSON(json);
+void Map::Impl::loadStyleJSON(const std::string& json, uint8_t maxZoomLimit) {
+    style->setJSON(json, maxZoomLimit);
     style->setObserver(this);
     styleJSON = json;
 
