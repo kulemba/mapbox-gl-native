@@ -18,7 +18,7 @@
 #include <mbgl/style/class_dictionary.hpp>
 #include <mbgl/style/update_parameters.hpp>
 #include <mbgl/style/cascade_parameters.hpp>
-#include <mbgl/style/calculation_parameters.hpp>
+#include <mbgl/style/property_evaluation_parameters.hpp>
 #include <mbgl/sprite/sprite_atlas.hpp>
 #include <mbgl/text/glyph_atlas.hpp>
 #include <mbgl/geometry/line_atlas.hpp>
@@ -267,7 +267,6 @@ void Style::cascade(const TimePoint& timePoint, MapMode mode) {
         classIDs.push_back(ClassDictionary::Get().lookup(className));
     }
     classIDs.push_back(ClassID::Default);
-    classIDs.push_back(ClassID::Fallback);
 
     const CascadeParameters parameters {
         classIDs,
@@ -289,7 +288,7 @@ void Style::recalculate(float z, const TimePoint& timePoint, MapMode mode) {
 
     zoomHistory.update(z, timePoint);
 
-    const CalculationParameters parameters {
+    const PropertyEvaluationParameters parameters {
         z,
         mode == MapMode::Continuous ? timePoint : Clock::time_point::max(),
         zoomHistory,
@@ -298,7 +297,7 @@ void Style::recalculate(float z, const TimePoint& timePoint, MapMode mode) {
 
     hasPendingTransitions = false;
     for (const auto& layer : layers) {
-        const bool hasTransitions = layer->baseImpl->recalculate(parameters);
+        const bool hasTransitions = layer->baseImpl->evaluate(parameters);
 
         // Disable this layer if it doesn't need to be rendered.
         const bool needsRendering = layer->baseImpl->needsRendering(zoomHistory.lastZoom);
@@ -355,7 +354,7 @@ bool Style::isLoaded() const {
     return true;
 }
 
-RenderData Style::getRenderData(MapDebugOptions debugOptions) const {
+RenderData Style::getRenderData(MapDebugOptions debugOptions, float angle) const {
     RenderData result;
 
     for (const auto& source : sources) {
@@ -363,6 +362,9 @@ RenderData Style::getRenderData(MapDebugOptions debugOptions) const {
             result.sources.insert(source.get());
         }
     }
+
+    const bool isLeft = std::abs(angle) > M_PI_2;
+    const bool isBottom = angle < 0;
 
     for (const auto& layer : layers) {
         if (!layer->baseImpl->needsRendering(zoomHistory.lastZoom)) {
@@ -375,10 +377,10 @@ RenderData Style::getRenderData(MapDebugOptions debugOptions) const {
                 result.order.emplace_back(*layer);
                 continue;
             }
-            const BackgroundPaintProperties& paint = background->impl->paint;
-            if (layer.get() == layers[0].get() && paint.backgroundPattern.value.from.empty()) {
+            const BackgroundPaintProperties::Evaluated& paint = background->impl->paint.evaluated;
+            if (layer.get() == layers[0].get() && paint.get<BackgroundPattern>().from.empty()) {
                 // This is a solid background. We can use glClear().
-                result.backgroundColor = paint.backgroundColor * paint.backgroundOpacity;
+                result.backgroundColor = paint.get<BackgroundColor>() * paint.get<BackgroundOpacity>();
             } else {
                 // This is a textured background, or not the bottommost layer. We need to render it with a quad.
                 result.order.emplace_back(*layer);
@@ -397,8 +399,29 @@ RenderData Style::getRenderData(MapDebugOptions debugOptions) const {
             continue;
         }
 
-        for (auto& pair : source->baseImpl->getRenderTiles()) {
-            auto& tile = pair.second;
+        auto& renderTiles = source->baseImpl->getRenderTiles();
+        const bool symbolLayer = layer->is<SymbolLayer>();
+
+        // Sort symbol tiles in opposite y position, so tiles with overlapping
+        // symbols are drawn on top of each other, with lower symbols being
+        // drawn on top of higher symbols.
+        std::vector<std::reference_wrapper<RenderTile>> sortedTiles;
+        std::transform(renderTiles.begin(), renderTiles.end(), std::back_inserter(sortedTiles),
+                [](auto& pair) { return std::ref(pair.second); });
+        if (symbolLayer) {
+            std::sort(sortedTiles.begin(), sortedTiles.end(),
+                      [isLeft, isBottom](const RenderTile& a, const RenderTile& b) {
+                bool sortX = a.id.canonical.x > b.id.canonical.x;
+                bool sortW = a.id.wrap > b.id.wrap;
+                bool sortY = a.id.canonical.y > b.id.canonical.y;
+                return
+                    a.id.canonical.y != b.id.canonical.y ? (isLeft ? sortY : !sortY) :
+                    a.id.wrap != b.id.wrap ? (isBottom ? sortW : !sortW) : (isBottom ? sortX : !sortX);
+            });
+        }
+
+        for (auto& tileRef : sortedTiles) {
+            auto& tile = tileRef.get();
             if (!tile.tile.isRenderable()) {
                 continue;
             }
@@ -406,7 +429,7 @@ RenderData Style::getRenderData(MapDebugOptions debugOptions) const {
             // We're not clipping symbol layers, so when we have both parents and children of symbol
             // layers, we drop all children in favor of their parent to avoid duplicate labels.
             // See https://github.com/mapbox/mapbox-gl-native/issues/2482
-            if (layer->is<SymbolLayer>()) {
+            if (symbolLayer) {
                 bool skip = false;
                 // Look back through the buckets we decided to render to find out whether there is
                 // already a bucket from this layer that is a parent of this tile. Tiles are ordered
