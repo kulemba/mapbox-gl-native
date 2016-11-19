@@ -9,6 +9,8 @@
 #include <mbgl/renderer/bucket.hpp>
 
 #include <mbgl/gl/context.hpp>
+#include <mbgl/programs/debug_program.hpp>
+#include <mbgl/programs/program_parameters.hpp>
 #include <mbgl/programs/fill_program.hpp>
 #include <mbgl/programs/raster_program.hpp>
 
@@ -66,7 +68,7 @@ struct FrameData {
 
 class Painter : private util::noncopyable {
 public:
-    Painter(gl::Context&, const TransformState&);
+    Painter(gl::Context&, const TransformState&, float pixelRatio);
     ~Painter();
 
     void render(const style::Style&,
@@ -157,8 +159,13 @@ private:
 #endif
 
     gl::VertexBuffer<FillVertex, gl::Triangles> tileTriangleVertexBuffer;
-    gl::VertexBuffer<FillVertex, gl::LineStrip> tileLineStripVertexBuffer;
+    gl::SegmentVector<FillAttributes> tileTriangleSegments;
+
+    gl::VertexBuffer<DebugVertex, gl::LineStrip> tileBorderVertexBuffer;
+    gl::SegmentVector<DebugAttributes> tileBorderSegments;
+
     gl::VertexBuffer<RasterVertex, gl::TriangleStrip> rasterVertexBuffer;
+    gl::SegmentVector<RasterAttributes> rasterSegments;
 };
 
 } // namespace mbgl

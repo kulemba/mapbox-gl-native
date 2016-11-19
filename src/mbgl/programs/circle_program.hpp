@@ -11,14 +11,15 @@ namespace mbgl {
 namespace uniforms {
 MBGL_DEFINE_UNIFORM_SCALAR(float, u_radius);
 MBGL_DEFINE_UNIFORM_SCALAR(bool, u_scale_with_map);
-MBGL_DEFINE_UNIFORM_SCALAR(float, u_devicepixelratio);
 } // namespace uniforms
+
+using CircleAttributes = gl::Attributes<
+    attributes::a_pos>;
 
 class CircleProgram : public Program<
     shaders::circle,
     gl::Triangle,
-    gl::Attributes<
-        attributes::a_pos>,
+    CircleAttributes,
     gl::Uniforms<
         uniforms::u_matrix,
         uniforms::u_opacity,
@@ -26,8 +27,7 @@ class CircleProgram : public Program<
         uniforms::u_radius,
         uniforms::u_blur,
         uniforms::u_scale_with_map,
-        uniforms::u_extrude_scale,
-        uniforms::u_devicepixelratio>>
+        uniforms::u_extrude_scale>>
 {
 public:
     using Program::Program;
