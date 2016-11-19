@@ -21,6 +21,7 @@
 #include <mbgl/geometry/line_atlas.hpp>
 #include <mbgl/text/glyph_atlas.hpp>
 
+#include <mbgl/programs/program_parameters.hpp>
 #include <mbgl/programs/programs.hpp>
 
 #include <mbgl/algorithm/generate_clip_ids.hpp>
@@ -73,19 +74,25 @@ static gl::VertexVector<RasterVertex, gl::TriangleStrip> rasterTriangleStrip() {
     return result;
 }
 
-Painter::Painter(gl::Context& context_, const TransformState& state_)
+Painter::Painter(gl::Context& context_, const TransformState& state_, float pixelRatio)
     : context(context_),
       state(state_),
       tileTriangleVertexBuffer(context.createVertexBuffer(tileTriangles())),
-      tileLineStripVertexBuffer(context.createVertexBuffer(tileLineStrip())),
-      rasterVertexBuffer(context.createVertexBuffer(rasterTriangleStrip())) {
+      tileTriangleSegments(tileTriangleVertexBuffer),
+      tileBorderVertexBuffer(context.createVertexBuffer(tileLineStrip())),
+      tileBorderSegments(tileBorderVertexBuffer),
+      rasterVertexBuffer(context.createVertexBuffer(rasterTriangleStrip())),
+      rasterSegments(rasterVertexBuffer) {
 #ifndef NDEBUG
     gl::debugging::enable();
 #endif
 
-    programs = std::make_unique<Programs>(context);
+    ProgramParameters programParameters{ pixelRatio, false };
+    programs = std::make_unique<Programs>(context, programParameters);
 #ifndef NDEBUG
-    overdrawPrograms = std::make_unique<Programs>(context, ProgramDefines::Overdraw);
+    
+    ProgramParameters programParametersOverdraw{ pixelRatio, true };
+    overdrawPrograms = std::make_unique<Programs>(context, programParametersOverdraw);
 #endif
 }
 
@@ -118,7 +125,7 @@ void Painter::render(const Style& style, const FrameData& frame_, View& view, Sp
     spriteAtlas = style.spriteAtlas.get();
     lineAtlas = style.lineAtlas.get();
 
-    RenderData renderData = style.getRenderData(frame.debugOptions);
+    RenderData renderData = style.getRenderData(frame.debugOptions, state.getAngle());
     const std::vector<RenderItem>& order = renderData.order;
     const std::unordered_set<Source*>& sources = renderData.sources;
 
