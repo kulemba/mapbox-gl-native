@@ -6,15 +6,12 @@
 #include <mbgl/shader/line.hpp>
 #include <mbgl/shader/line_pattern.hpp>
 #include <mbgl/shader/line_sdf.hpp>
+#include <mbgl/style/layers/line_layer_properties.hpp>
 #include <mbgl/util/geometry.hpp>
 
 #include <cmath>
 
 namespace mbgl {
-
-namespace style {
-class LinePaintProperties;
-} // namespace style
 
 class RenderTile;
 class TransformState;
@@ -23,9 +20,8 @@ class SpriteAtlasPosition;
 
 namespace uniforms {
 MBGL_DEFINE_UNIFORM_SCALAR(float, u_ratio);
-MBGL_DEFINE_UNIFORM_SCALAR(float, u_linewidth);
+MBGL_DEFINE_UNIFORM_SCALAR(float, u_width);
 MBGL_DEFINE_UNIFORM_SCALAR(float, u_gapwidth);
-MBGL_DEFINE_UNIFORM_SCALAR(float, u_antialiasing);
 MBGL_DEFINE_UNIFORM_SCALAR(float, u_extra);
 MBGL_DEFINE_UNIFORM_SCALAR(float, u_offset);
 MBGL_DEFINE_UNIFORM_SCALAR(float, u_tex_y_a);
@@ -93,11 +89,10 @@ class LineProgram : public Program<
     gl::Uniforms<
         uniforms::u_matrix,
         uniforms::u_opacity,
-        uniforms::u_linewidth,
+        uniforms::u_width,
         uniforms::u_gapwidth,
         uniforms::u_blur,
         uniforms::u_offset,
-        uniforms::u_antialiasing,
         uniforms::u_antialiasingmatrix,
         uniforms::u_ratio,
         uniforms::u_extra,
@@ -106,8 +101,7 @@ class LineProgram : public Program<
 public:
     using Program::Program;
 
-    static UniformValues uniformValues(const style::LinePaintProperties&,
-                                       float pixelRatio,
+    static UniformValues uniformValues(const style::LinePaintProperties::Evaluated&,
                                        const RenderTile&,
                                        const TransformState&);
 };
@@ -119,11 +113,10 @@ class LinePatternProgram : public Program<
     gl::Uniforms<
         uniforms::u_matrix,
         uniforms::u_opacity,
-        uniforms::u_linewidth,
+        uniforms::u_width,
         uniforms::u_gapwidth,
         uniforms::u_blur,
         uniforms::u_offset,
-        uniforms::u_antialiasing,
         uniforms::u_antialiasingmatrix,
         uniforms::u_ratio,
         uniforms::u_extra,
@@ -139,8 +132,7 @@ class LinePatternProgram : public Program<
 public:
     using Program::Program;
 
-    static UniformValues uniformValues(const style::LinePaintProperties&,
-                                       float pixelRatio,
+    static UniformValues uniformValues(const style::LinePaintProperties::Evaluated&,
                                        const RenderTile&,
                                        const TransformState&,
                                        const SpriteAtlasPosition& posA,
@@ -154,11 +146,10 @@ class LineSDFProgram : public Program<
     gl::Uniforms<
         uniforms::u_matrix,
         uniforms::u_opacity,
-        uniforms::u_linewidth,
+        uniforms::u_width,
         uniforms::u_gapwidth,
         uniforms::u_blur,
         uniforms::u_offset,
-        uniforms::u_antialiasing,
         uniforms::u_antialiasingmatrix,
         uniforms::u_ratio,
         uniforms::u_extra,
@@ -174,7 +165,7 @@ class LineSDFProgram : public Program<
 public:
     using Program::Program;
 
-    static UniformValues uniformValues(const style::LinePaintProperties&,
+    static UniformValues uniformValues(const style::LinePaintProperties::Evaluated&,
                                        float pixelRatio,
                                        const RenderTile&,
                                        const TransformState&,
