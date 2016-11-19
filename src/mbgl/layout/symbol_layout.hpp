@@ -4,6 +4,7 @@
 #include <mbgl/style/layers/symbol_layer_properties.hpp>
 #include <mbgl/layout/symbol_feature.hpp>
 #include <mbgl/layout/symbol_instance.hpp>
+#include <mbgl/text/bidi.hpp>
 
 #include <memory>
 #include <map>
@@ -33,7 +34,7 @@ public:
                  const MapMode,
                  const GeometryTileLayer&,
                  const style::Filter&,
-                 style::SymbolLayoutProperties,
+                 style::SymbolLayoutProperties::Evaluated,
                  float textMaxSize,
                  SpriteAtlas&);
 
@@ -64,8 +65,8 @@ private:
                     const GlyphPositions& face,
                     const size_t index);
 
-    bool anchorIsTooClose(const std::u32string& text, const float repeatDistance, Anchor&);
-    std::map<std::u32string, std::vector<Anchor>> compareText;
+    bool anchorIsTooClose(const std::u16string& text, const float repeatDistance, Anchor&);
+    std::map<std::u16string, std::vector<Anchor>> compareText;
 
     void addToDebugBuffers(CollisionTile&, SymbolBucket&);
 
@@ -77,7 +78,7 @@ private:
     const float overscaling;
     const float zoom;
     const MapMode mode;
-    const style::SymbolLayoutProperties layout;
+    const style::SymbolLayoutProperties::Evaluated layout;
     const float textMaxSize;
 
     SpriteAtlas& spriteAtlas;
@@ -91,6 +92,8 @@ private:
     GlyphRangeSet ranges;
     std::vector<SymbolInstance> symbolInstances;
     std::vector<SymbolFeature> features;
+    
+    BiDi bidi; // Consider moving this up to geometry tile worker to reduce reinstantiation costs; use of BiDi/ubiditransform object must be constrained to one thread
 };
 
 } // namespace mbgl

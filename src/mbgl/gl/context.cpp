@@ -6,7 +6,7 @@
 #include <mbgl/util/std.hpp>
 #include <mbgl/platform/log.hpp>
 
-#include <boost/functional/hash.hpp>
+#include <cstring>
 
 namespace mbgl {
 namespace gl {
@@ -68,19 +68,24 @@ UniqueProgram Context::createProgram(ShaderID vertexShader, ShaderID fragmentSha
 
     MBGL_CHECK_ERROR(glAttachShader(result, vertexShader));
     MBGL_CHECK_ERROR(glAttachShader(result, fragmentShader));
-    MBGL_CHECK_ERROR(glLinkProgram(result));
+
+    return result;
+}
+
+void Context::linkProgram(ProgramID program_) {
+    MBGL_CHECK_ERROR(glLinkProgram(program_));
 
     GLint status;
-    MBGL_CHECK_ERROR(glGetProgramiv(result, GL_LINK_STATUS, &status));
-    if (status != 0) {
-        return result;
+    MBGL_CHECK_ERROR(glGetProgramiv(program_, GL_LINK_STATUS, &status));
+    if (status == GL_TRUE) {
+        return;
     }
 
     GLint logLength;
-    MBGL_CHECK_ERROR(glGetProgramiv(result, GL_INFO_LOG_LENGTH, &logLength));
+    MBGL_CHECK_ERROR(glGetProgramiv(program_, GL_INFO_LOG_LENGTH, &logLength));
     const auto log = std::make_unique<GLchar[]>(logLength);
     if (logLength > 0) {
-        MBGL_CHECK_ERROR(glGetProgramInfoLog(result, logLength, &logLength, log.get()));
+        MBGL_CHECK_ERROR(glGetProgramInfoLog(program_, logLength, &logLength, log.get()));
         Log::Error(Event::Shader, "Program failed to link: %s", log.get());
     }
 
@@ -429,15 +434,6 @@ PrimitiveType Context::operator()(const TriangleStrip&) {
     return PrimitiveType::TriangleStrip;
 }
 
-std::size_t Context::VertexArrayObjectHash::operator()(const VertexArrayObjectKey& key) const {
-    std::size_t seed = 0;
-    boost::hash_combine(seed, std::get<0>(key));
-    boost::hash_combine(seed, std::get<1>(key));
-    boost::hash_combine(seed, std::get<2>(key));
-    boost::hash_combine(seed, std::get<3>(key));
-    return seed;
-}
-
 void Context::setDepthMode(const DepthMode& depth) {
     if (depth.func == DepthMode::Always && !depth.mask) {
         depthTest = false;
@@ -498,23 +494,15 @@ void Context::draw(const Drawable& drawable) {
                 return true;
             }
 
-            VertexArrayObjectKey vaoKey {
-                drawable.program,
-                drawable.vertexBuffer,
-                drawable.indexBuffer,
-                segment.vertexOffset
-            };
-
-            auto it = vaos.find(vaoKey);
-            if (it != vaos.end()) {
-                vertexArrayObject = it->second;
+            if (segment.vao) {
+                vertexArrayObject = *segment.vao;
                 return false;
             }
 
             VertexArrayID id = 0;
             MBGL_CHECK_ERROR(gl::GenVertexArrays(1, &id));
             vertexArrayObject = id;
-            vaos.emplace(vaoKey, UniqueVertexArray(std::move(id), { this }));
+            segment.vao = UniqueVertexArray(std::move(id), { this });
 
             // If we are initializing a new VAO, we need to force the buffers
             // to be rebound. VAOs don't inherit the existing buffer bindings.
@@ -550,9 +538,6 @@ void Context::performCleanup() {
         if (program == id) {
             program.setDirty();
         }
-        mbgl::util::erase_if(vaos, [&] (const VertexArrayObjectMap::value_type& kv) {
-            return std::get<0>(kv.first) == id;
-        });
         MBGL_CHECK_ERROR(glDeleteProgram(id));
     }
     abandonedPrograms.clear();
@@ -569,10 +554,6 @@ void Context::performCleanup() {
             } else if (elementBuffer == id) {
                 elementBuffer.setDirty();
             }
-            mbgl::util::erase_if(vaos, [&] (const VertexArrayObjectMap::value_type& kv) {
-                return std::get<1>(kv.first) == id
-                    || std::get<2>(kv.first) == id;
-            });
         }
         MBGL_CHECK_ERROR(glDeleteBuffers(int(abandonedBuffers.size()), abandonedBuffers.data()));
         abandonedBuffers.clear();

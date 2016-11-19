@@ -52,7 +52,7 @@ endif
 
 .NOTPARALLEL: node_modules
 node_modules: package.json
-	npm update # Install dependencies but don't run our own install script.
+	npm install --ignore-scripts # Install dependencies but don't run our own install script.
 
 BUILD_DEPS += .mason/mason
 BUILD_DEPS += Makefile
@@ -295,7 +295,8 @@ $(LINUX_BUILD): $(BUILD_DEPS)
 		-DWITH_CXX11ABI=$(shell scripts/check-cxx11abi.sh) \
 		-DWITH_COVERAGE=${WITH_COVERAGE} \
 		-DIS_CI_BUILD=${CI} \
-		-DWITH_OSMESA=${WITH_OSMESA})
+		-DWITH_OSMESA=${WITH_OSMESA} \
+		-DWITH_EGL=${WITH_EGL})
 
 .PHONY: linux
 linux: glfw-app render offline

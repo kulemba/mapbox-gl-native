@@ -160,6 +160,7 @@ set(MBGL_CORE_FILES
     src/mbgl/programs/line_program.cpp
     src/mbgl/programs/line_program.hpp
     src/mbgl/programs/program.hpp
+    src/mbgl/programs/program_parameters.hpp
     src/mbgl/programs/programs.hpp
     src/mbgl/programs/raster_program.cpp
     src/mbgl/programs/raster_program.hpp
@@ -235,7 +236,6 @@ set(MBGL_CORE_FILES
     include/mbgl/style/types.hpp
     src/mbgl/style/bucket_parameters.cpp
     src/mbgl/style/bucket_parameters.hpp
-    src/mbgl/style/calculation_parameters.hpp
     src/mbgl/style/cascade_parameters.hpp
     src/mbgl/style/class_dictionary.cpp
     src/mbgl/style/class_dictionary.hpp
@@ -248,6 +248,7 @@ set(MBGL_CORE_FILES
     src/mbgl/style/paint_property.hpp
     src/mbgl/style/parser.cpp
     src/mbgl/style/parser.hpp
+    src/mbgl/style/property_evaluation_parameters.hpp
     src/mbgl/style/property_evaluator.cpp
     src/mbgl/style/property_evaluator.hpp
     src/mbgl/style/property_parsing.cpp
@@ -359,6 +360,8 @@ set(MBGL_CORE_FILES
     src/mbgl/text/quads.hpp
     src/mbgl/text/shaping.cpp
     src/mbgl/text/shaping.hpp
+    src/mbgl/text/bidi.cpp
+    src/mbgl/text/bidi.hpp
 
     # tile
     src/mbgl/tile/geojson_tile.cpp
@@ -439,6 +442,10 @@ set(MBGL_CORE_FILES
     src/mbgl/util/http_header.hpp
     src/mbgl/util/http_timeout.cpp
     src/mbgl/util/http_timeout.hpp
+    src/mbgl/util/ignore.hpp
+    src/mbgl/util/i18n.cpp
+    src/mbgl/util/i18n.hpp
+    src/mbgl/util/indexed_tuple.hpp
     src/mbgl/util/interpolate.hpp
     src/mbgl/util/intersection_tests.cpp
     src/mbgl/util/intersection_tests.hpp
