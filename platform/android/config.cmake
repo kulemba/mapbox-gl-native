@@ -3,6 +3,12 @@ add_definitions(-DMBGL_USE_GLES2=1)
 #Include to use build specific variables
 include(${CMAKE_CURRENT_BINARY_DIR}/toolchain.cmake)
 
+# Build thin archives.
+set(CMAKE_CXX_ARCHIVE_CREATE "<CMAKE_AR> cruT <TARGET> <LINK_FLAGS> <OBJECTS>")
+set(CMAKE_C_ARCHIVE_CREATE "<CMAKE_AR> cruT <TARGET> <LINK_FLAGS> <OBJECTS>")
+set(CMAKE_CXX_ARCHIVE_APPEND "<CMAKE_AR> ruT <TARGET> <LINK_FLAGS> <OBJECTS>")
+set(CMAKE_C_ARCHIVE_APPEND "<CMAKE_AR> ruT <TARGET> <LINK_FLAGS> <OBJECTS>")
+
 mason_use(jni.hpp VERSION 2.0.0 HEADER_ONLY)
 mason_use(libjpeg-turbo VERSION 1.5.0)
 mason_use(libpng VERSION 1.6.25)
@@ -38,7 +44,7 @@ macro(mbgl_platform_core)
         PRIVATE platform/default/sqlite3.hpp
 
         # Misc
-        PRIVATE platform/android/src/log_android.cpp
+        PRIVATE platform/android/src/logging_android.cpp
         PRIVATE platform/default/string_stdlib.cpp
 
         # Image handling
@@ -50,11 +56,12 @@ macro(mbgl_platform_core)
         # TODO
 
         # Thread pool
-        PRIVATE platform/default/thread_pool.cpp
+        PRIVATE platform/default/mbgl/util/default_thread_pool.cpp
+        PRIVATE platform/default/mbgl/util/default_thread_pool.cpp
     )
 
     target_include_directories(mbgl-core
-        PRIVATE platform/default
+        PUBLIC platform/default
     )
 
     target_add_mason_package(mbgl-core PUBLIC sqlite)
