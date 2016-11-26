@@ -18,11 +18,11 @@
 #import "MGLAnnotationImage.h"
 #import "MGLMapViewDelegate.h"
 
-#import <mbgl/mbgl.hpp>
+#import <mbgl/map/view.hpp>
 #import <mbgl/annotation/annotation.hpp>
 #import <mbgl/map/camera.hpp>
-#import <mbgl/platform/darwin/reachability.h>
-#import <mbgl/platform/default/thread_pool.hpp>
+#import <mbgl/storage/reachability.h>
+#import <mbgl/util/default_thread_pool.hpp>
 #import <mbgl/gl/extension.hpp>
 #import <mbgl/gl/context.hpp>
 #import <mbgl/map/backend.hpp>

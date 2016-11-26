@@ -4,23 +4,22 @@ import android.os.Bundle;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
-import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Toast;
 
 import com.mapbox.mapboxsdk.camera.CameraPosition;
 import com.mapbox.mapboxsdk.camera.CameraUpdateFactory;
-import com.mapbox.mapboxsdk.constants.MapboxConstants;
 import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.maps.MapView;
 import com.mapbox.mapboxsdk.maps.MapboxMap;
 import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
 import com.mapbox.mapboxsdk.testapp.R;
 
+import timber.log.Timber;
+
 public class CameraAnimationTypeActivity extends AppCompatActivity implements OnMapReadyCallback {
 
-    private static final String TAG = "CameraActivity";
     private static final LatLng LAT_LNG_LONDON_EYE = new LatLng(51.50325, -0.11968);
     private static final LatLng LAT_LNG_TOWER_BRIDGE = new LatLng(51.50550, -0.07520);
 
@@ -57,7 +56,7 @@ public class CameraAnimationTypeActivity extends AppCompatActivity implements On
         mapboxMap.setOnCameraChangeListener(new MapboxMap.OnCameraChangeListener() {
             @Override
             public void onCameraChange(CameraPosition position) {
-                Log.v(MapboxConstants.TAG, position.toString());
+                Timber.w(position.toString());
             }
         });
 
@@ -94,20 +93,20 @@ public class CameraAnimationTypeActivity extends AppCompatActivity implements On
                     MapboxMap.CancelableCallback callback = new MapboxMap.CancelableCallback() {
                         @Override
                         public void onCancel() {
-                            Log.i(TAG, "Duration onCancel Callback called.");
+                            Timber.i("Duration onCancel Callback called.");
                             Toast.makeText(
-                                CameraAnimationTypeActivity.this,
-                                "Ease onCancel Callback called.",
-                                Toast.LENGTH_LONG).show();
+                                    CameraAnimationTypeActivity.this,
+                                    "Ease onCancel Callback called.",
+                                    Toast.LENGTH_LONG).show();
                         }
 
                         @Override
                         public void onFinish() {
-                            Log.i(TAG, "Duration onFinish Callback called.");
+                            Timber.i("Duration onFinish Callback called.");
                             Toast.makeText(
-                                CameraAnimationTypeActivity.this,
-                                "Ease onFinish Callback called.",
-                                Toast.LENGTH_LONG).show();
+                                    CameraAnimationTypeActivity.this,
+                                    "Ease onFinish Callback called.",
+                                    Toast.LENGTH_LONG).show();
                         }
                     };
 
@@ -131,20 +130,20 @@ public class CameraAnimationTypeActivity extends AppCompatActivity implements On
                     MapboxMap.CancelableCallback callback = new MapboxMap.CancelableCallback() {
                         @Override
                         public void onCancel() {
-                            Log.i(TAG, "Duration onCancel Callback called.");
+                            Timber.i("Duration onCancel Callback called.");
                             Toast.makeText(
-                                CameraAnimationTypeActivity.this,
-                                "Duration onCancel Callback called.",
-                                Toast.LENGTH_LONG).show();
+                                    CameraAnimationTypeActivity.this,
+                                    "Duration onCancel Callback called.",
+                                    Toast.LENGTH_LONG).show();
                         }
 
                         @Override
                         public void onFinish() {
-                            Log.i(TAG, "Duration onFinish Callback called.");
+                            Timber.i("Duration onFinish Callback called.");
                             Toast.makeText(
-                                CameraAnimationTypeActivity.this,
-                                "Duration onFinish Callback called.",
-                                Toast.LENGTH_LONG).show();
+                                    CameraAnimationTypeActivity.this,
+                                    "Duration onFinish Callback called.",
+                                    Toast.LENGTH_LONG).show();
                         }
                     };
 
