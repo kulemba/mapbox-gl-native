@@ -9,7 +9,7 @@ import android.os.Build;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.DisplayMetrics;
-import android.util.Log;
+import timber.log.Timber;
 import android.view.Surface;
 
 import com.mapbox.mapboxsdk.annotations.Icon;
@@ -30,6 +30,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 // Class that wraps the native methods for convenience
 final class NativeMapView {
@@ -43,6 +44,8 @@ final class NativeMapView {
     private MapView mapView;
 
     private final float pixelRatio;
+
+    private CopyOnWriteArrayList<MapView.OnMapChangedListener> onMapChangedListeners;
 
     //
     // Static methods
@@ -83,7 +86,7 @@ final class NativeMapView {
         if (totalMemory < 0) {
             throw new IllegalArgumentException("totalMemory cannot be negative.");
         }
-
+        onMapChangedListeners = new CopyOnWriteArrayList<>();
         this.mapView = mapView;
         nativeMapViewPtr = nativeCreate(cachePath, dataPath, apkPath, pixelRatio, availableProcessors, totalMemory);
     }
@@ -146,14 +149,14 @@ final class NativeMapView {
 
         if (width > 65535) {
             // we have seen edge cases where devices return incorrect values #6111
-            Log.e(MapboxConstants.TAG, "Device returned an out of range width size, " +
+            Timber.e("Device returned an out of range width size, " +
                     "capping value at 65535 instead of " + width);
             width = 65535;
         }
 
         if (height > 65535) {
             // we have seen edge cases where devices return incorrect values #6111
-            Log.e(MapboxConstants.TAG, "Device returned an out of range height size, " +
+            Timber.e("Device returned an out of range height size, " +
                     "capping value at 65535 instead of " + height);
             height = 65535;
         }
@@ -778,4 +781,24 @@ final class NativeMapView {
     private native Feature[] nativeQueryRenderedFeaturesForBox(long nativeMapViewPtr, float left, float top, float right, float bottom, String[] layerIds);
 
     private native void nativeSetAPIBaseURL(long nativeMapViewPtr, String baseUrl);
+
+    //
+    // MapChangeEvents
+    //
+
+    void addOnMapChangedListener(@NonNull MapView.OnMapChangedListener listener) {
+        onMapChangedListeners.add(listener);
+    }
+
+    void removeOnMapChangedListener(@NonNull MapView.OnMapChangedListener listener) {
+        onMapChangedListeners.remove(listener);
+    }
+
+    void onMapChangedEventDispatch(int mapChange) {
+        if (onMapChangedListeners != null) {
+            for (MapView.OnMapChangedListener onMapChangedListener : onMapChangedListeners) {
+                onMapChangedListener.onMapChanged(mapChange);
+            }
+        }
+    }
 }
