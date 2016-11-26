@@ -123,30 +123,9 @@ set(MBGL_CORE_FILES
     include/mbgl/math/wrap.hpp
     src/mbgl/math/log2.cpp
 
-    # mbgl
-    include/mbgl/mbgl.hpp
-
     # parsedate
     src/parsedate/parsedate.c
     src/parsedate/parsedate.h
-
-    # platform
-    include/mbgl/platform/event.hpp
-    include/mbgl/platform/log.hpp
-    include/mbgl/platform/platform.hpp
-    src/mbgl/platform/event.cpp
-    src/mbgl/platform/log.cpp
-
-    # platform/darwin
-    include/mbgl/platform/darwin/reachability.h
-
-    # platform/default
-    include/mbgl/platform/default/glfw_view.hpp
-    include/mbgl/platform/default/headless_backend.hpp
-    include/mbgl/platform/default/headless_display.hpp
-    include/mbgl/platform/default/offscreen_view.hpp
-    include/mbgl/platform/default/settings_json.hpp
-    include/mbgl/platform/default/thread_pool.hpp
 
     # programs
     src/mbgl/programs/attributes.hpp
@@ -337,6 +316,8 @@ set(MBGL_CORE_FILES
     src/mbgl/style/sources/vector_source_impl.hpp
 
     # text
+    src/mbgl/text/bidi.cpp
+    src/mbgl/text/bidi.hpp
     src/mbgl/text/check_max_angle.cpp
     src/mbgl/text/check_max_angle.hpp
     src/mbgl/text/collision_feature.cpp
@@ -360,8 +341,6 @@ set(MBGL_CORE_FILES
     src/mbgl/text/quads.hpp
     src/mbgl/text/shaping.cpp
     src/mbgl/text/shaping.hpp
-    src/mbgl/text/bidi.cpp
-    src/mbgl/text/bidi.hpp
 
     # tile
     src/mbgl/tile/geojson_tile.cpp
@@ -396,8 +375,8 @@ set(MBGL_CORE_FILES
     include/mbgl/util/compression.hpp
     include/mbgl/util/constants.hpp
     include/mbgl/util/convert.hpp
-    include/mbgl/util/default_styles.hpp
     include/mbgl/util/enum.hpp
+    include/mbgl/util/event.hpp
     include/mbgl/util/exception.hpp
     include/mbgl/util/feature.hpp
     include/mbgl/util/font_stack.hpp
@@ -405,8 +384,10 @@ set(MBGL_CORE_FILES
     include/mbgl/util/geojson.hpp
     include/mbgl/util/geometry.hpp
     include/mbgl/util/image.hpp
+    include/mbgl/util/logging.hpp
     include/mbgl/util/noncopyable.hpp
     include/mbgl/util/optional.hpp
+    include/mbgl/util/platform.hpp
     include/mbgl/util/projection.hpp
     include/mbgl/util/range.hpp
     include/mbgl/util/run_loop.hpp
@@ -429,9 +410,9 @@ set(MBGL_CORE_FILES
     src/mbgl/util/compression.cpp
     src/mbgl/util/constants.cpp
     src/mbgl/util/convert.cpp
-    src/mbgl/util/default_styles.cpp
     src/mbgl/util/dtoa.cpp
     src/mbgl/util/dtoa.hpp
+    src/mbgl/util/event.cpp
     src/mbgl/util/exclusive.hpp
     src/mbgl/util/font_stack.cpp
     src/mbgl/util/geo.cpp
@@ -442,15 +423,16 @@ set(MBGL_CORE_FILES
     src/mbgl/util/http_header.hpp
     src/mbgl/util/http_timeout.cpp
     src/mbgl/util/http_timeout.hpp
-    src/mbgl/util/ignore.hpp
     src/mbgl/util/i18n.cpp
     src/mbgl/util/i18n.hpp
+    src/mbgl/util/ignore.hpp
     src/mbgl/util/indexed_tuple.hpp
     src/mbgl/util/interpolate.hpp
     src/mbgl/util/intersection_tests.cpp
     src/mbgl/util/intersection_tests.hpp
     src/mbgl/util/io.cpp
     src/mbgl/util/io.hpp
+    src/mbgl/util/logging.cpp
     src/mbgl/util/mapbox.cpp
     src/mbgl/util/mapbox.hpp
     src/mbgl/util/mat2.cpp

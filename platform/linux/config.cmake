@@ -18,7 +18,7 @@ macro(mbgl_platform_core)
     if(WITH_OSMESA)
         target_sources(mbgl-core
             PRIVATE platform/default/headless_backend_osmesa.cpp
-            PRIVATE platform/default/headless_display.cpp
+            PRIVATE platform/default/mbgl/gl/headless_display.cpp
         )
         target_add_mason_package(mbgl-core PUBLIC mesa)
     elseif(WITH_EGL)
@@ -67,7 +67,7 @@ macro(mbgl_platform_core)
         PRIVATE platform/default/sqlite3.hpp
 
         # Misc
-        PRIVATE platform/default/log_stderr.cpp
+        PRIVATE platform/default/logging_stderr.cpp
         PRIVATE platform/default/string_stdlib.cpp
         PRIVATE platform/default/thread.cpp
 
@@ -78,11 +78,15 @@ macro(mbgl_platform_core)
         PRIVATE platform/default/webp_reader.cpp
 
         # Headless view
-        PRIVATE platform/default/headless_backend.cpp
-        PRIVATE platform/default/offscreen_view.cpp
+        PRIVATE platform/default/mbgl/gl/headless_backend.cpp
+        PRIVATE platform/default/mbgl/gl/headless_backend.hpp
+        PRIVATE platform/default/mbgl/gl/headless_display.hpp
+        PRIVATE platform/default/mbgl/gl/offscreen_view.cpp
+        PRIVATE platform/default/mbgl/gl/offscreen_view.hpp
 
         # Thread pool
-        PRIVATE platform/default/thread_pool.cpp
+        PRIVATE platform/default/mbgl/util/default_thread_pool.cpp
+        PRIVATE platform/default/mbgl/util/default_thread_pool.cpp
     )
 
     target_include_directories(mbgl-core
