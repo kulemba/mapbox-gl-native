@@ -28,10 +28,11 @@ set(MBGL_QT_FILES
     PRIVATE platform/default/sqlite3.hpp
 
     # Misc
-    PRIVATE platform/default/log_stderr.cpp
+    PRIVATE platform/default/logging_stderr.cpp
 
     # Thread pool
-    PRIVATE platform/default/thread_pool.cpp
+    PRIVATE platform/default/mbgl/util/default_thread_pool.cpp
+    PRIVATE platform/default/mbgl/util/default_thread_pool.cpp
 
     # Platform integration
     PRIVATE platform/qt/src/async_task.cpp
@@ -59,6 +60,8 @@ add_library(qmapboxgl SHARED
     platform/qt/src/qmapbox.cpp
     platform/qt/src/qmapboxgl.cpp
     platform/qt/src/qmapboxgl_p.hpp
+    platform/default/mbgl/util/default_styles.hpp
+    platform/default/mbgl/util/default_styles.cpp
 )
 
 # C++ app
