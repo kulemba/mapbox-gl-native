@@ -5,13 +5,12 @@ import android.graphics.Bitmap;
 import android.graphics.PointF;
 import android.graphics.RectF;
 import android.location.Location;
-import android.os.SystemClock;
 import android.support.annotation.FloatRange;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.UiThread;
 import android.support.v4.util.Pools;
-import android.util.Log;
+import timber.log.Timber;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -45,7 +44,6 @@ import com.mapbox.services.commons.geojson.Feature;
 
 import java.lang.reflect.ParameterizedType;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * The general class to interact with in the Android Mapbox SDK. It exposes the entry point for all
@@ -57,16 +55,13 @@ import java.util.concurrent.TimeUnit;
  * </p>
  */
 public class MapboxMap {
-    private static final String TAG = MapboxMap.class.getSimpleName();
 
     private MapView mapView;
     private UiSettings uiSettings;
     private TrackingSettings trackingSettings;
     private MyLocationViewSettings myLocationViewSettings;
     private Projection projection;
-    private CameraPosition cameraPosition;
-    private boolean invalidCameraPosition;
-
+    private Transform transform;
     private boolean myLocationEnabled;
 
     private MapboxMap.OnMapClickListener onMapClickListener;
@@ -78,7 +73,6 @@ public class MapboxMap {
     private MapboxMap.OnMyLocationTrackingModeChangeListener onMyLocationTrackingModeChangeListener;
     private MapboxMap.OnMyBearingTrackingModeChangeListener onMyBearingTrackingModeChangeListener;
     private MapboxMap.OnFpsChangedListener onFpsChangedListener;
-    private MapboxMap.OnCameraChangeListener onCameraChangeListener;
 
     private AnnotationManager annotationManager;
     private InfoWindowManager infoWindowManager;
@@ -88,12 +82,18 @@ public class MapboxMap {
 
     MapboxMap(@NonNull MapView mapView, IconManager iconManager) {
         this.mapView = mapView;
-        this.mapView.addOnMapChangedListener(new MapChangeCameraPositionListener());
         uiSettings = new UiSettings(mapView);
         trackingSettings = new TrackingSettings(this.mapView, uiSettings);
         projection = new Projection(mapView);
         infoWindowManager = new InfoWindowManager();
         annotationManager = new AnnotationManager(mapView.getNativeMapView(), iconManager, infoWindowManager);
+
+        // TODO inject NativeMapView https://github.com/mapbox/mapbox-gl-native/issues/4100
+        NativeMapView nativeMapView = mapView.getNativeMapView();
+        if (nativeMapView != null) {
+            transform = new Transform(nativeMapView, this);
+            nativeMapView.addOnMapChangedListener(new CameraInvalidator());
+        }
     }
 
     // Style
@@ -118,7 +118,7 @@ public class MapboxMap {
             //noinspection unchecked
             return (T) getMapView().getNativeMapView().getLayer(layerId);
         } catch (ClassCastException e) {
-            Log.e(TAG, String.format("Layer: %s is a different type: %s", layerId, e.getMessage()));
+            Timber.e(String.format("Layer: %s is a different type: %s", layerId, e.getMessage()));
             return null;
         }
     }
@@ -186,7 +186,7 @@ public class MapboxMap {
             //noinspection unchecked
             return (T) getMapView().getNativeMapView().getSource(sourceId);
         } catch (ClassCastException e) {
-            Log.e(TAG, String.format("Source: %s is a different type: %s", sourceId, e.getMessage()));
+            Timber.e(String.format("Source: %s is a different type: %s", sourceId, e.getMessage()));
             return null;
         }
     }
@@ -259,7 +259,7 @@ public class MapboxMap {
     public void setMinZoom(
             @FloatRange(from = MapboxConstants.MINIMUM_ZOOM, to = MapboxConstants.MAXIMUM_ZOOM) double minZoom) {
         if ((minZoom < MapboxConstants.MINIMUM_ZOOM) || (minZoom > MapboxConstants.MAXIMUM_ZOOM)) {
-            Log.e(MapboxConstants.TAG, "Not setting minZoom, value is in unsupported range: " + minZoom);
+            Timber.e("Not setting minZoom, value is in unsupported range: " + minZoom);
             return;
         }
         minZoomLevel = minZoom;
@@ -296,7 +296,7 @@ public class MapboxMap {
     public void setMaxZoom(
             @FloatRange(from = MapboxConstants.MINIMUM_ZOOM, to = MapboxConstants.MAXIMUM_ZOOM) double maxZoom) {
         if ((maxZoom < MapboxConstants.MINIMUM_ZOOM) || (maxZoom > MapboxConstants.MAXIMUM_ZOOM)) {
-            Log.e(MapboxConstants.TAG, "Not setting maxZoom, value is in unsupported range: " + maxZoom);
+            Timber.e("Not setting maxZoom, value is in unsupported range: " + maxZoom);
             return;
         }
         maxZoomLevel = maxZoom;
@@ -379,6 +379,16 @@ public class MapboxMap {
     //
 
     /**
+     * Cancels ongoing animations.
+     * <p>
+     * This invokes the {@link CancelableCallback} for ongoing camera updates.
+     * </p>
+     */
+    public void cancelTransitions() {
+        transform.cancelTransitions();
+    }
+
+    /**
      * Gets the current position of the camera.
      * The CameraPosition returned is a snapshot of the current position, and will not automatically update when the
      * camera moves.
@@ -386,10 +396,7 @@ public class MapboxMap {
      * @return The current position of the Camera.
      */
     public final CameraPosition getCameraPosition() {
-        if (invalidCameraPosition) {
-            invalidateCameraPosition();
-        }
-        return cameraPosition;
+        return transform.getCameraPosition();
     }
 
     /**
@@ -400,7 +407,7 @@ public class MapboxMap {
      * @param cameraPosition the camera position to set
      */
     public void setCameraPosition(@NonNull CameraPosition cameraPosition) {
-        moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+        moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition), null);
     }
 
     /**
@@ -424,17 +431,13 @@ public class MapboxMap {
      * @param callback the callback to be invoked when an animation finishes or is canceled
      */
     @UiThread
-    public final void moveCamera(CameraUpdate update, MapboxMap.CancelableCallback callback) {
-        cameraPosition = update.getCameraPosition(this);
-        mapView.resetTrackingModesIfRequired(cameraPosition);
-        mapView.jumpTo(cameraPosition.bearing, cameraPosition.target, cameraPosition.tilt, cameraPosition.zoom);
-        if (callback != null) {
-            callback.onFinish();
-        }
-
-        if (onCameraChangeListener != null) {
-            onCameraChangeListener.onCameraChange(this.cameraPosition);
-        }
+    public final void moveCamera(final CameraUpdate update, final MapboxMap.CancelableCallback callback) {
+        mapView.post(new Runnable() {
+            @Override
+            public void run() {
+                transform.moveCamera(update, callback);
+            }
+        });
     }
 
     /**
@@ -489,11 +492,44 @@ public class MapboxMap {
         easeCamera(update, durationMs, true, callback);
     }
 
+    /**
+     * Gradually move the camera by a specified duration in milliseconds, zoom will not be affected
+     * unless specified within {@link CameraUpdate}. A callback can be used to be notified when
+     * easing the camera stops. If {@link #getCameraPosition()} is called during the animation, it
+     * will return the current location of the camera in flight.
+     * <p>
+     * Note that this will cancel location tracking mode if enabled.
+     * </p>
+     *
+     * @param update             The change that should be applied to the camera.
+     * @param durationMs         The duration of the animation in milliseconds. This must be strictly
+     *                           positive, otherwise an IllegalArgumentException will be thrown.
+     * @param easingInterpolator True for easing interpolator, false for linear.
+     */
     @UiThread
     public final void easeCamera(CameraUpdate update, int durationMs, boolean easingInterpolator) {
         easeCamera(update, durationMs, easingInterpolator, null);
     }
 
+    /**
+     * Gradually move the camera by a specified duration in milliseconds, zoom will not be affected
+     * unless specified within {@link CameraUpdate}. A callback can be used to be notified when
+     * easing the camera stops. If {@link #getCameraPosition()} is called during the animation, it
+     * will return the current location of the camera in flight.
+     * <p>
+     * Note that this will cancel location tracking mode if enabled.
+     * </p>
+     *
+     * @param update             The change that should be applied to the camera.
+     * @param durationMs         The duration of the animation in milliseconds. This must be strictly
+     *                           positive, otherwise an IllegalArgumentException will be thrown.
+     * @param easingInterpolator True for easing interpolator, false for linear.
+     * @param callback           An optional callback to be notified from the main thread when the animation
+     *                           stops. If the animation stops due to its natural completion, the callback
+     *                           will be notified with onFinish(). If the animation stops due to interruption
+     *                           by a later camera movement or a user gesture, onCancel() will be called.
+     *                           Do not update or ease the camera from within onCancel().
+     */
     @UiThread
     public final void easeCamera(
             CameraUpdate update, int durationMs, boolean easingInterpolator, final MapboxMap.CancelableCallback callback) {
@@ -501,33 +537,34 @@ public class MapboxMap {
         easeCamera(update, durationMs, easingInterpolator, true, callback);
     }
 
+    /**
+     * Gradually move the camera by a specified duration in milliseconds, zoom will not be affected
+     * unless specified within {@link CameraUpdate}. A callback can be used to be notified when
+     * easing the camera stops. If {@link #getCameraPosition()} is called during the animation, it
+     * will return the current location of the camera in flight.
+     * <p>
+     * Note that this will cancel location tracking mode if enabled.
+     * </p>
+     *
+     * @param update             The change that should be applied to the camera.
+     * @param durationMs         The duration of the animation in milliseconds. This must be strictly
+     *                           positive, otherwise an IllegalArgumentException will be thrown.
+     * @param resetTrackingMode  True to reset tracking modes if required, false to ignore
+     * @param easingInterpolator True for easing interpolator, false for linear.
+     * @param callback           An optional callback to be notified from the main thread when the animation
+     *                           stops. If the animation stops due to its natural completion, the callback
+     *                           will be notified with onFinish(). If the animation stops due to interruption
+     *                           by a later camera movement or a user gesture, onCancel() will be called.
+     *                           Do not update or ease the camera from within onCancel().
+     */
     @UiThread
-    public final void easeCamera(
-            CameraUpdate update, int durationMs, boolean easingInterpolator, boolean resetTrackingMode, final MapboxMap.CancelableCallback callback) {
-        // dismiss tracking, moving camera is equal to a gesture
-        cameraPosition = update.getCameraPosition(this);
-        if (resetTrackingMode) {
-            mapView.resetTrackingModesIfRequired(cameraPosition);
-        }
-
-        mapView.easeTo(cameraPosition.bearing, cameraPosition.target, getDurationNano(durationMs), cameraPosition.tilt,
-                cameraPosition.zoom, easingInterpolator, new CancelableCallback() {
-                    @Override
-                    public void onCancel() {
-                        if (callback != null) {
-                            callback.onCancel();
-                        }
-                        invalidateCameraPosition();
-                    }
-
-                    @Override
-                    public void onFinish() {
-                        if (callback != null) {
-                            callback.onFinish();
-                        }
-                        invalidateCameraPosition();
-                    }
-                });
+    public final void easeCamera(final CameraUpdate update, final int durationMs, final boolean easingInterpolator, final boolean resetTrackingMode, final MapboxMap.CancelableCallback callback) {
+        mapView.post(new Runnable() {
+            @Override
+            public void run() {
+                transform.easeCamera(update, durationMs, easingInterpolator, resetTrackingMode, callback);
+            }
+        });
     }
 
     /**
@@ -596,58 +633,22 @@ public class MapboxMap {
      * @see com.mapbox.mapboxsdk.camera.CameraUpdateFactory for a set of updates.
      */
     @UiThread
-    public final void animateCamera(CameraUpdate update, int durationMs, final MapboxMap.CancelableCallback callback) {
-        cameraPosition = update.getCameraPosition(this);
-        mapView.resetTrackingModesIfRequired(cameraPosition);
-        mapView.flyTo(cameraPosition.bearing, cameraPosition.target, getDurationNano(durationMs), cameraPosition.tilt,
-                cameraPosition.zoom, new CancelableCallback() {
-                    @Override
-                    public void onCancel() {
-                        if (callback != null) {
-                            callback.onCancel();
-                        }
-                        invalidateCameraPosition();
-                    }
-
-                    @Override
-                    public void onFinish() {
-                        if (onCameraChangeListener != null) {
-                            onCameraChangeListener.onCameraChange(cameraPosition);
-                        }
-
-                        if (callback != null) {
-                            callback.onFinish();
-                        }
-                        invalidateCameraPosition();
-                    }
-                });
-    }
-
-    /**
-     * Converts milliseconds to nanoseconds
-     *
-     * @param durationMs The time in milliseconds
-     * @return time in nanoseconds
-     */
-    private long getDurationNano(long durationMs) {
-        return durationMs > 0 ? TimeUnit.NANOSECONDS.convert(durationMs, TimeUnit.MILLISECONDS) : 0;
+    public final void animateCamera(final CameraUpdate update, final int durationMs, final MapboxMap.CancelableCallback callback) {
+        mapView.post(new Runnable() {
+            @Override
+            public void run() {
+                transform.animateCamera(update, durationMs, callback);
+            }
+        });
     }
 
     /**
      * Invalidates the current camera position by reconstructing it from mbgl
      */
-    private void invalidateCameraPosition() {
-        if (invalidCameraPosition) {
-            invalidCameraPosition = false;
-
-            CameraPosition cameraPosition = mapView.invalidateCameraPosition();
-            if (cameraPosition != null) {
-                this.cameraPosition = cameraPosition;
-            }
-
-            if (onCameraChangeListener != null) {
-                onCameraChangeListener.onCameraChange(this.cameraPosition);
-            }
+    void invalidateCameraPosition() {
+        CameraPosition cameraPosition = transform.invalidateCameraPosition();
+        if (cameraPosition != null) {
+            mapView.updateCameraPosition(cameraPosition);
         }
     }
 
@@ -659,7 +660,7 @@ public class MapboxMap {
      * Resets the map view to face north.
      */
     public void resetNorth() {
-        mapView.resetNorth();
+        transform.resetNorth();
     }
 
     //
@@ -875,7 +876,8 @@ public class MapboxMap {
 
     @UiThread
     @NonNull
-    public List<MarkerView> addMarkerViews(@NonNull List<? extends BaseMarkerViewOptions> markerViewOptions) {
+    public List<MarkerView> addMarkerViews(@NonNull List<? extends
+            BaseMarkerViewOptions> markerViewOptions) {
         return annotationManager.addMarkerViews(markerViewOptions, this);
     }
 
@@ -897,7 +899,8 @@ public class MapboxMap {
      */
     @UiThread
     @NonNull
-    public List<Marker> addMarkers(@NonNull List<? extends BaseMarkerOptions> markerOptionsList) {
+    public List<Marker> addMarkers(@NonNull List<? extends
+            BaseMarkerOptions> markerOptionsList) {
         return annotationManager.addMarkers(markerOptionsList, this);
     }
 
@@ -1146,7 +1149,7 @@ public class MapboxMap {
     @UiThread
     public void selectMarker(@NonNull Marker marker) {
         if (marker == null) {
-            Log.w(MapboxConstants.TAG, "marker was null, so just returning");
+            Timber.w("marker was null, so just returning");
             return;
         }
         annotationManager.selectMarker(marker, this);
@@ -1239,7 +1242,7 @@ public class MapboxMap {
         return infoWindowManager.isAllowConcurrentMultipleOpenInfoWindows();
     }
 
-    // used by MapView
+    // Internal API
     List<InfoWindow> getInfoWindows() {
         return infoWindowManager.getInfoWindows();
     }
@@ -1247,6 +1250,11 @@ public class MapboxMap {
     AnnotationManager getAnnotationManager() {
         return annotationManager;
     }
+
+    Transform getTransform() {
+        return transform;
+    }
+
 
     //
     // Padding
@@ -1299,7 +1307,7 @@ public class MapboxMap {
      */
     @UiThread
     public void setOnCameraChangeListener(@Nullable OnCameraChangeListener listener) {
-        onCameraChangeListener = listener;
+        transform.setOnCameraChangeListener(listener);
     }
 
     /**
@@ -1410,7 +1418,8 @@ public class MapboxMap {
      *                 use null.
      */
     @UiThread
-    public void setOnInfoWindowLongClickListener(@Nullable OnInfoWindowLongClickListener listener) {
+    public void setOnInfoWindowLongClickListener(@Nullable OnInfoWindowLongClickListener
+                                                         listener) {
         infoWindowManager.setOnInfoWindowLongClickListener(listener);
     }
 
@@ -1466,7 +1475,7 @@ public class MapboxMap {
     @UiThread
     public void setMyLocationEnabled(boolean enabled) {
         if (!mapView.isPermissionsAccepted()) {
-            Log.e(MapboxConstants.TAG, "Could not activate user location tracking: "
+            Timber.e("Could not activate user location tracking: "
                     + "user did not accept the permission or permissions were not requested.");
             return;
         }
@@ -1493,7 +1502,8 @@ public class MapboxMap {
      *                 To unset the callback, use null.
      */
     @UiThread
-    public void setOnMyLocationChangeListener(@Nullable MapboxMap.OnMyLocationChangeListener listener) {
+    public void setOnMyLocationChangeListener(@Nullable MapboxMap.OnMyLocationChangeListener
+                                                      listener) {
         mapView.setOnMyLocationChangeListener(listener);
     }
 
@@ -1504,12 +1514,14 @@ public class MapboxMap {
      *                 To unset the callback, use null.
      */
     @UiThread
-    public void setOnMyLocationTrackingModeChangeListener(@Nullable MapboxMap.OnMyLocationTrackingModeChangeListener listener) {
+    public void setOnMyLocationTrackingModeChangeListener
+    (@Nullable MapboxMap.OnMyLocationTrackingModeChangeListener listener) {
         onMyLocationTrackingModeChangeListener = listener;
     }
 
     // used by MapView
-    MapboxMap.OnMyLocationTrackingModeChangeListener getOnMyLocationTrackingModeChangeListener() {
+    MapboxMap.OnMyLocationTrackingModeChangeListener getOnMyLocationTrackingModeChangeListener
+    () {
         return onMyLocationTrackingModeChangeListener;
     }
 
@@ -1520,7 +1532,8 @@ public class MapboxMap {
      *                 To unset the callback, use null.
      */
     @UiThread
-    public void setOnMyBearingTrackingModeChangeListener(@Nullable OnMyBearingTrackingModeChangeListener listener) {
+    public void setOnMyBearingTrackingModeChangeListener
+    (@Nullable OnMyBearingTrackingModeChangeListener listener) {
         onMyBearingTrackingModeChangeListener = listener;
     }
 
@@ -1582,7 +1595,8 @@ public class MapboxMap {
      */
     @UiThread
     @NonNull
-    public List<Feature> queryRenderedFeatures(@NonNull PointF coordinates, @Nullable String... layerIds) {
+    public List<Feature> queryRenderedFeatures(@NonNull PointF coordinates, @Nullable String...
+            layerIds) {
         return mapView.getNativeMapView().queryRenderedFeatures(coordinates, layerIds);
     }
 
@@ -1595,8 +1609,23 @@ public class MapboxMap {
      */
     @UiThread
     @NonNull
-    public List<Feature> queryRenderedFeatures(@NonNull RectF coordinates, @Nullable String... layerIds) {
+    public List<Feature> queryRenderedFeatures(@NonNull RectF coordinates, @Nullable String...
+            layerIds) {
         return mapView.getNativeMapView().queryRenderedFeatures(coordinates, layerIds);
+    }
+
+    //
+    // Innner classes
+    //
+
+    private class CameraInvalidator implements MapView.OnMapChangedListener {
+
+        @Override
+        public void onMapChanged(@MapView.MapChange int change) {
+            if (change == MapView.REGION_DID_CHANGE_ANIMATED) {
+                invalidateCameraPosition();
+            }
+        }
     }
 
     //
@@ -1962,24 +1991,5 @@ public class MapboxMap {
          * @param snapshot the snapshot bitmap
          */
         void onSnapshotReady(Bitmap snapshot);
-    }
-
-    private class MapChangeCameraPositionListener implements MapView.OnMapChangedListener {
-
-        private static final long UPDATE_RATE_MS = 400;
-        private long previousUpdateTimestamp = 0;
-
-        @Override
-        public void onMapChanged(@MapView.MapChange int change) {
-            if (change >= MapView.REGION_WILL_CHANGE && change <= MapView.REGION_DID_CHANGE_ANIMATED) {
-                invalidCameraPosition = true;
-                long currentTime = SystemClock.elapsedRealtime();
-                if (currentTime < previousUpdateTimestamp) {
-                    return;
-                }
-                invalidateCameraPosition();
-                previousUpdateTimestamp = currentTime + UPDATE_RATE_MS;
-            }
-        }
     }
 }
