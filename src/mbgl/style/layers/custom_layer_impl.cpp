@@ -57,7 +57,7 @@ void CustomLayer::Impl::render(const TransformState& state) const {
     parameters.zoom = state.getZoom();
     parameters.bearing = -state.getAngle() * util::RAD2DEG;
     parameters.pitch = state.getPitch();
-    parameters.altitude = state.getAltitude();
+    parameters.fieldOfView = state.getFieldOfView();
 
     renderFn(context, parameters);
 }
@@ -67,7 +67,7 @@ bool CustomLayer::Impl::evaluate(const PropertyEvaluationParameters&) {
     return false;
 }
 
-std::unique_ptr<Bucket> CustomLayer::Impl::createBucket(BucketParameters&) const {
+std::unique_ptr<Bucket> CustomLayer::Impl::createBucket(BucketParameters&, const GeometryTileLayer&) const {
     return nullptr;
 }
 
