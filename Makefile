@@ -505,11 +505,11 @@ android-lib-$1: build/android-$1/$(BUILDTYPE)/Makefile
 
 .PHONY: android-$1
 android-$1: android-lib-$1
-	cd platform/android && ./gradlew --parallel --max-workers=$(JOBS) assemble$(BUILDTYPE)
+	cd platform/android && ./gradlew --parallel --max-workers=$(JOBS) :MapboxGLAndroidSDKTestApp:assemble$(BUILDTYPE)
 
 run-android-core-test-$1: android-test-lib-$1
 	# Compile main sources and extract the classes (using the test app to get all transitive dependencies in one place)
-	cd platform/android && ./gradlew assembleDebug
+	cd platform/android && ./gradlew :MapboxGLAndroidSDKTestApp:assembleDebug
 	unzip -o platform/android/MapboxGLAndroidSDKTestApp/build/outputs/apk/MapboxGLAndroidSDKTestApp-debug.apk classes.dex -d build/android-$1/$(BUILDTYPE)
 	
 	#Compile Test runner
@@ -565,6 +565,14 @@ android-ui-test:
 run-android-ui-test:
 	cd platform/android && ./gradlew :MapboxGLAndroidSDKTestApp:connectedAndroidTest -i	
 
+.PHONY: run-android-ui-test-aws
+run-android-ui-test-aws:
+	cd platform/android && ./gradlew devicefarmUpload
+
+.PHONY: run-android-ui-test-spoon
+run-android-ui-test-spoon:
+	cd platform/android && ./gradlew spoon
+
 .PHONY: apackage
 apackage:
 	cd platform/android && ./gradlew --parallel --max-workers=$(JOBS) assemble$(BUILDTYPE)
@@ -576,6 +584,10 @@ test-code-android:
 .PHONY: android-ndk-stack
 android-ndk-stack:
 	adb logcat | ndk-stack -sym build/android-arm-v7/Debug	
+
+.PHONY: android-checkstyle	
+android-checkstyle:
+	cd platform/android && ./gradlew checkstyle
 
 #### Miscellaneous targets #####################################################
 
