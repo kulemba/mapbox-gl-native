@@ -1985,6 +1985,12 @@ public:
             }
         }
         [self deselectAnnotation:self.selectedAnnotation animated:YES];
+        if ([self.delegate respondsToSelector:@selector(mapViewTapDidNotSelectAnnotation:)])
+        {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self.delegate mapViewTapDidNotSelectAnnotation:self];
+            });
+        }
         UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification, nextElement);
 
         return;
@@ -2000,6 +2006,12 @@ public:
     else if (self.selectedAnnotation)
     {
         [self deselectAnnotation:self.selectedAnnotation animated:YES];
+        if ([self.delegate respondsToSelector:@selector(mapViewTapDidNotSelectAnnotation:)])
+        {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self.delegate mapViewTapDidNotSelectAnnotation:self];
+            });
+        }
     }
 }
 
@@ -2362,6 +2374,12 @@ public:
         {
             id<MGLAnnotation> annotation = [self annotationForGestureRecognizer:(UITapGestureRecognizer*)gestureRecognizer persistingResults:NO];
             if (!annotation) {
+                if ([self.delegate respondsToSelector:@selector(mapViewTapDidNotSelectAnnotation:)])
+                {
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [self.delegate mapViewTapDidNotSelectAnnotation:self];
+                    });
+                }
                 return NO;
             }
         }
