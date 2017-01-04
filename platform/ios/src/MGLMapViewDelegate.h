@@ -515,12 +515,14 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)mapView:(MGLMapView *)mapView tapOnCalloutForAnnotation:(id <MGLAnnotation>)annotation;
 
 /**
- Tells the delegate that a tap on map was received at a certain location. This delegate method is called whenever a map tap does not result in the mapView:didSelectAnnotation: method being called (ie, no annoatation was found at that point.
+ Tells the delegate that the user tapped without selecting an annotation.
+ 
+ You can use this method to respond to taps and perform other actions.
+ This method is not called if the user tapped on an annotation.
  
  @param mapView The map view where the tap occurred
- @param location the location of the tap point
  */
-- (void)mapView:(MGLMapView *)mapView didReceiveTapOnMapAtLocation:(CLLocation*)location;
+- (void)mapViewTapDidNotSelectAnnotation:(MGLMapView *)mapView;
 
 @end
 
