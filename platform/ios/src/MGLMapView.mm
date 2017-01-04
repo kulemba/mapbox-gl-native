@@ -1413,14 +1413,13 @@ public:
     }
     else
     {
-        CGPoint tapPoint = [singleTap locationInView:self];
-        
-        if ([self.delegate respondsToSelector:@selector(mapView:didReceiveTapOnMapAtLocation:)]) {
-            CLLocationCoordinate2D tapCoordinate = [self convertPoint:tapPoint toCoordinateFromView:self];
-            CLLocation *tapLocation = [[CLLocation alloc]initWithLatitude:tapCoordinate.latitude longitude:tapCoordinate.longitude];
-            [self.delegate mapView:self didReceiveTapOnMapAtLocation:tapLocation];
-        }
         [self deselectAnnotation:self.selectedAnnotation animated:YES];
+        if ([self.delegate respondsToSelector:@selector(mapViewTapDidNotSelectAnnotation:)])
+        {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self.delegate mapViewTapDidNotSelectAnnotation:self];
+            });
+        }
     }
 }
 
@@ -1641,6 +1640,23 @@ public:
                 return NO;
             }
         }
+    }
+    else if (gestureRecognizer == _singleTapGestureRecognizer)
+    {
+      //Gesture will be recognized if it could deselect an annotation
+      if(!self.selectedAnnotation)
+      {
+          id<MGLAnnotation>annotation = [self annotationForGestureRecognizer:(UITapGestureRecognizer*)gestureRecognizer persistingResults:NO];
+          if(!annotation) {
+              if ([self.delegate respondsToSelector:@selector(mapViewTapDidNotSelectAnnotation:)])
+              {
+                  dispatch_async(dispatch_get_main_queue(), ^{
+                      [self.delegate mapViewTapDidNotSelectAnnotation:self];
+                  });
+              }
+              return NO;
+          }
+      }
     }
     return YES;
 }
