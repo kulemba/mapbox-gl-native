@@ -839,7 +839,6 @@ public final class MapboxMap {
     if (!TextUtils.isEmpty(style)) {
       // stopgap for https://github.com/mapbox/mapbox-gl-native/issues/6242
       if (TextUtils.isEmpty(nativeMapView.getAccessToken())) {
-        Mapbox.validateAccessToken();
         nativeMapView.setAccessToken(Mapbox.getAccessToken());
       }
       setStyleUrl(style);
@@ -1561,8 +1560,7 @@ public final class MapboxMap {
    */
   @UiThread
   public void snapshot(@NonNull SnapshotReadyCallback callback, @Nullable final Bitmap bitmap) {
-    // FIXME 12/02/2016
-    //mapView.snapshot(callback, bitmap);
+    nativeMapView.addSnapshotCallback(callback, bitmap);
   }
 
   /**
@@ -1572,8 +1570,7 @@ public final class MapboxMap {
    */
   @UiThread
   public void snapshot(@NonNull SnapshotReadyCallback callback) {
-    // FIXME 12/02/2016
-    //mapView.snapshot(callback, null);
+    snapshot(callback, null);
   }
 
   /**
