@@ -14,31 +14,17 @@ class BiDiImpl;
 
 std::u16string applyArabicShaping(const std::u16string&);
 
-class ProcessedBiDiText {
-public:
-    ProcessedBiDiText(BiDi&);
-
-    std::vector<std::u16string> applyLineBreaking(std::set<int32_t>);
-
-private:
-    void mergeParagraphLineBreaks(std::set<int32_t>&);
-
-    BiDi& bidi;
-};
-
 class BiDi : private util::noncopyable {
 public:
     BiDi();
     ~BiDi();
 
-    // Calling processText resets internal state, invalidating any existing ProcessedBiDiText
-    // objects
-    ProcessedBiDiText processText(const std::u16string&);
-
-    friend class ProcessedBiDiText;
+    std::vector<std::u16string> processText(const std::u16string&, std::set<std::size_t>);
 
 private:
-    std::u16string getLine(int32_t start, int32_t end);
+    void mergeParagraphLineBreaks(std::set<std::size_t>&);
+    std::vector<std::u16string> applyLineBreaking(std::set<std::size_t>);
+    std::u16string getLine(std::size_t start, std::size_t end);
 
     std::unique_ptr<BiDiImpl> impl;
 };
