@@ -79,7 +79,7 @@ void MapWindow::changeStyle()
 
 void MapWindow::keyPressEvent(QKeyEvent *ev)
 {
-    static const QMapbox::TransitionOptions transition { 300, {} };
+    static const qint64 transitionDuration = 300;
 
     switch (ev->key()) {
     case Qt::Key_S:
@@ -92,7 +92,7 @@ void MapWindow::keyPressEvent(QKeyEvent *ev)
 
             m_sourceAdded = true;
 
-            QFile geojson(":source.geojson");
+            QFile geojson(":source1.geojson");
             geojson.open(QIODevice::ReadOnly);
 
             // The data source for the route line and markers
@@ -201,7 +201,7 @@ void MapWindow::keyPressEvent(QKeyEvent *ev)
         m_map->cycleDebugOptions();
         break;
     case Qt::Key_R: {
-        m_map->setTransitionOptions(transition);
+        m_map->setTransitionOptions(transitionDuration);
         if (m_map->hasClass("night")) {
             m_map->removeClass("night");
         } else {
