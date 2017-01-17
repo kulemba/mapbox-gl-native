@@ -1511,6 +1511,8 @@ MGL_EXPORT IB_DESIGNABLE
 
 - (void)emptyMemoryCache __attribute__((unavailable));
 
++ (void)setLoggingEnabled:(BOOL)loggingEnabled;
+
 @end
 
 NS_ASSUME_NONNULL_END
