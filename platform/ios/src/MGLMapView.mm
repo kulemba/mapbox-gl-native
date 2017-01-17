@@ -32,6 +32,7 @@
 #include <mbgl/util/shared_thread_pool.hpp>
 #include <mbgl/util/string.hpp>
 #include <mbgl/util/projection.hpp>
+#include <mbgl/util/logging.hpp>
 
 #import "Mapbox.h"
 #import "MGLShape_Private.h"
@@ -2463,6 +2464,18 @@ public:
 + (BOOL)isForcedOffline
 {
     return mbgl::NetworkStatus::Get() == mbgl::NetworkStatus::Status::Offline ? YES: NO;
+}
+
++ (void)setLoggingEnabled:(BOOL)loggingEnabled
+{
+    if (loggingEnabled)
+    {
+        mbgl::Log::removeObserver();
+    }
+    else
+    {
+        mbgl::Log::setObserver(std::make_unique<mbgl::Log::NullObserver>());
+    }
 }
 
 #pragma mark - Accessibility -
