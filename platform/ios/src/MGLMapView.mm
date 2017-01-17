@@ -2745,6 +2745,18 @@ public:
     return mbgl::NetworkStatus::Get() == mbgl::NetworkStatus::Status::Offline ? YES: NO;
 }
 
++ (void)setLoggingEnabled:(BOOL)loggingEnabled
+{
+    if (loggingEnabled)
+    {
+        mbgl::Log::removeObserver();
+    }
+    else
+    {
+        mbgl::Log::setObserver(std::make_unique<mbgl::Log::NullObserver>());
+    }
+}
+
 #pragma mark - Accessibility -
 
 - (NSString *)accessibilityValue

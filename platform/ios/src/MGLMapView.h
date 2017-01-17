@@ -1811,6 +1811,8 @@ MGL_EXPORT
 
 + (BOOL)isForcedOffline;
 
++ (void)setLoggingEnabled:(BOOL)loggingEnabled;
+
 @end
 
 NS_ASSUME_NONNULL_END
