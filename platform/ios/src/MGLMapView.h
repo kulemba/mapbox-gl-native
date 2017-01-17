@@ -1261,6 +1261,8 @@ IB_DESIGNABLE
 
 + (BOOL)isForcedOffline;
 
++ (void)setLoggingEnabled:(BOOL)loggingEnabled;
+
 @property (nonatomic, readonly, getter=isReachable) BOOL reachable;
 
 @end
