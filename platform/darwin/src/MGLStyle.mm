@@ -24,6 +24,7 @@
 
 #import "MGLAttributionInfo_Private.h"
 
+#include <mbgl/map/map.hpp>
 #include <mbgl/util/default_styles.hpp>
 #include <mbgl/sprite/sprite_image.hpp>
 #include <mbgl/style/layers/fill_layer.hpp>
@@ -130,9 +131,9 @@ static NSURL *MGLStyleURL_emerald;
 
 #pragma mark Sources
 
-- (NS_MUTABLE_SET_OF(MGLSource *) *)sources {
+- (NS_SET_OF(__kindof MGLSource *) *)sources {
     auto rawSources = self.mapView.mbglMap->getSources();
-    NSMutableSet *sources = [NSMutableSet setWithCapacity:rawSources.size()];
+    NS_MUTABLE_SET_OF(__kindof MGLSource *) *sources = [NSMutableSet setWithCapacity:rawSources.size()];
     for (auto rawSource = rawSources.begin(); rawSource != rawSources.end(); ++rawSource) {
         MGLSource *source = [self sourceFromMBGLSource:*rawSource];
         [sources addObject:source];
@@ -140,7 +141,7 @@ static NSURL *MGLStyleURL_emerald;
     return sources;
 }
 
-- (void)setSources:(NS_MUTABLE_SET_OF(MGLSource *) *)sources {
+- (void)setSources:(NS_SET_OF(__kindof MGLSource *) *)sources {
     for (MGLSource *source in self.sources) {
         [self removeSource:source];
     }
@@ -225,22 +226,22 @@ static NSURL *MGLStyleURL_emerald;
 
 #pragma mark Style layers
 
-- (NS_MUTABLE_ARRAY_OF(MGLStyleLayer *) *)layers
+- (NS_ARRAY_OF(__kindof MGLStyleLayer *) *)layers
 {
     auto layers = self.mapView.mbglMap->getLayers();
-    NSMutableArray *styleLayers = [NSMutableArray arrayWithCapacity:layers.size()];
-    for (auto layer = layers.rbegin(); layer != layers.rend(); ++layer) {
-        MGLStyleLayer *styleLayer = [self layerFromMBGLLayer:*layer];
+    NS_MUTABLE_ARRAY_OF(__kindof MGLStyleLayer *) *styleLayers = [NSMutableArray arrayWithCapacity:layers.size()];
+    for (auto layer : layers) {
+        MGLStyleLayer *styleLayer = [self layerFromMBGLLayer:layer];
         [styleLayers addObject:styleLayer];
     }
     return styleLayers;
 }
 
-- (void)setLayers:(NS_MUTABLE_ARRAY_OF(MGLStyleLayer *) *)layers {
-    for (MGLStyleLayer *layer in self.layers.reverseObjectEnumerator) {
+- (void)setLayers:(NS_ARRAY_OF(__kindof MGLStyleLayer *) *)layers {
+    for (MGLStyleLayer *layer in self.layers) {
         [self removeLayer:layer];
     }
-    for (MGLStyleLayer *layer in layers.reverseObjectEnumerator) {
+    for (MGLStyleLayer *layer in layers) {
         [self addLayer:layer];
     }
 }
@@ -253,12 +254,12 @@ static NSURL *MGLStyleURL_emerald;
 - (MGLStyleLayer *)objectInLayersAtIndex:(NSUInteger)index
 {
     auto layers = self.mapView.mbglMap->getLayers();
-    if (index > layers.size() - 1) {
+    if (index >= layers.size()) {
         [NSException raise:NSRangeException
                     format:@"No style layer at index %lu.", (unsigned long)index];
         return nil;
     }
-    auto layer = layers.at(layers.size() - 1 - index);
+    auto layer = layers.at(index);
     return [self layerFromMBGLLayer:layer];
 }
 
@@ -290,13 +291,14 @@ static NSURL *MGLStyleURL_emerald;
                     format:@"Cannot insert style layer at out-of-bounds index %lu.", (unsigned long)index];
     } else if (index == 0) {
         try {
-            [styleLayer addToMapView:self.mapView belowLayer:nil];
+            MGLStyleLayer *sibling = layers.size() ? [self layerFromMBGLLayer:layers.at(0)] : nil;
+            [styleLayer addToMapView:self.mapView belowLayer:sibling];
         } catch (const std::runtime_error & err) {
             [NSException raise:@"MGLRedundantLayerIdentifierException" format:@"%s", err.what()];
         }
     } else {
         try {
-            MGLStyleLayer *sibling = [self layerFromMBGLLayer:layers.at(layers.size() - index)];
+            MGLStyleLayer *sibling = [self layerFromMBGLLayer:layers.at(index)];
             [styleLayer addToMapView:self.mapView belowLayer:sibling];
         } catch (std::runtime_error & err) {
             [NSException raise:@"MGLRedundantLayerIdentifierException" format:@"%s", err.what()];
@@ -307,11 +309,11 @@ static NSURL *MGLStyleURL_emerald;
 - (void)removeObjectFromLayersAtIndex:(NSUInteger)index
 {
     auto layers = self.mapView.mbglMap->getLayers();
-    if (index > layers.size() - 1) {
+    if (index >= layers.size()) {
         [NSException raise:NSRangeException
                     format:@"Cannot remove style layer at out-of-bounds index %lu.", (unsigned long)index];
     }
-    auto layer = layers.at(layers.size() - 1 - index);
+    auto layer = layers.at(index);
     MGLStyleLayer *styleLayer = [self layerFromMBGLLayer:layer];
     [styleLayer removeFromMapView:self.mapView];
 }
@@ -500,7 +502,7 @@ static NSURL *MGLStyleURL_emerald;
         newAppliedClasses.push_back([appliedClass UTF8String]);
     }
 
-    mbgl::style::TransitionOptions transition { { MGLDurationInSeconds(transitionDuration) } };
+    mbgl::style::TransitionOptions transition { { MGLDurationInSecondsFromTimeInterval(transitionDuration) } };
     self.mapView.mbglMap->setTransitionOptions(transition);
     self.mapView.mbglMap->setClasses(newAppliedClasses);
 }
@@ -566,6 +568,34 @@ static NSURL *MGLStyleURL_emerald;
 
     auto spriteImage = self.mapView.mbglMap->getImage([name UTF8String]);
     return spriteImage ? [[MGLImage alloc] initWithMGLSpriteImage:spriteImage] : nil;
+}
+
+#pragma mark Style transitions
+
+- (void)setTransitionDuration:(NSTimeInterval)duration
+{
+    auto transitionOptions = self.mapView.mbglMap->getTransitionOptions();
+    transitionOptions.duration = MGLDurationInSecondsFromTimeInterval(duration);
+    self.mapView.mbglMap->setTransitionOptions(transitionOptions);
+}
+
+- (NSTimeInterval)transitionDuration
+{
+    const mbgl::style::TransitionOptions transitionOptions = self.mapView.mbglMap->getTransitionOptions();
+    return MGLTimeIntervalFromDurationInSeconds(transitionOptions.duration.value_or(mbgl::Duration::zero()));
+}
+
+- (void)setTransitionDelay:(NSTimeInterval)delay
+{
+    auto transitionOptions = self.mapView.mbglMap->getTransitionOptions();
+    transitionOptions.delay = MGLDurationInSecondsFromTimeInterval(delay);
+    self.mapView.mbglMap->setTransitionOptions(transitionOptions);
+}
+
+- (NSTimeInterval)transitionDelay
+{
+    const mbgl::style::TransitionOptions transitionOptions = self.mapView.mbglMap->getTransitionOptions();
+    return MGLTimeIntervalFromDurationInSeconds(transitionOptions.delay.value_or(mbgl::Duration::zero()));
 }
 
 - (NSString *)description

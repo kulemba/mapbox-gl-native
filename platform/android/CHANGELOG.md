@@ -4,7 +4,6 @@ Mapbox welcomes participation and contributions from everyone.  If you'd like to
 
 ## 5.0.0 - TBA
 
-<<<<<<< HEAD
 * Consistent double tap zoom acceleration [#7514](https://github.com/mapbox/mapbox-gl-native/issues/7514)
 * Cleanup inconsistencies float vs double [#4445](https://github.com/mapbox/mapbox-gl-native/issues/4445)
 * Add `mapbox_` prefix to attributes [#6482](https://github.com/mapbox/mapbox-gl-native/issues/6482)
@@ -35,6 +34,7 @@ Mapbox welcomes participation and contributions from everyone.  If you'd like to
   - Extracting all business logic related to annotations into a seperate class cfr. to core and the iOS codebase
 * Gesture handling bugs
   - Avoid calls to onFling when while pinch zooming [#7666](https://github.com/mapbox/mapbox-gl-native/issues/7666)
+* Support for style-wide transition animation duration and delay [#6779](https://github.com/mapbox/mapbox-gl-native/issues/6779)
 
 ## 4.2.1 - December 22, 2016
 
