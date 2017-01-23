@@ -37,6 +37,7 @@ macro(mbgl_platform_core)
         PRIVATE platform/darwin/src/nsthread.mm
         PRIVATE platform/darwin/src/string_nsstring.mm
         PRIVATE platform/default/bidi.cpp
+        PRIVATE platform/default/utf.cpp
 
         # Image handling
         PRIVATE platform/darwin/src/image.mm
@@ -111,11 +112,11 @@ endmacro()
 
 macro(mbgl_platform_test)
     target_sources(mbgl-test
-        PRIVATE test/src/main.cpp
+        PRIVATE platform/default/mbgl/test/main.cpp
     )
 
     set_source_files_properties(
-        test/src/main.cpp
+        platform/default/mbgl/test/main.cpp
             PROPERTIES
         COMPILE_FLAGS -DWORK_DIRECTORY="${CMAKE_SOURCE_DIR}"
     )
