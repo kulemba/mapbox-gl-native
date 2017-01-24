@@ -4557,26 +4557,6 @@ public:
                 {
                     [self deselectAnnotation:self.selectedAnnotation animated:NO];
                 }
-                else
-                {
-                    // Deselect annotation if it lies outside the viewport
-                    if (self.selectedAnnotation) {
-                        MGLAnnotationTag tag = [self annotationTagForAnnotation:self.selectedAnnotation];
-                        MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag.at(tag);
-                        MGLAnnotationView *annotationView = annotationContext.annotationView;
-                        
-                        CGRect rect = [self positioningRectForCalloutForAnnotationWithTag:tag];
-                        
-                        if (annotationView)
-                        {
-                            rect = annotationView.frame;
-                        }
-                        
-                        if ( ! CGRectIntersectsRect(rect, self.frame)) {
-                            [self deselectAnnotation:self.selectedAnnotation animated:NO];
-                        }
-                    }
-                }
             }
 
             if ( ! [self isSuppressingChangeDelimiters] && [self.delegate respondsToSelector:@selector(mapView:regionWillChangeAnimated:)])
