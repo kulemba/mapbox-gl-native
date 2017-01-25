@@ -126,5 +126,9 @@ optional<std::string> TileSourceImpl::getAttribution() const {
     }
 }
 
+void TileSourceImpl::limitMaxZoom(uint8_t maxZoomLimit) {
+    tileset.zoomRange.max = std::min(tileset.zoomRange.max, maxZoomLimit);
+}
+    
 } // namespace style
 } // namespace mbgl
