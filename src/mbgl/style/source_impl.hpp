@@ -74,6 +74,8 @@ public:
     void setObserver(SourceObserver*);
     void dumpDebugLogs() const;
 
+    virtual void limitMaxZoom(uint8_t);
+    
     const SourceType type;
     const std::string id;
 
