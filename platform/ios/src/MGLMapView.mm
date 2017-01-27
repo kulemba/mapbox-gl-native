@@ -291,6 +291,7 @@ public:
     BOOL _isChangingAnnotationLayers;
 
     BOOL _isWaitingForRedundantReachableNotification;
+    BOOL _isReachable;
     BOOL _isTargetingInterfaceBuilder;
 
     CLLocationDegrees _pendingLatitude;
@@ -337,6 +338,16 @@ public:
     return self;
 }
 
+- (instancetype)initWithFrame:(CGRect)frame styleURL:(nullable NSURL *)styleURL maxZoomLimit:(double)maxZoomLimit
+{
+    if (self = [super initWithFrame:frame])
+    {
+        [self commonInit];
+        [self setStyleURL:styleURL withMaxZoomLimit:maxZoomLimit];
+    }
+    return self;
+}
+
 - (instancetype)initWithCoder:(nonnull NSCoder *)decoder
 {
     if (self = [super initWithCoder:decoder])
@@ -366,6 +377,11 @@ public:
 
 - (void)setStyleURL:(nullable NSURL *)styleURL
 {
+    [self setStyleURL:styleURL withMaxZoomLimit:std::numeric_limits<uint8_t>::max()];
+}
+
+- (void)setStyleURL:(nullable NSURL *)styleURL withMaxZoomLimit:(double)maxZoomLimit
+{
     if (_isTargetingInterfaceBuilder) return;
     
     if ( ! styleURL)
@@ -375,7 +391,7 @@ public:
 
     styleURL = styleURL.mgl_URLByStandardizingScheme;
     self.style = nil;
-    _mbglMap->setStyleURL([[styleURL absoluteString] UTF8String]);
+    _mbglMap->setStyleURL([[styleURL absoluteString] UTF8String], std::floor(maxZoomLimit));
 }
 
 - (IBAction)reloadStyle:(__unused id)sender {
@@ -442,7 +458,8 @@ public:
                                                object:nil];
 
     MGLReachability* reachability = [MGLReachability reachabilityForInternetConnection];
-    if ([reachability isReachable])
+    _isReachable = [reachability isReachable];
+    if (_isReachable)
     {
         _isWaitingForRedundantReachableNotification = YES;
     }
@@ -642,10 +659,13 @@ public:
 - (void)reachabilityChanged:(NSNotification *)notification
 {
     MGLReachability *reachability = [notification object];
-    if ( ! _isWaitingForRedundantReachableNotification && [reachability isReachable])
+    [self willChangeValueForKey:@"reachable"];
+    _isReachable = [reachability isReachable];
+    if ( ! _isWaitingForRedundantReachableNotification && _isReachable)
     {
         mbgl::NetworkStatus::Reachable();
     }
+    [self didChangeValueForKey:@"reachable"];
     _isWaitingForRedundantReachableNotification = NO;
 }
 
@@ -1417,6 +1437,12 @@ public:
     else
     {
         [self deselectAnnotation:self.selectedAnnotation animated:YES];
+        if ([self.delegate respondsToSelector:@selector(mapViewTapDidNotSelectAnnotation:)])
+        {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self.delegate mapViewTapDidNotSelectAnnotation:self];
+            });
+        }
     }
 }
 
@@ -1645,6 +1671,12 @@ public:
       {
           id<MGLAnnotation>annotation = [self annotationForGestureRecognizer:(UITapGestureRecognizer*)gestureRecognizer persistingResults:NO];
           if(!annotation) {
+              if ([self.delegate respondsToSelector:@selector(mapViewTapDidNotSelectAnnotation:)])
+              {
+                  dispatch_async(dispatch_get_main_queue(), ^{
+                      [self.delegate mapViewTapDidNotSelectAnnotation:self];
+                  });
+              }
               return NO;
           }
       }
@@ -1982,6 +2014,33 @@ public:
 - (void)emptyMemoryCache
 {
     _mbglMap->onLowMemory();
+}
+
++ (void)setForcedOffline:(BOOL)forceOffline
+{
+    mbgl::NetworkStatus::Set(forceOffline ? mbgl::NetworkStatus::Status::Offline: mbgl::NetworkStatus::Status::Online);
+}
+
++ (BOOL)isForcedOffline
+{
+    return mbgl::NetworkStatus::Get() == mbgl::NetworkStatus::Status::Offline ? YES: NO;
+}
+
++ (void)setLoggingEnabled:(BOOL)loggingEnabled
+{
+    if (loggingEnabled)
+    {
+        mbgl::Log::removeObserver();
+    }
+    else
+    {
+        mbgl::Log::setObserver(std::make_unique<mbgl::Log::NullObserver>());
+    }
+}
+
+- (BOOL)isReachable
+{
+    return _isReachable;
 }
 
 #pragma mark - Accessibility -
@@ -4012,8 +4071,6 @@ public:
         {
             self.userTrackingState = MGLUserTrackingStatePossible;
 
-            [self.locationManager stopUpdatingHeading];
-
             // Immediately update the annotation view; other cases update inside
             // the locationManager:didUpdateLocations: method.
             [self updateUserLocationAnnotationView];
@@ -4556,26 +4613,6 @@ public:
                 if (dismissesAutomatically || ![calloutView respondsToSelector:@selector(dismissesAutomatically)])
                 {
                     [self deselectAnnotation:self.selectedAnnotation animated:NO];
-                }
-                else
-                {
-                    // Deselect annotation if it lies outside the viewport
-                    if (self.selectedAnnotation) {
-                        MGLAnnotationTag tag = [self annotationTagForAnnotation:self.selectedAnnotation];
-                        MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag.at(tag);
-                        MGLAnnotationView *annotationView = annotationContext.annotationView;
-                        
-                        CGRect rect = [self positioningRectForCalloutForAnnotationWithTag:tag];
-                        
-                        if (annotationView)
-                        {
-                            rect = annotationView.frame;
-                        }
-                        
-                        if ( ! CGRectIntersectsRect(rect, self.frame)) {
-                            [self deselectAnnotation:self.selectedAnnotation animated:NO];
-                        }
-                    }
                 }
             }
 
