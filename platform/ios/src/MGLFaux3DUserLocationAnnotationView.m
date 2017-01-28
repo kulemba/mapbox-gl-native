@@ -237,14 +237,14 @@ const CGFloat MGLUserLocationHeadingArrowSize = 40;
         [self updateFrameWithSize:MGLUserLocationAnnotationDotSize];
     }
     
-    BOOL showHeadingIndicator = self.userLocation.heading;
+    BOOL showHeadingIndicator = self.mapView.userTrackingMode == MGLUserTrackingModeFollowWithHeading;
     
     // update heading indicator
     //
     if (showHeadingIndicator)
     {
         _headingIndicatorLayer.hidden = NO;
-        
+
         if ( ! _headingIndicatorLayer && self.userLocation.heading.headingAccuracy)
         {
             _headingIndicatorLayer = [CAShapeLayer layer];
@@ -255,10 +255,10 @@ const CGFloat MGLUserLocationHeadingArrowSize = 40;
             _headingIndicatorLayer.shouldRasterize = YES;
             _headingIndicatorLayer.rasterizationScale = [UIScreen mainScreen].scale;
             _headingIndicatorLayer.drawsAsynchronously = YES;
-            
+
             [self.layer insertSublayer:_headingIndicatorLayer below:_dotBorderLayer];
         }
-        
+
         _headingIndicatorLayer.affineTransform = CGAffineTransformRotate(CGAffineTransformIdentity, -MGLRadiansFromDegrees(self.mapView.direction - self.userLocation.heading.trueHeading));
     }
     else
@@ -275,7 +275,7 @@ const CGFloat MGLUserLocationHeadingArrowSize = 40;
     if (_accuracyRingLayer && (_oldZoom != self.mapView.zoomLevel || _oldHorizontalAccuracy != self.userLocation.location.horizontalAccuracy))
     {
         CGFloat accuracyRingSize = [self calculateAccuracyRingSize];
-        
+
         // only show the accuracy ring if it won't be obscured by the location dot
         if (accuracyRingSize > MGLUserLocationAnnotationDotSize + 15)
         {
@@ -322,7 +322,7 @@ const CGFloat MGLUserLocationHeadingArrowSize = 40;
         _accuracyRingLayer.opacity = 0.1;
         _accuracyRingLayer.shouldRasterize = NO;
         _accuracyRingLayer.allowsGroupOpacity = NO;
-        
+
         [self.layer addSublayer:_accuracyRingLayer];
     }
 
@@ -377,7 +377,7 @@ const CGFloat MGLUserLocationHeadingArrowSize = 40;
 
         [self.layer addSublayer:_dotBorderLayer];
     }
-    
+
     // inner dot (pulsing, tinted)
     //
     if ( ! _dotLayer)

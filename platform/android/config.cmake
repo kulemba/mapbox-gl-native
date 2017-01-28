@@ -19,8 +19,6 @@ if ((ANDROID_ABI STREQUAL "armeabi") OR (ANDROID_ABI STREQUAL "armeabi-v7a") OR 
 endif()
 
 mason_use(jni.hpp VERSION 2.0.0 HEADER_ONLY)
-mason_use(libjpeg-turbo VERSION 1.5.0)
-mason_use(libpng VERSION 1.6.25)
 mason_use(libzip VERSION 1.1.3)
 mason_use(nunicode VERSION 1.7.1)
 mason_use(sqlite VERSION 3.14.2)
@@ -31,20 +29,6 @@ set(ANDROID_SDK_PROJECT_DIR ${CMAKE_SOURCE_DIR}/platform/android/MapboxGLAndroid
 set(ANDROID_JNI_TARGET_DIR ${ANDROID_SDK_PROJECT_DIR}/src/main/jniLibs/${ANDROID_JNIDIR})
 set(ANDROID_ASSETS_TARGET_DIR ${ANDROID_SDK_PROJECT_DIR}/src/main/assets)
 set(ANDROID_TEST_APP_JNI_TARGET_DIR ${CMAKE_SOURCE_DIR}/platform/android/MapboxGLAndroidSDKTestApp/src/main/jniLibs/${ANDROID_JNIDIR})
-
-macro(mbgl_android_copy_asset source target)
-    add_custom_command(
-        OUTPUT ${ANDROID_ASSETS_TARGET_DIR}/${target}
-        COMMAND  ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/${source} ${ANDROID_ASSETS_TARGET_DIR}/${target}
-        DEPENDS ${CMAKE_SOURCE_DIR}/${source}
-    )
-endmacro()
-
-mbgl_android_copy_asset(common/ca-bundle.crt ca-bundle.crt)
-
-add_custom_target(mbgl-copy-android-assets
-    DEPENDS ${ANDROID_ASSETS_TARGET_DIR}/ca-bundle.crt
-)
 
 ## mbgl core ##
 
@@ -82,9 +66,12 @@ macro(mbgl_platform_core)
         PRIVATE platform/default/utf.cpp
 
         # Image handling
-        PRIVATE platform/default/image.cpp
-        PRIVATE platform/default/png_reader.cpp
-        PRIVATE platform/default/jpeg_reader.cpp
+        PRIVATE platform/default/png_writer.cpp
+        PRIVATE platform/android/src/bitmap.cpp
+        PRIVATE platform/android/src/bitmap.hpp
+        PRIVATE platform/android/src/bitmap_factory.cpp
+        PRIVATE platform/android/src/bitmap_factory.hpp
+        PRIVATE platform/android/src/image.cpp
 
         # Thread pool
         PRIVATE platform/default/mbgl/util/default_thread_pool.cpp
@@ -160,8 +147,6 @@ macro(mbgl_platform_core)
 
     target_add_mason_package(mbgl-core PUBLIC sqlite)
     target_add_mason_package(mbgl-core PUBLIC nunicode)
-    target_add_mason_package(mbgl-core PUBLIC libpng)
-    target_add_mason_package(mbgl-core PUBLIC libjpeg-turbo)
     target_add_mason_package(mbgl-core PUBLIC libzip)
     target_add_mason_package(mbgl-core PUBLIC geojson)
     target_add_mason_package(mbgl-core PUBLIC jni.hpp)
@@ -178,6 +163,7 @@ macro(mbgl_platform_core)
     target_link_libraries(mbgl-core
         PUBLIC -llog
         PUBLIC -landroid
+        PUBLIC -ljnigraphics
         PUBLIC -lEGL
         PUBLIC -lGLESv2
         PUBLIC -lstdc++
@@ -191,10 +177,6 @@ endmacro()
 
 add_library(mapbox-gl SHARED
     platform/android/src/main.cpp
-)
-
-add_dependencies(mapbox-gl
-    mbgl-copy-android-assets
 )
 
 target_compile_options(mapbox-gl
