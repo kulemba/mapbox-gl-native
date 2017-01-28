@@ -96,12 +96,13 @@ TransitionOptions Style::getTransitionOptions() const {
     return transitionOptions;
 }
 
-void Style::setJSON(const std::string& json) {
+void Style::setJSON(const std::string& json, uint8_t maxZoomLimit_) {
     sources.clear();
     layers.clear();
     classes.clear();
     transitionOptions = {};
     updateBatch = {};
+    maxZoomLimit = maxZoomLimit_;
 
     Parser parser;
     auto error = parser.parse(json);
@@ -547,6 +548,7 @@ void Style::onGlyphsError(const FontStack& fontStack, const GlyphRange& glyphRan
 }
 
 void Style::onSourceLoaded(Source& source) {
+    source.baseImpl->limitMaxZoom(maxZoomLimit);
     observer->onSourceLoaded(source);
     observer->onUpdate(Update::Repaint);
 }
