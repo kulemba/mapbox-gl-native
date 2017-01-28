@@ -9,11 +9,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.Toolbar;
 import android.view.LayoutInflater;
-import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -47,7 +44,7 @@ public class MarkerViewActivity extends AppCompatActivity {
     new LatLng(38.907227, -77.036530),
     new LatLng(38.905607, -77.031916),
     new LatLng(38.889441, -77.050134),
-    new LatLng(38.888000, -77.050000) //Slight overlap to show re-ordering on selection
+    new LatLng(38.888000, -77.050000) // Slight overlap to show re-ordering on selection
   };
 
   private MapboxMap mapboxMap;
@@ -70,15 +67,6 @@ public class MarkerViewActivity extends AppCompatActivity {
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_marker_view);
-
-    Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-    setSupportActionBar(toolbar);
-
-    final ActionBar actionBar = getSupportActionBar();
-    if (actionBar != null) {
-      actionBar.setDisplayHomeAsUpEnabled(true);
-      actionBar.setDisplayShowHomeEnabled(true);
-    }
 
     final TextView viewCountView = (TextView) findViewById(R.id.countView);
     mapView = (MapView) findViewById(R.id.mapView);
@@ -456,17 +444,6 @@ public class MarkerViewActivity extends AppCompatActivity {
   public void onLowMemory() {
     super.onLowMemory();
     mapView.onLowMemory();
-  }
-
-  @Override
-  public boolean onOptionsItemSelected(MenuItem item) {
-    switch (item.getItemId()) {
-      case android.R.id.home:
-        onBackPressed();
-        return true;
-      default:
-        return super.onOptionsItemSelected(item);
-    }
   }
 
   private static class CarLocation {

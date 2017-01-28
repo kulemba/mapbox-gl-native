@@ -624,11 +624,19 @@ android-ndk-stack:
 android-checkstyle:
 	cd platform/android && ./gradlew checkstyle
 
+.PHONY: android-javadoc
+android-javadoc:
+	cd platform/android && ./gradlew :MapboxGLAndroidSDK:javadocrelease
+
 #### Miscellaneous targets #####################################################
 
 .PHONY: style-code
 style-code:
 	node scripts/generate-style-code.js
+
+.PHONY: codestyle
+codestyle:
+	scripts/codestyle.sh
 
 .PHONY: clean
 clean:
