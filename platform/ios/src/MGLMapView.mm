@@ -99,7 +99,7 @@ const double MGLMinimumZoomLevelForUserTracking = 10.5;
 /// Initial zoom level when entering user tracking mode from a low zoom level.
 const double MGLDefaultZoomLevelForUserTracking = 14.0;
 
-const NSUInteger MGLTargetFrameInterval = 1;  //Target FPS will be 60 divided by this value
+const NSUInteger MGLTargetFrameInterval = 1;  // Target FPS will be 60 divided by this value
 
 /// Tolerance for snapping to true north, measured in degrees in either direction.
 const CLLocationDirection MGLToleranceForSnappingToNorth = 7;
@@ -277,7 +277,7 @@ public:
 
     MGLAnnotationTagContextMap _annotationContextsByAnnotationTag;
     MGLAnnotationObjectTagMap _annotationTagsByAnnotation;
-    
+
     /// Tag of the selected annotation. If the user location annotation is selected, this ivar is set to `MGLAnnotationTagNotFound`.
     MGLAnnotationTag _selectedAnnotationTag;
 
@@ -312,7 +312,7 @@ public:
     BOOL _delegateHasLineWidthsForShapeAnnotations;
 
     MGLCompassDirectionFormatter *_accessibilityCompassFormatter;
-    
+
     NS_ARRAY_OF(MGLAttributionInfo *) *_attributionInfos;
 }
 
@@ -383,7 +383,7 @@ public:
 - (void)setStyleURL:(nullable NSURL *)styleURL withMaxZoomLimit:(double)maxZoomLimit
 {
     if (_isTargetingInterfaceBuilder) return;
-    
+
     if ( ! styleURL)
     {
         styleURL = [MGLStyle streetsStyleURLWithVersion:MGLStyleDefaultVersion];
@@ -410,7 +410,7 @@ public:
     MGLinitializeRunLoop();
 
     _isTargetingInterfaceBuilder = NSProcessInfo.processInfo.mgl_isInterfaceBuilderDesignablesAgent;
-    _opaque = YES;
+    _opaque = NO;
 
     BOOL background = [UIApplication sharedApplication].applicationState == UIApplicationStateBackground;
     if (!background)
@@ -667,6 +667,8 @@ public:
 
 - (void)reachabilityChanged:(NSNotification *)notification
 {
+    MGLAssertIsMainThread();
+
     MGLReachability *reachability = [notification object];
     if ( ! _isWaitingForRedundantReachableNotification && [reachability isReachable])
     {
@@ -733,6 +735,8 @@ public:
 
 - (void)didReceiveMemoryWarning
 {
+    MGLAssertIsMainThread();
+
     _mbglMap->onLowMemory();
 }
 
@@ -1446,9 +1450,9 @@ public:
 
 /**
  Returns the annotation that would be selected by a tap gesture recognizer.
- 
+
  This is used when a gesture is recognized, and to check if the gesture should be recognized.
- 
+
  @param singleTap An in progress tap gesture recognizer.
  @param persist True to remember the cycleable set of annotations. @see annotationTagAtPoint:persistingResults
  */
@@ -1468,9 +1472,9 @@ public:
             // Get the tap point within the custom hit test layer.
             tapPointForUserLocation = [singleTap locationInView:self.userLocationAnnotationView];
         }
-        
+
         CALayer *hitLayer = [self.userLocationAnnotationView.hitTestLayer hitTest:tapPointForUserLocation];
-        
+
         if (hitLayer)
         {
             if ( ! _userLocationAnnotationIsSelected)
@@ -1480,7 +1484,7 @@ public:
             return nil;
         }
     }
-    
+
     // Handle the case of an offset annotation view by converting the tap point to be the geo location
     // of the annotation itself that the view represents
     for (MGLAnnotationView *view in self.annotationContainerView.annotationViews)
@@ -1492,7 +1496,7 @@ public:
             }
         }
     }
-    
+
     MGLAnnotationTag hitAnnotationTag = [self annotationTagAtPoint:tapPoint persistingResults:persist];
     if (hitAnnotationTag != MGLAnnotationTagNotFound)
     {
@@ -1503,7 +1507,7 @@ public:
             return annotation;
         }
     }
-    
+
     return nil;
 }
 
@@ -1664,7 +1668,7 @@ public:
     }
     else if (gestureRecognizer == _singleTapGestureRecognizer)
     {
-      //Gesture will be recognized if it could deselect an annotation
+      // Gesture will be recognized if it could deselect an annotation
       if(!self.selectedAnnotation)
       {
           id<MGLAnnotation>annotation = [self annotationForGestureRecognizer:(UITapGestureRecognizer*)gestureRecognizer persistingResults:NO];
@@ -1749,16 +1753,16 @@ public:
                                                cancelButtonTitle:NSLocalizedStringWithDefaultValue(@"CANCEL", nil, nil, @"Cancel", @"")
                                           destructiveButtonTitle:nil
                                                otherButtonTitles:nil];
-    
+
     _attributionInfos = [self.style attributionInfosWithFontSize:[UIFont buttonFontSize] linkColor:nil];
     for (MGLAttributionInfo *info in _attributionInfos)
     {
         NSString *title = [info.title.string mgl_titleCasedStringWithLocale:[NSLocale currentLocale]];
         [self.attributionSheet addButtonWithTitle:title];
     }
-    
+
     [self.attributionSheet addButtonWithTitle:NSLocalizedStringWithDefaultValue(@"TELEMETRY_NAME", nil, nil, @"Mapbox Telemetry", @"Action in attribution sheet")];
-    
+
     [self.attributionSheet showFromRect:self.attributionButton.frame inView:self animated:YES];
 }
 
@@ -2649,7 +2653,7 @@ public:
 {
     CLLocationCoordinate2D centerCoordinate = MGLLocationCoordinate2DFromLatLng(cameraOptions.center ? *cameraOptions.center : _mbglMap->getLatLng());
     double zoomLevel = cameraOptions.zoom ? *cameraOptions.zoom : self.zoomLevel;
-    CLLocationDirection direction = cameraOptions.angle ? -MGLDegreesFromRadians(*cameraOptions.angle) : self.direction;
+    CLLocationDirection direction = cameraOptions.angle ? mbgl::util::wrap(-MGLDegreesFromRadians(*cameraOptions.angle), 0., 360.) : self.direction;
     CGFloat pitch = cameraOptions.pitch ? MGLDegreesFromRadians(*cameraOptions.pitch) : _mbglMap->getPitch();
     CLLocationDistance altitude = MGLAltitudeForZoomLevel(zoomLevel, pitch, centerCoordinate.latitude, self.frame.size);
     return [MGLMapCamera cameraLookingAtCenterCoordinate:centerCoordinate fromDistance:altitude pitch:pitch heading:direction];
@@ -2870,12 +2874,12 @@ public:
     {
         return nil;
     }
-    
+
     std::vector<MGLAnnotationTag> annotationTags = [self annotationTagsInRect:rect];
     if (annotationTags.size())
     {
         NSMutableArray *annotations = [NSMutableArray arrayWithCapacity:annotationTags.size()];
-        
+
         for (auto const& annotationTag: annotationTags)
         {
             if (!_annotationContextsByAnnotationTag.count(annotationTag))
@@ -2885,10 +2889,10 @@ public:
             MGLAnnotationContext annotationContext = _annotationContextsByAnnotationTag.at(annotationTag);
             [annotations addObject:annotationContext.annotation];
         }
-        
+
         return [annotations copy];
     }
-    
+
     return nil;
 }
 
@@ -2912,7 +2916,7 @@ public:
     {
         return MGLAnnotationTagNotFound;
     }
-    
+
     return  _annotationTagsByAnnotation.at(annotation);
 }
 
@@ -4588,14 +4592,14 @@ public:
                         MGLAnnotationTag tag = [self annotationTagForAnnotation:self.selectedAnnotation];
                         MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag.at(tag);
                         MGLAnnotationView *annotationView = annotationContext.annotationView;
-                        
+
                         CGRect rect = [self positioningRectForCalloutForAnnotationWithTag:tag];
-                        
+
                         if (annotationView)
                         {
                             rect = annotationView.frame;
                         }
-                        
+
                         if ( ! CGRectIntersectsRect(rect, self.frame)) {
                             [self deselectAnnotation:self.selectedAnnotation animated:NO];
                         }
@@ -4744,11 +4748,11 @@ public:
     CGFloat widthAdjustment = self.camera.pitch > 0.0 ? 0.0 : -_largestAnnotationViewSize.width * 2.0;
     CGFloat heightAdjustment = self.camera.pitch > 0.0 ? 0.0 : -_largestAnnotationViewSize.height * 2.0;
     CGRect viewPort = CGRectInset(self.bounds, widthAdjustment, heightAdjustment);
-    
+
     NSArray *visibleAnnotations = [self visibleAnnotationsInRect:viewPort];
     NSMutableArray *offscreenAnnotations = [self.annotations mutableCopy];
     [offscreenAnnotations removeObjectsInArray:visibleAnnotations];
-    
+
     // Update the center of visible annotation views
     for (id<MGLAnnotation> annotation in visibleAnnotations)
     {
@@ -4803,7 +4807,7 @@ public:
         NSAssert(annotationTag != MGLAnnotationTagNotFound, @"-visibleAnnotationsInRect: returned unrecognized annotation");
         MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag.at(annotationTag);
         UIView *annotationView = annotationContext.annotationView;
-        
+
         if (annotationView)
         {
             CLLocationCoordinate2D coordinate = annotation.coordinate;
@@ -4838,27 +4842,27 @@ public:
 {
     UIView <MGLCalloutView> *calloutView = self.calloutViewForSelectedAnnotation;
     id <MGLAnnotation> annotation = calloutView.representedObject;
-    
+
     BOOL isAnchoredToAnnotation = (calloutView
                                    && annotation
                                    && [calloutView respondsToSelector:@selector(isAnchoredToAnnotation)]
                                    && calloutView.isAnchoredToAnnotation);
-    
+
     if (isAnchoredToAnnotation)
     {
         MGLAnnotationTag tag = [self annotationTagForAnnotation:annotation];
         MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag.at(tag);
         MGLAnnotationView *annotationView = annotationContext.annotationView;
-        
+
         CGRect rect = [self positioningRectForCalloutForAnnotationWithTag:tag];
-        
+
         if (annotationView)
         {
             rect = annotationView.frame;
         }
-        
+
         CGPoint point = CGPointMake(CGRectGetMidX(rect), CGRectGetMinY(rect));
-        
+
         if ( ! CGPointEqualToPoint(calloutView.center, point)) {
             calloutView.center = point;
         }
