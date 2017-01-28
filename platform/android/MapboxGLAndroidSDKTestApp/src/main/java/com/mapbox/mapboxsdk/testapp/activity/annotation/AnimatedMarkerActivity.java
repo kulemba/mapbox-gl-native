@@ -8,10 +8,7 @@ import android.animation.ValueAnimator;
 import android.os.Bundle;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.NonNull;
-import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.Toolbar;
-import android.view.MenuItem;
 import android.view.animation.AccelerateDecelerateInterpolator;
 
 import com.mapbox.mapboxsdk.annotations.Icon;
@@ -42,19 +39,12 @@ public class AnimatedMarkerActivity extends AppCompatActivity {
   private Marker passengerMarker = null;
   private MarkerView carMarker = null;
 
+  private Runnable animationRunnable;
+
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_animated_marker);
-
-    Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-    setSupportActionBar(toolbar);
-
-    ActionBar actionBar = getSupportActionBar();
-    if (actionBar != null) {
-      actionBar.setDisplayHomeAsUpEnabled(true);
-      actionBar.setDisplayShowHomeEnabled(true);
-    }
 
     mapView = (MapView) findViewById(R.id.mapView);
     mapView.onCreate(savedInstanceState);
@@ -64,7 +54,8 @@ public class AnimatedMarkerActivity extends AppCompatActivity {
       public void onMapReady(@NonNull final MapboxMap mapboxMap) {
         AnimatedMarkerActivity.this.mapboxMap = mapboxMap;
         setupMap();
-        mapView.post(new Runnable() {
+
+        animationRunnable = new Runnable() {
           @Override
           public void run() {
             for (int i = 0; i < 10; i++) {
@@ -73,7 +64,8 @@ public class AnimatedMarkerActivity extends AppCompatActivity {
             addPassenger();
             addMainCar();
           }
-        });
+        };
+        mapView.post(animationRunnable);
       }
     });
   }
@@ -142,7 +134,7 @@ public class AnimatedMarkerActivity extends AppCompatActivity {
   private void randomlyMoveMarker(final MarkerView marker) {
     ValueAnimator animator = animateMoveMarker(marker, getLatLngInBounds());
 
-    //Add listener to restart animation on end
+    // Add listener to restart animation on end
     animator.addListener(new AnimatorListenerAdapter() {
       @Override
       public void onAnimationEnd(Animator animation) {
@@ -170,12 +162,12 @@ public class AnimatedMarkerActivity extends AppCompatActivity {
     Icon icon = IconFactory.getInstance(AnimatedMarkerActivity.this)
       .fromResource(carResource);
 
-    //View Markers
+    // View Markers
     return mapboxMap.addMarker(new MarkerViewOptions()
       .position(start)
       .icon(icon), listener);
 
-    //GL Markers
+    // GL Markers
 //        return mapboxMap.addMarker(new MarkerOptions()
 //                .position(start)
 //                .icon(icon));
@@ -190,17 +182,6 @@ public class AnimatedMarkerActivity extends AppCompatActivity {
     double randomLon = bounds.getLonWest() + generator.nextDouble()
       * (bounds.getLonEast() - bounds.getLonWest());
     return new LatLng(randomLat, randomLon);
-  }
-
-  @Override
-  public boolean onOptionsItemSelected(MenuItem item) {
-    switch (item.getItemId()) {
-      case android.R.id.home:
-        onBackPressed();
-        return true;
-      default:
-        return super.onOptionsItemSelected(item);
-    }
   }
 
   @Override
@@ -225,6 +206,7 @@ public class AnimatedMarkerActivity extends AppCompatActivity {
   protected void onStop() {
     super.onStop();
     mapView.onStop();
+    mapView.removeCallbacks(animationRunnable);
   }
 
   @Override

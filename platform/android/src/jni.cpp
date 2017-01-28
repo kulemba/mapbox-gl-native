@@ -11,6 +11,8 @@
 #include "jni.hpp"
 #include "java_types.hpp"
 #include "native_map_view.hpp"
+#include "bitmap.hpp"
+#include "bitmap_factory.hpp"
 #include "connectivity_listener.hpp"
 #include "style/layers/layers.hpp"
 #include "style/sources/sources.hpp"
@@ -1128,17 +1130,17 @@ jni::jobject* nativeGetLayer(JNIEnv *env, jni::jobject* obj, jlong nativeMapView
     assert(env);
     assert(nativeMapViewPtr != 0);
 
-    //Get the native map peer
+    // Get the native map peer
     NativeMapView *nativeMapView = reinterpret_cast<NativeMapView *>(nativeMapViewPtr);
 
-    //Find the layer
+    // Find the layer
     mbgl::style::Layer* coreLayer = nativeMapView->getMap().getLayer(std_string_from_jstring(env, layerId));
     if (!coreLayer) {
        mbgl::Log::Debug(mbgl::Event::JNI, "No layer found");
        return jni::Object<Layer>();
     }
 
-    //Create and return the layer's native peer
+    // Create and return the layer's native peer
     return createJavaLayerPeer(*env, nativeMapView->getMap(), *coreLayer);
 }
 
@@ -1189,17 +1191,17 @@ jni::jobject* nativeGetSource(JNIEnv *env, jni::jobject* obj, jni::jlong nativeM
     assert(env);
     assert(nativeMapViewPtr != 0);
 
-    //Get the native map peer
+    // Get the native map peer
     NativeMapView *nativeMapView = reinterpret_cast<NativeMapView *>(nativeMapViewPtr);
 
-    //Find the source
+    // Find the source
     mbgl::style::Source* coreSource = nativeMapView->getMap().getSource(std_string_from_jstring(env, sourceId));
     if (!coreSource) {
        mbgl::Log::Debug(mbgl::Event::JNI, "No source found");
        return jni::Object<Source>();
     }
 
-    //Create and return the source's native peer
+    // Create and return the source's native peer
     return createJavaSourcePeer(*env, nativeMapView->getMap(), *coreSource);
 }
 
@@ -1255,7 +1257,7 @@ void nativeAddImage(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr, jni:
 
     jni::GetArrayRegion(*env, *data, 0, size, reinterpret_cast<jbyte*>(premultipliedImage.data.get()));
 
-    //Wrap in a SpriteImage with the correct pixel ratio
+    // Wrap in a SpriteImage with the correct pixel ratio
     auto spriteImage = std::make_unique<mbgl::SpriteImage>(std::move(premultipliedImage), float(pixelRatio));
 
     nativeMapView->getMap().addImage(std_string_from_jstring(env, name), std::move(spriteImage));
@@ -1766,6 +1768,8 @@ void registerNatives(JavaVM *vm) {
     mbgl::android::RegisterNativeHTTPRequest(env);
 
     java::registerNatives(env);
+    Bitmap::registerNative(env);
+    BitmapFactory::registerNative(env);
     registerNativeLayers(env);
     registerNativeSources(env);
     ConnectivityListener::registerNative(env);
@@ -1841,7 +1845,7 @@ void registerNatives(JavaVM *vm) {
     onInvalidateId = &jni::GetMethodID(env, nativeMapViewClass, "onInvalidate", "()V");
     onMapChangedId = &jni::GetMethodID(env, nativeMapViewClass, "onMapChanged", "(I)V");
     onFpsChangedId = &jni::GetMethodID(env, nativeMapViewClass, "onFpsChanged", "(D)V");
-    onSnapshotReadyId = &jni::GetMethodID(env, nativeMapViewClass, "onSnapshotReady","([B)V");
+    onSnapshotReadyId = &jni::GetMethodID(env, nativeMapViewClass, "onSnapshotReady","(Landroid/graphics/Bitmap;)V");
 
     #define MAKE_NATIVE_METHOD(name, sig) jni::MakeNativeMethod<decltype(name), name>( #name, sig )
 
@@ -2045,6 +2049,6 @@ void registerNatives(JavaVM *vm) {
     __system_property_get("ro.build.version.release", release);
     androidRelease = std::string(release);
 }
-    
-} // android
-} // mbgl
+
+} // namespace android
+} // namespace mbgl
