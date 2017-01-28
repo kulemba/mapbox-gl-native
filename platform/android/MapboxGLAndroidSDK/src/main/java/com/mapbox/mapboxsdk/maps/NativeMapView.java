@@ -3,7 +3,6 @@ package com.mapbox.mapboxsdk.maps;
 import android.app.ActivityManager;
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.PointF;
 import android.graphics.RectF;
 import android.os.Build;
@@ -54,7 +53,7 @@ final class NativeMapView {
   private CopyOnWriteArrayList<MapView.OnMapChangedListener> onMapChangedListeners;
 
   // Listener invoked to return a bitmap of the map
-  private SnapshotRequest snapshotRequest;
+  private MapboxMap.SnapshotReadyCallback snapshotReadyCallback;
 
   //
   // Static methods
@@ -843,16 +842,16 @@ final class NativeMapView {
     if (isDestroyedOn("addImage")) {
       return;
     }
-    //Check/correct config
+    // Check/correct config
     if (image.getConfig() != Bitmap.Config.ARGB_8888) {
       image = image.copy(Bitmap.Config.ARGB_8888, false);
     }
 
-    //Get pixels
+    // Get pixels
     ByteBuffer buffer = ByteBuffer.allocate(image.getByteCount());
     image.copyPixelsToBuffer(buffer);
 
-    //Determine pixel ratio
+    // Determine pixel ratio
     float density = image.getDensity() == Bitmap.DENSITY_NONE ? Bitmap.DENSITY_NONE : image.getDensity();
     float pixelRatio = density / DisplayMetrics.DENSITY_DEFAULT;
 
@@ -935,18 +934,9 @@ final class NativeMapView {
     mapView.onFpsChanged(fps);
   }
 
-  protected void onSnapshotReady(byte[] bytes) {
-    if (snapshotRequest != null && bytes != null) {
-      BitmapFactory.Options options = new BitmapFactory.Options();
-      options.inBitmap = snapshotRequest.getBitmap();  // the old Bitmap to be reused
-      options.inMutable = true;
-      options.inSampleSize = 1;
-      Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, options);
-
-      MapboxMap.SnapshotReadyCallback callback = snapshotRequest.getCallback();
-      if (callback != null) {
-        callback.onSnapshotReady(bitmap);
-      }
+  protected void onSnapshotReady(Bitmap bitmap) {
+    if (snapshotReadyCallback != null && bitmap != null) {
+      snapshotReadyCallback.onSnapshotReady(bitmap);
     }
   }
 
@@ -1187,27 +1177,9 @@ final class NativeMapView {
   // Snapshot
   //
 
-  void addSnapshotCallback(@NonNull MapboxMap.SnapshotReadyCallback callback, @Nullable Bitmap bitmap) {
-    snapshotRequest = new SnapshotRequest(bitmap, callback);
+  void addSnapshotCallback(@NonNull MapboxMap.SnapshotReadyCallback callback) {
+    snapshotReadyCallback = callback;
     scheduleTakeSnapshot();
     render();
-  }
-
-  private static class SnapshotRequest {
-    private Bitmap bitmap;
-    private MapboxMap.SnapshotReadyCallback callback;
-
-    SnapshotRequest(Bitmap bitmap, MapboxMap.SnapshotReadyCallback callback) {
-      this.bitmap = bitmap;
-      this.callback = callback;
-    }
-
-    public Bitmap getBitmap() {
-      return bitmap;
-    }
-
-    public MapboxMap.SnapshotReadyCallback getCallback() {
-      return callback;
-    }
   }
 }

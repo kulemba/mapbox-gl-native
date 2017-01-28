@@ -229,7 +229,7 @@ public final class MapboxMap {
   @UiThread
   public <T extends Layer> T getLayerAs(@NonNull String layerId) {
     try {
-      //noinspection unchecked
+      // noinspection unchecked
       return (T) nativeMapView.getLayer(layerId);
     } catch (ClassCastException exception) {
       Timber.e(String.format("Layer: %s is a different type: %s", layerId, exception));
@@ -297,7 +297,7 @@ public final class MapboxMap {
   @UiThread
   public <T extends Source> T getSourceAs(@NonNull String sourceId) {
     try {
-      //noinspection unchecked
+      // noinspection unchecked
       return (T) nativeMapView.getSource(sourceId);
     } catch (ClassCastException exception) {
       Timber.e(String.format("Source: %s is a different type: %s", sourceId, exception));
@@ -515,9 +515,6 @@ public final class MapboxMap {
   @UiThread
   public final void moveCamera(CameraUpdate update) {
     moveCamera(update, null);
-    // MapChange.REGION_DID_CHANGE_ANIMATED is not called for `jumpTo`
-    // invalidate camera position to provide OnCameraChange event.
-    invalidateCameraPosition();
   }
 
   /**
@@ -534,6 +531,9 @@ public final class MapboxMap {
       @Override
       public void run() {
         transform.moveCamera(MapboxMap.this, update, callback);
+        // MapChange.REGION_DID_CHANGE_ANIMATED is not called for `jumpTo`
+        // invalidate camera position to provide OnCameraChange event.
+        invalidateCameraPosition();
       }
     });
   }
@@ -1604,18 +1604,8 @@ public final class MapboxMap {
    * @param bitmap   A pre-allocated bitmap.
    */
   @UiThread
-  public void snapshot(@NonNull SnapshotReadyCallback callback, @Nullable final Bitmap bitmap) {
-    nativeMapView.addSnapshotCallback(callback, bitmap);
-  }
-
-  /**
-   * Takes a snapshot of the map.
-   *
-   * @param callback Callback method invoked when the snapshot is taken.
-   */
-  @UiThread
   public void snapshot(@NonNull SnapshotReadyCallback callback) {
-    snapshot(callback, null);
+    nativeMapView.addSnapshotCallback(callback);
   }
 
   /**
