@@ -181,7 +181,7 @@ final class MapGestureDetector {
    */
   boolean onGenericMotionEvent(MotionEvent event) {
     // Mouse events
-    //if (event.isFromSource(InputDevice.SOURCE_CLASS_POINTER)) { // this is not available before API 18
+    // if (event.isFromSource(InputDevice.SOURCE_CLASS_POINTER)) { // this is not available before API 18
     if ((event.getSource() & InputDevice.SOURCE_CLASS_POINTER) == InputDevice.SOURCE_CLASS_POINTER) {
       // Choose the action
       switch (event.getActionMasked()) {
@@ -333,9 +333,6 @@ final class MapGestureDetector {
       if (onFlingListener != null) {
         onFlingListener.onFling();
       }
-
-      MapboxEvent.trackGestureEvent(projection,
-        MapboxEvent.GESTURE_PAN_START, e1.getX(), e1.getY(), transform.getZoom());
       return true;
     }
 
@@ -344,6 +341,8 @@ final class MapGestureDetector {
     public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
       if (!scrollInProgress) {
         scrollInProgress = true;
+        MapboxEvent.trackGestureEvent(projection,
+          MapboxEvent.GESTURE_PAN_START, e1.getX(), e1.getY(), transform.getZoom());
       }
       if (!trackingSettings.isScrollGestureCurrentlyEnabled()) {
         return false;
