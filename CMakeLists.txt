@@ -3,7 +3,7 @@ project(mbgl LANGUAGES CXX C)
 set(CMAKE_CXX_STANDARD 14)
 
 include(cmake/mbgl.cmake)
-include(.mason/mason.cmake)
+include(cmake/mason.cmake)
 
 option(WITH_CXX11ABI "Use cxx11abi mason packages" OFF)
 option(WITH_COVERAGE "Enable coverage reports" OFF)
@@ -27,14 +27,26 @@ if(IS_CI_BUILD)
     add_compile_options(-DCI_BUILD=1)
 endif()
 
+if(EXISTS ${CMAKE_SOURCE_DIR}/.git/HEAD)
+    exec_program(
+        "git"
+        ${CMAKE_SOURCE_DIR}
+        ARGS "rev-parse --short=8 HEAD"
+        OUTPUT_VARIABLE MBGL_VERSION_REV )
+else()
+    set(MBGL_VERSION_REV 00000000)
+endif()
+
+set_source_files_properties(src/mbgl/util/version.cpp PROPERTIES COMPILE_DEFINITIONS MBGL_VERSION_REV="${MBGL_VERSION_REV}")
+
 mason_use(geometry VERSION 0.9.0 HEADER_ONLY)
 mason_use(variant VERSION 1.1.4 HEADER_ONLY)
-mason_use(unique_resource VERSION dev HEADER_ONLY)
+mason_use(unique_resource VERSION cba309e HEADER_ONLY)
 mason_use(rapidjson VERSION 1.1.0 HEADER_ONLY)
 mason_use(boost VERSION 1.62.0 HEADER_ONLY)
-mason_use(geojsonvt VERSION 6.1.3 HEADER_ONLY)
-mason_use(supercluster VERSION 0.2.0 HEADER_ONLY)
-mason_use(kdbush VERSION 0.1.1 HEADER_ONLY)
+mason_use(geojsonvt VERSION 6.2.0 HEADER_ONLY)
+mason_use(supercluster VERSION 0.2.0-1 HEADER_ONLY)
+mason_use(kdbush VERSION 0.1.1-1 HEADER_ONLY)
 mason_use(earcut VERSION 0.12.1 HEADER_ONLY)
 mason_use(protozero VERSION 1.4.2 HEADER_ONLY)
 mason_use(pixelmatch VERSION 0.10.0 HEADER_ONLY)
@@ -68,7 +80,6 @@ endif()
 include(platform/${MBGL_PLATFORM}/config.cmake)
 
 include(cmake/core-files.cmake)
-include(cmake/shaders.cmake)
 include(cmake/core.cmake)
 
 if(COMMAND mbgl_platform_test)

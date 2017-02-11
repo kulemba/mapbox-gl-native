@@ -60,6 +60,9 @@ public:
             // a deprecated MGLStyleValue method (that used to create an MGLStyleFunction) to create a function
             // for properties that are piecewise-constant (i.e. enum, bool, string)
             return toMBGLIntervalCameraFunction(cameraStyleFunction);
+        } else if ([value isMemberOfClass:[MGLStyleFunction class]]) {
+            MGLStyleFunction<ObjCType> *styleFunction = (MGLStyleFunction<ObjCType> *)value;
+            return toMBGLIntervalCameraFunction(styleFunction);
         } else if (value) {
             [NSException raise:@"MGLAbstractClassException" format:
              @"The style value %@ cannot be applied to the style. "
@@ -81,6 +84,9 @@ public:
 
         if ([value isKindOfClass:[MGLStyleConstantValue class]]) {
             return toMBGLConstantValue((MGLStyleConstantValue<ObjCType> *)value);
+        } else if ([value isMemberOfClass:[MGLStyleFunction class]]) {
+            MGLStyleFunction<ObjCType> *styleFunction = (MGLStyleFunction<ObjCType> *)value;
+            return toMBGLExponentialCameraFunction(styleFunction);
         } else if ([value isKindOfClass:[MGLCameraStyleFunction class]]) {
             MGLCameraStyleFunction<ObjCType> *cameraStyleFunction = (MGLCameraStyleFunction<ObjCType> *)value;
             switch (cameraStyleFunction.interpolationMode) {
@@ -149,7 +155,7 @@ public:
             MGLCompositeStyleFunction<ObjCType> *compositeStyleFunction = (MGLCompositeStyleFunction<ObjCType> *)value;
             switch (compositeStyleFunction.interpolationMode) {
                 case MGLInterpolationModeExponential: {
-                    __block std::map<float, mbgl::style::ExponentialStops<MBGLType>> outerStops = {};
+                    __block std::map<float, std::map<float, MBGLType>> outerStops = {};
                     [compositeStyleFunction.stops enumerateKeysAndObjectsUsingBlock:^(NSNumber * _Nonnull zoomKey, NSDictionary * _Nonnull stopValue, BOOL * _Nonnull stop) {
                         std::map<float, MBGLType> stops = {};
                         for (NSNumber *key in stopValue.allKeys) {
@@ -160,10 +166,12 @@ public:
                             NSCAssert(mbglStopValue.isConstant(), @"Stops must be constant");
                             stops[key.floatValue] = mbglStopValue.asConstant();
                         }
-                        mbgl::style::ExponentialStops<MBGLType> innerStops = {stops, (float)compositeStyleFunction.interpolationBase};
-                        outerStops[zoomKey.floatValue] = innerStops;
+                        outerStops[zoomKey.floatValue] = stops;
                     }];
-                    mbgl::style::CompositeFunction<MBGLType> compositeFunction = {compositeStyleFunction.attributeName.UTF8String, outerStops};
+                    mbgl::style::CompositeFunction<MBGLType> compositeFunction {
+                        compositeStyleFunction.attributeName.UTF8String,
+                        mbgl::style::CompositeExponentialStops<MBGLType> { outerStops, (float)compositeStyleFunction.interpolationBase }
+                    };
                     if (compositeStyleFunction.defaultValue) {
                         NSCAssert([compositeStyleFunction.defaultValue isKindOfClass:[MGLStyleConstantValue class]], @"Default value must be constant");
                         MBGLType mbglValue;
@@ -175,7 +183,7 @@ public:
                 }
                     break;
                 case MGLInterpolationModeInterval: {
-                    __block std::map<float, mbgl::style::IntervalStops<MBGLType>> outerStops = {};
+                    __block std::map<float, std::map<float, MBGLType>> outerStops = {};
                     [compositeStyleFunction.stops enumerateKeysAndObjectsUsingBlock:^(NSNumber * _Nonnull zoomKey, NSDictionary * _Nonnull stopValue, BOOL * _Nonnull stop) {
                         std::map<float, MBGLType> stops = {};
                         for (NSNumber *key in stopValue.allKeys) {
@@ -186,10 +194,12 @@ public:
                             NSCAssert(mbglStopValue.isConstant(), @"Stops must be constant");
                             stops[key.floatValue] = mbglStopValue.asConstant();
                         }
-                        mbgl::style::IntervalStops<MBGLType> innerStops = {stops};
-                        outerStops[zoomKey.floatValue] = innerStops;
+                        outerStops[zoomKey.floatValue] = stops;
                     }];
-                    mbgl::style::CompositeFunction<MBGLType> compositeFunction = {compositeStyleFunction.attributeName.UTF8String, outerStops};
+                    mbgl::style::CompositeFunction<MBGLType> compositeFunction {
+                        compositeStyleFunction.attributeName.UTF8String,
+                        mbgl::style::CompositeIntervalStops<MBGLType> { outerStops }
+                    };
                     if (compositeStyleFunction.defaultValue) {
                         NSCAssert([compositeStyleFunction.defaultValue isKindOfClass:[MGLStyleConstantValue class]], @"Default value must be constant");
                         MBGLType mbglValue;
@@ -201,7 +211,7 @@ public:
                 }
                     break;
                 case MGLInterpolationModeCategorical: {
-                    __block std::map<float, mbgl::style::CategoricalStops<MBGLType>> outerStops = {};
+                    __block std::map<float, std::map<mbgl::style::CategoricalValue, MBGLType>> outerStops = {};
                     [compositeStyleFunction.stops enumerateKeysAndObjectsUsingBlock:^(NSNumber * _Nonnull zoomKey, NSDictionary * _Nonnull stopValue, BOOL * _Nonnull stop) {
                         __block std::map<mbgl::style::CategoricalValue, MBGLType> stops = {};
                         [stopValue enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull categoryKey, MGLStyleValue<ObjCType> *  _Nonnull innerValue, BOOL * _Nonnull stop) {
@@ -227,10 +237,12 @@ public:
                                 }
                             }
                         }];
-                        mbgl::style::CategoricalStops<MBGLType> categoricalStops = {stops};
-                        outerStops[zoomKey.floatValue] = categoricalStops;
+                        outerStops[zoomKey.floatValue] = stops;
                     }];
-                    mbgl::style::CompositeFunction<MBGLType> compositeFunction = {compositeStyleFunction.attributeName.UTF8String, outerStops};
+                    mbgl::style::CompositeFunction<MBGLType> compositeFunction {
+                        compositeStyleFunction.attributeName.UTF8String,
+                        mbgl::style::CompositeCategoricalStops<MBGLType> { outerStops }
+                    };
                     if (compositeStyleFunction.defaultValue) {
                         NSCAssert([compositeStyleFunction.defaultValue isKindOfClass:[MGLStyleConstantValue class]], @"Default value must be constant");
                         MBGLType mbglValue;
@@ -247,6 +259,9 @@ public:
                     return {};
             }
             return {};
+        } else if ([value isMemberOfClass:[MGLStyleFunction class]]) {
+            MGLStyleFunction<ObjCType> *styleFunction = (MGLStyleFunction<ObjCType> *)value;
+            return toMBGLExponentialCameraFunction(styleFunction);
         } else if (value) {
             [NSException raise:@"MGLAbstractClassException" format:
              @"The style value %@ cannot be applied to the style. "
@@ -308,9 +323,9 @@ private: // Private utilities for converting from mgl to mbgl values
         return mbglValue;
     }
 
-    mbgl::style::CameraFunction<MBGLType> toMBGLExponentialCameraFunction(MGLCameraStyleFunction<ObjCType> *cameraStyleFunction) {
+    mbgl::style::CameraFunction<MBGLType> toMBGLExponentialCameraFunction(MGLStyleFunction<ObjCType> *styleFunction) {
         __block std::map<float, MBGLType> stops = {};
-        [cameraStyleFunction.stops enumerateKeysAndObjectsUsingBlock:^(NSNumber * _Nonnull zoomKey, MGLStyleValue<ObjCType> * _Nonnull stopValue, BOOL * _Nonnull stop) {
+        [styleFunction.stops enumerateKeysAndObjectsUsingBlock:^(NSNumber * _Nonnull zoomKey, MGLStyleValue<ObjCType> * _Nonnull stopValue, BOOL * _Nonnull stop) {
             NSCAssert([stopValue isKindOfClass:[MGLStyleValue class]], @"Stops should be MGLStyleValues");
             auto mbglStopValue = toPropertyValue(stopValue);
             NSCAssert(mbglStopValue.isConstant(), @"Stops must be constant");
@@ -318,15 +333,15 @@ private: // Private utilities for converting from mgl to mbgl values
         }];
 
         // Camera function with Exponential stops
-        mbgl::style::ExponentialStops<MBGLType> exponentialStops = {stops, (float)cameraStyleFunction.interpolationBase};
+        mbgl::style::ExponentialStops<MBGLType> exponentialStops = {stops, (float)styleFunction.interpolationBase};
         mbgl::style::CameraFunction<MBGLType> cameraFunction = {exponentialStops};
 
         return cameraFunction;
     }
 
-    mbgl::style::CameraFunction<MBGLType> toMBGLIntervalCameraFunction(MGLCameraStyleFunction<ObjCType> *cameraStyleFunction) {
+    mbgl::style::CameraFunction<MBGLType> toMBGLIntervalCameraFunction(MGLStyleFunction<ObjCType> *styleFunction) {
         __block std::map<float, MBGLType> stops = {};
-        [cameraStyleFunction.stops enumerateKeysAndObjectsUsingBlock:^(NSNumber * _Nonnull zoomKey, MGLStyleValue<ObjCType> * _Nonnull stopValue, BOOL * _Nonnull stop) {
+        [styleFunction.stops enumerateKeysAndObjectsUsingBlock:^(NSNumber * _Nonnull zoomKey, MGLStyleValue<ObjCType> * _Nonnull stopValue, BOOL * _Nonnull stop) {
             NSCAssert([stopValue isKindOfClass:[MGLStyleValue class]], @"Stops should be MGLStyleValues");
             auto mbglStopValue = toPropertyValue(stopValue);
             NSCAssert(mbglStopValue.isConstant(), @"Stops must be constant");
@@ -646,27 +661,25 @@ private: // Private utilities for converting from mbgl to mgl values
     // Converts a composite function and all possible mbgl stops into an equivilant mgl style value
     class CompositeFunctionStopsVisitor {
     public:
-        id operator()(const std::map<float, mbgl::style::ExponentialStops<MBGLType>> &mbglStops) {
-            float base = 1.0f;
-            NSMutableDictionary *stops = [NSMutableDictionary dictionaryWithCapacity:mbglStops.size()];
-            for (auto const& outerStop: mbglStops) {
-                stops[@(outerStop.first)] = toConvertedStops(outerStop.second.stops);
-                base = outerStop.second.base;
+        id operator()(const mbgl::style::CompositeExponentialStops<MBGLType> &mbglStops) {
+            NSMutableDictionary *stops = [NSMutableDictionary dictionaryWithCapacity:mbglStops.stops.size()];
+            for (auto const& outerStop: mbglStops.stops) {
+                stops[@(outerStop.first)] = toConvertedStops(outerStop.second);
             }
             MGLCompositeStyleFunction *compositeFunction = [MGLCompositeStyleFunction functionWithInterpolationMode:MGLInterpolationModeExponential
                                                                                                      stops:stops
                                                                                              attributeName:@(mbglFunction.property.c_str())
-                                                                                                   options:@{MGLStyleFunctionOptionInterpolationBase: @(base)}];
+                                                                                                   options:@{MGLStyleFunctionOptionInterpolationBase: @(mbglStops.base)}];
             if (mbglFunction.defaultValue) {
                 compositeFunction.defaultValue = [MGLStyleValue valueWithRawValue:toMGLRawStyleValue(*mbglFunction.defaultValue)];
             }
             return compositeFunction;
         }
 
-        id operator()(const std::map<float, mbgl::style::IntervalStops<MBGLType>> &mbglStops) {
-            NSMutableDictionary *stops = [NSMutableDictionary dictionaryWithCapacity:mbglStops.size()];
-            for (auto const& outerStop: mbglStops) {
-                stops[@(outerStop.first)] = toConvertedStops(outerStop.second.stops);
+        id operator()(const mbgl::style::CompositeIntervalStops<MBGLType> &mbglStops) {
+            NSMutableDictionary *stops = [NSMutableDictionary dictionaryWithCapacity:mbglStops.stops.size()];
+            for (auto const& outerStop: mbglStops.stops) {
+                stops[@(outerStop.first)] = toConvertedStops(outerStop.second);
             }
             MGLCompositeStyleFunction *compositeFunction = [MGLCompositeStyleFunction functionWithInterpolationMode:MGLInterpolationModeInterval
                                                                                                      stops:stops
@@ -678,11 +691,11 @@ private: // Private utilities for converting from mbgl to mgl values
             return compositeFunction;
         }
 
-        id operator()(const std::map<float, mbgl::style::CategoricalStops<MBGLType>> &mbglStops) {
-            NSMutableDictionary *stops = [NSMutableDictionary dictionaryWithCapacity:mbglStops.size()];
-            for (auto const& outerStop: mbglStops) {
-                    NSMutableDictionary *innerStops = [NSMutableDictionary dictionaryWithCapacity:outerStop.second.stops.size()];
-                for (const auto &mbglStop : outerStop.second.stops) {
+        id operator()(const mbgl::style::CompositeCategoricalStops<MBGLType> &mbglStops) {
+            NSMutableDictionary *stops = [NSMutableDictionary dictionaryWithCapacity:mbglStops.stops.size()];
+            for (auto const& outerStop: mbglStops.stops) {
+                    NSMutableDictionary *innerStops = [NSMutableDictionary dictionaryWithCapacity:outerStop.second.size()];
+                for (const auto &mbglStop : outerStop.second) {
                     auto categoricalValue = mbglStop.first;
                     auto rawValue = toMGLRawStyleValue(mbglStop.second);
                     CategoricalValueVisitor categoricalValueVisitor;
