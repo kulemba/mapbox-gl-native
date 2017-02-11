@@ -181,6 +181,34 @@ set(MBGL_CORE_FILES
     src/mbgl/renderer/symbol_bucket.cpp
     src/mbgl/renderer/symbol_bucket.hpp
 
+    # shaders
+    src/mbgl/shaders/circle.cpp
+    src/mbgl/shaders/circle.hpp
+    src/mbgl/shaders/collision_box.cpp
+    src/mbgl/shaders/collision_box.hpp
+    src/mbgl/shaders/debug.cpp
+    src/mbgl/shaders/debug.hpp
+    src/mbgl/shaders/fill.cpp
+    src/mbgl/shaders/fill.hpp
+    src/mbgl/shaders/fill_outline.cpp
+    src/mbgl/shaders/fill_outline.hpp
+    src/mbgl/shaders/fill_outline_pattern.cpp
+    src/mbgl/shaders/fill_outline_pattern.hpp
+    src/mbgl/shaders/fill_pattern.cpp
+    src/mbgl/shaders/fill_pattern.hpp
+    src/mbgl/shaders/line.cpp
+    src/mbgl/shaders/line.hpp
+    src/mbgl/shaders/line_pattern.cpp
+    src/mbgl/shaders/line_pattern.hpp
+    src/mbgl/shaders/line_sdf.cpp
+    src/mbgl/shaders/line_sdf.hpp
+    src/mbgl/shaders/raster.cpp
+    src/mbgl/shaders/raster.hpp
+    src/mbgl/shaders/symbol_icon.cpp
+    src/mbgl/shaders/symbol_icon.hpp
+    src/mbgl/shaders/symbol_sdf.cpp
+    src/mbgl/shaders/symbol_sdf.hpp
+
     # sprite
     include/mbgl/sprite/sprite_image.hpp
     src/mbgl/sprite/sprite_atlas.cpp
@@ -268,12 +296,16 @@ set(MBGL_CORE_FILES
     include/mbgl/style/conversion/property_value.hpp
     include/mbgl/style/conversion/source.hpp
     include/mbgl/style/conversion/tileset.hpp
+    include/mbgl/style/conversion/transition_options.hpp
     src/mbgl/style/conversion/stringify.hpp
 
     # style/function
     include/mbgl/style/function/camera_function.hpp
     include/mbgl/style/function/categorical_stops.hpp
+    include/mbgl/style/function/composite_categorical_stops.hpp
+    include/mbgl/style/function/composite_exponential_stops.hpp
     include/mbgl/style/function/composite_function.hpp
+    include/mbgl/style/function/composite_interval_stops.hpp
     include/mbgl/style/function/exponential_stops.hpp
     include/mbgl/style/function/identity_stops.hpp
     include/mbgl/style/function/interval_stops.hpp
@@ -491,7 +523,8 @@ set(MBGL_CORE_FILES
     src/mbgl/util/url.cpp
     src/mbgl/util/url.hpp
     src/mbgl/util/utf.hpp
-    src/mbgl/util/version_info.cpp
+    src/mbgl/util/version.cpp
+    src/mbgl/util/version.hpp
     src/mbgl/util/work_queue.cpp
     src/mbgl/util/work_queue.hpp
     src/mbgl/util/work_request.cpp

@@ -14,6 +14,11 @@
 #include "bitmap.hpp"
 #include "bitmap_factory.hpp"
 #include "connectivity_listener.hpp"
+#include "style/functions/categorical_stops.hpp"
+#include "style/functions/exponential_stops.hpp"
+#include "style/functions/identity_stops.hpp"
+#include "style/functions/interval_stops.hpp"
+#include "style/functions/stop.hpp"
 #include "style/layers/layers.hpp"
 #include "style/sources/sources.hpp"
 
@@ -616,6 +621,14 @@ void nativeSetBearing(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr, jd
     NativeMapView *nativeMapView = reinterpret_cast<NativeMapView *>(nativeMapViewPtr);
     mbgl::Duration duration((mbgl::Milliseconds(milliseconds)));
     nativeMapView->getMap().setBearing(degrees, duration);
+}
+
+void nativeSetFocalBearing(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr, jdouble degrees, jdouble fx,
+                           jdouble fy, jlong milliseconds) {
+    assert(nativeMapViewPtr != 0);
+    NativeMapView *nativeMapView = reinterpret_cast<NativeMapView *>(nativeMapViewPtr);
+    mbgl::ScreenCoordinate center(fx, fy);
+    nativeMapView->getMap().setBearing(degrees, center, mbgl::Milliseconds(milliseconds));
 }
 
 void nativeSetBearingXY(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr, jdouble degrees,
@@ -1772,6 +1785,11 @@ void registerNatives(JavaVM *vm) {
     BitmapFactory::registerNative(env);
     registerNativeLayers(env);
     registerNativeSources(env);
+    Stop::registerNative(env);
+    CategoricalStops::registerNative(env);
+    ExponentialStops::registerNative(env);
+    IdentityStops::registerNative(env);
+    IntervalStops::registerNative(env);
     ConnectivityListener::registerNative(env);
 
     latLngClass = &jni::FindClass(env, "com/mapbox/mapboxsdk/geometry/LatLng");
@@ -1894,6 +1912,7 @@ void registerNatives(JavaVM *vm) {
         MAKE_NATIVE_METHOD(nativeSetMaxZoom, "(JD)V"),
         MAKE_NATIVE_METHOD(nativeRotateBy, "(JDDDDJ)V"),
         MAKE_NATIVE_METHOD(nativeSetBearing, "(JDJ)V"),
+        MAKE_NATIVE_METHOD(nativeSetFocalBearing, "(JDDDJ)V"),
         MAKE_NATIVE_METHOD(nativeSetBearingXY, "(JDDD)V"),
         MAKE_NATIVE_METHOD(nativeGetBearing, "(J)D"),
         MAKE_NATIVE_METHOD(nativeResetNorth, "(J)V"),

@@ -220,7 +220,7 @@ void MapWindow::keyPressEvent(QKeyEvent *ev)
                 QMapbox::Coordinate topLeft     = m_map->coordinateForPixel({ 0, 0 });
                 QMapbox::Coordinate bottomRight = m_map->coordinateForPixel({ qreal(size().width()), qreal(size().height()) });
                 QMapbox::CoordinatesCollections geometry { { { topLeft, bottomRight } } };
-                QMapbox::LineAnnotation line { { QMapbox::ShapeAnnotationGeometry::Type::LineStringType, geometry }, 0.5f, 1.0f, Qt::red };
+                QMapbox::LineAnnotation line { { QMapbox::ShapeAnnotationGeometry::LineStringType, geometry }, 0.5f, 1.0f, Qt::red };
                 m_lineAnnotationId = m_map->addAnnotation(QVariant::fromValue<QMapbox::LineAnnotation>(line));
             } else {
                 m_map->removeAnnotation(m_lineAnnotationId.toUInt());
@@ -235,7 +235,7 @@ void MapWindow::keyPressEvent(QKeyEvent *ev)
                 QMapbox::Coordinate bottomLeft  = m_map->coordinateForPixel({ qreal(size().width()), 0 });
                 QMapbox::Coordinate bottomRight = m_map->coordinateForPixel({ qreal(size().width()), qreal(size().height()) });
                 QMapbox::CoordinatesCollections geometry { { { bottomLeft, bottomRight, topRight, topLeft, bottomLeft } } };
-                QMapbox::FillAnnotation fill { { QMapbox::ShapeAnnotationGeometry::Type::PolygonType, geometry }, 0.5f, Qt::green, QVariant::fromValue<QColor>(QColor(Qt::black)) };
+                QMapbox::FillAnnotation fill { { QMapbox::ShapeAnnotationGeometry::PolygonType, geometry }, 0.5f, Qt::green, QVariant::fromValue<QColor>(QColor(Qt::black)) };
                 m_fillAnnotationId = m_map->addAnnotation(QVariant::fromValue<QMapbox::FillAnnotation>(fill));
             } else {
                 m_map->removeAnnotation(m_fillAnnotationId.toUInt());
@@ -250,11 +250,35 @@ void MapWindow::keyPressEvent(QKeyEvent *ev)
                 QMapbox::Coordinate bottomLeft  = m_map->coordinateForPixel({ qreal(size().width()), 0 });
                 QMapbox::Coordinate bottomRight = m_map->coordinateForPixel({ qreal(size().width()), qreal(size().height()) });
                 QMapbox::CoordinatesCollections geometry { { { bottomLeft, bottomRight, topRight, topLeft, bottomLeft } } };
-                QMapbox::StyleSourcedAnnotation styleSourced { { QMapbox::ShapeAnnotationGeometry::Type::PolygonType, geometry }, "water" };
+                QMapbox::StyleSourcedAnnotation styleSourced { { QMapbox::ShapeAnnotationGeometry::PolygonType, geometry }, "water" };
                 m_styleSourcedAnnotationId = m_map->addAnnotation(QVariant::fromValue<QMapbox::StyleSourcedAnnotation>(styleSourced));
             } else {
                 m_map->removeAnnotation(m_styleSourcedAnnotationId.toUInt());
                 m_styleSourcedAnnotationId.clear();
+            }
+        }
+        break;
+    case Qt::Key_5: {
+            if (m_map->layerExists("circleLayer")) {
+                m_map->removeLayer("circleLayer");
+                m_map->removeSource("circleSource");
+            } else {
+                QMapbox::CoordinatesCollections geometry { { { m_map->coordinate() } } };
+                QMapbox::Feature feature { QMapbox::Feature::PointType, geometry, {}, {} };
+
+                QVariantMap circleSource;
+                circleSource["type"] = "geojson";
+                circleSource["data"] = QVariant::fromValue<QMapbox::Feature>(feature);
+                m_map->addSource("circleSource", circleSource);
+
+                QVariantMap circle;
+                circle["id"] = "circleLayer";
+                circle["type"] = "circle";
+                circle["source"] = "circleSource";
+                m_map->addLayer(circle);
+
+                m_map->setPaintProperty("circleLayer", "circle-radius", 10.0);
+                m_map->setPaintProperty("circleLayer", "circle-color", QColor("black"));
             }
         }
         break;
