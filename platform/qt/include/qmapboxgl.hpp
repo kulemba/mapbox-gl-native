@@ -208,6 +208,7 @@ public:
     QMargins margins() const;
 
     void addSource(const QString &sourceID, const QVariantMap& params);
+    bool sourceExists(const QString &sourceID);
     void updateSource(const QString &sourceID, const QVariantMap& params);
     void removeSource(const QString &sourceID);
 
@@ -221,6 +222,7 @@ public:
         void* context,
         char* before = NULL);
     void addLayer(const QVariantMap &params);
+    bool layerExists(const QString &id);
     void removeLayer(const QString &id);
 
     void setFilter(const QString &layer, const QVariant &filter);

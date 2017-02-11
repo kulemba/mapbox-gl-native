@@ -836,68 +836,26 @@ void QMapboxGL::setTransitionOptions(qint64 duration, qint64 delay) {
     d_ptr->mapObj->setTransitionOptions(mbgl::style::TransitionOptions{ convert(duration), convert(delay) });
 }
 
-mbgl::ShapeAnnotationGeometry asMapboxGLGeometry(const QMapbox::ShapeAnnotationGeometry &geometry) {
-    auto asMapboxGLLineString = [&](const QMapbox::Coordinates &lineString) {
-        mbgl::LineString<double> mbglLineString;
-        mbglLineString.reserve(lineString.size());
-        for (const auto &coordinate : lineString) {
-            mbglLineString.emplace_back(mbgl::Point<double> { coordinate.second, coordinate.first });
-        }
-        return mbglLineString;
-    };
-
-    auto asMapboxGLMultiLineString = [&](const QMapbox::CoordinatesCollection &multiLineString) {
-        mbgl::MultiLineString<double> mbglMultiLineString;
-        mbglMultiLineString.reserve(multiLineString.size());
-        for (const auto &lineString : multiLineString) {
-            mbglMultiLineString.emplace_back(std::forward<mbgl::LineString<double>>(asMapboxGLLineString(lineString)));
-        }
-        return mbglMultiLineString;
-    };
-
-    auto asMapboxGLPolygon = [&](const QMapbox::CoordinatesCollection &polygon) {
-        mbgl::Polygon<double> mbglPolygon;
-        mbglPolygon.reserve(polygon.size());
-        for (const auto &linearRing : polygon) {
-            mbgl::LinearRing<double> mbglLinearRing;
-            mbglLinearRing.reserve(linearRing.size());
-            for (const auto &coordinate: linearRing) {
-                mbglLinearRing.emplace_back(mbgl::Point<double> { coordinate.second, coordinate.first });
-            }
-            mbglPolygon.emplace_back(std::move(mbglLinearRing));
-        }
-        return mbglPolygon;
-    };
-
-    auto asMapboxGLMultiPolygon = [&](const QMapbox::CoordinatesCollections &multiPolygon) {
-        mbgl::MultiPolygon<double> mbglMultiPolygon;
-        mbglMultiPolygon.reserve(multiPolygon.size());
-        for (const auto &polygon : multiPolygon) {
-            mbglMultiPolygon.emplace_back(std::forward<mbgl::Polygon<double>>(asMapboxGLPolygon(polygon)));
-        }
-        return mbglMultiPolygon;
-    };
-
-    mbgl::ShapeAnnotationGeometry result;
-    switch (geometry.type) {
-    case QMapbox::ShapeAnnotationGeometry::LineStringType:
-        result = { asMapboxGLLineString(geometry.geometry.first().first()) };
-        break;
-    case QMapbox::ShapeAnnotationGeometry::PolygonType:
-        result = { asMapboxGLPolygon(geometry.geometry.first()) };
-        break;
-    case QMapbox::ShapeAnnotationGeometry::MultiLineStringType:
-        result = { asMapboxGLMultiLineString(geometry.geometry.first()) };
-        break;
-    case QMapbox::ShapeAnnotationGeometry::MultiPolygonType:
-        result = { asMapboxGLMultiPolygon(geometry.geometry) };
-        break;
-    }
-
-    return result;
-}
-
 mbgl::Annotation asMapboxGLAnnotation(const QMapbox::Annotation & annotation) {
+    auto asMapboxGLGeometry = [](const QMapbox::ShapeAnnotationGeometry &geometry) {
+        mbgl::ShapeAnnotationGeometry result;
+        switch (geometry.type) {
+        case QMapbox::ShapeAnnotationGeometry::LineStringType:
+            result = { asMapboxGLLineString(geometry.geometry.first().first()) };
+            break;
+        case QMapbox::ShapeAnnotationGeometry::PolygonType:
+            result = { asMapboxGLPolygon(geometry.geometry.first()) };
+            break;
+        case QMapbox::ShapeAnnotationGeometry::MultiLineStringType:
+            result = { asMapboxGLMultiLineString(geometry.geometry.first()) };
+            break;
+        case QMapbox::ShapeAnnotationGeometry::MultiPolygonType:
+            result = { asMapboxGLMultiPolygon(geometry.geometry) };
+            break;
+        }
+        return result;
+    };
+
     if (annotation.canConvert<QMapbox::SymbolAnnotation>()) {
         QMapbox::SymbolAnnotation symbolAnnotation = annotation.value<QMapbox::SymbolAnnotation>();
         QMapbox::Coordinate& pair = symbolAnnotation.geometry;
@@ -1286,6 +1244,14 @@ void QMapboxGL::addSource(const QString &id, const QVariantMap &params)
 }
 
 /*!
+    Returns true if the layer with given \a id exists, false otherwise.
+*/
+bool QMapboxGL::sourceExists(const QString& sourceID)
+{
+    return !!d_ptr->mapObj->getSource(sourceID.toStdString());
+}
+
+/*!
     Updates the source \a id with new \a params.
 
     If the source does not exist, it will be added like in addSource(). Only
@@ -1390,7 +1356,15 @@ void QMapboxGL::addLayer(const QVariantMap &params)
 }
 
 /*!
-    Removes the layer \a id.
+    Returns true if the layer with given \a id exists, false otherwise.
+*/
+bool QMapboxGL::layerExists(const QString& id)
+{
+    return !!d_ptr->mapObj->getLayer(id.toStdString());
+}
+
+/*!
+    Removes the layer with given \a id.
 */
 void QMapboxGL::removeLayer(const QString& id)
 {
