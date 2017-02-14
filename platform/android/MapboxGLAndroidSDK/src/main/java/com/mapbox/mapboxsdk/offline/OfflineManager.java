@@ -6,12 +6,16 @@ import android.content.pm.PackageManager;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 
 import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.constants.MapboxConstants;
+import com.mapbox.mapboxsdk.geometry.LatLngBounds;
 
 import java.io.File;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 
 import timber.log.Timber;
 
@@ -87,6 +91,19 @@ public class OfflineManager {
      */
     void onError(String error);
   }
+
+  @IntDef( flag = true, value = {RESOURCE_NONE, RESOURCE_STYLE, RESOURCE_SOURCE, RESOURCE_TILE, RESOURCE_GLYPHS, RESOURCE_SPRITEIMAGE, RESOURCE_SPRITEJSON})
+  @Retention(RetentionPolicy.SOURCE)
+  public @interface ResourceKind {
+  }
+
+  public static final int RESOURCE_NONE = 0;
+  public static final int RESOURCE_STYLE = 1 << 0;
+  public static final int RESOURCE_SOURCE = 1 << 1;
+  public static final int RESOURCE_TILE = 1 << 2;
+  public static final int RESOURCE_GLYPHS = 1 << 3;
+  public static final int RESOURCE_SPRITEIMAGE = 1 << 4;
+  public static final int RESOURCE_SPRITEJSON = 1 << 5;
 
   /*
    * Constructors
@@ -280,6 +297,18 @@ public class OfflineManager {
     setOfflineMapboxTileCountLimit(mDefaultFileSourcePtr, limit);
   }
 
+  public void addSupplementaryOfflineDatabase(final String cachePath, @ResourceKind int resourceKind) {
+    addSupplementaryOfflineDatabase(cachePath, resourceKind, null);
+  }
+
+  public void addSupplementaryOfflineDatabase(final String cachePath, @ResourceKind int resourceKind, @NonNull LatLngBounds latLngBounds) {
+    addSupplementaryOfflineDatabase(mDefaultFileSourcePtr, cachePath, resourceKind, latLngBounds);
+  }
+
+  public void removeSupplementaryOfflineDatabases(final String cachePath) {
+    removeSupplementaryOfflineDatabases(mDefaultFileSourcePtr, cachePath);
+  }
+
 
   /*
    * Native methods
@@ -300,5 +329,9 @@ public class OfflineManager {
 
   private native void setOfflineMapboxTileCountLimit(
     long defaultFileSourcePtr, long limit);
+
+  private native void addSupplementaryOfflineDatabase(long defaultFileSourcePtr, String cachePath, int resourceKind, LatLngBounds latLngBounds);
+
+  private native void removeSupplementaryOfflineDatabases(long defaultFileSourcePtr, String cachePath);
 
 }

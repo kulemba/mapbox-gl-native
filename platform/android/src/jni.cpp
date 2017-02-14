@@ -1466,6 +1466,38 @@ void setOfflineMapboxTileCountLimit(JNIEnv *env, jni::jobject* obj, jlong defaul
     defaultFileSource->setOfflineMapboxTileCountLimit(limit);
 }
 
+void addSupplementaryOfflineDatabase(JNIEnv *env, jni::jobject* obj, jlong defaultFileSourcePtr, jni::jstring* cachePath_, jint resourceKind, jni::jobject* jBounds) {
+    assert(defaultFileSourcePtr != 0);
+    std::string cachePath = std_string_from_jstring(env, cachePath_);
+    mbgl::DefaultFileSource *defaultFileSource = reinterpret_cast<mbgl::DefaultFileSource *>(defaultFileSourcePtr);
+    auto bounds = jBounds ? mbgl::optional<mbgl::LatLngBounds>(latlngbounds_from_java(env, jBounds)): mbgl::optional<mbgl::LatLngBounds>();
+    if (resourceKind & (1 << 0)) {
+        defaultFileSource->addSupplementaryOfflineDatabase(mbgl::Resource::Style, bounds, cachePath);
+    }
+    if (resourceKind & (1 << 1)) {
+        defaultFileSource->addSupplementaryOfflineDatabase(mbgl::Resource::Source, bounds, cachePath);
+    }
+    if (resourceKind & (1 << 2)) {
+        defaultFileSource->addSupplementaryOfflineDatabase(mbgl::Resource::Tile, bounds, cachePath);
+    }
+    if (resourceKind & (1 << 3)) {
+        defaultFileSource->addSupplementaryOfflineDatabase(mbgl::Resource::Glyphs, bounds, cachePath);
+    }
+    if (resourceKind & (1 << 4)) {
+        defaultFileSource->addSupplementaryOfflineDatabase(mbgl::Resource::SpriteImage, bounds, cachePath);
+    }
+    if (resourceKind & (1 << 5)) {
+        defaultFileSource->addSupplementaryOfflineDatabase(mbgl::Resource::SpriteJSON, bounds, cachePath);
+    }
+}
+
+void removeSupplementaryOfflineDatabases(JNIEnv *env, jni::jobject* obj, jlong defaultFileSourcePtr, jni::jstring* cachePath_) {
+    assert(defaultFileSourcePtr != 0);
+    std::string cachePath = std_string_from_jstring(env, cachePath_);
+    mbgl::DefaultFileSource *defaultFileSource = reinterpret_cast<mbgl::DefaultFileSource *>(defaultFileSourcePtr);
+    defaultFileSource->removeSupplementaryOfflineDatabases(cachePath);
+}
+
 mbgl::OfflineRegion* getOfflineRegionPeer(JNIEnv *env, jni::jobject* offlineRegion_) {
     jlong offlineRegionPtr = jni::GetField<jlong>(*env, offlineRegion_, *offlineRegionPtrId);
     if (!offlineRegionPtr) {
@@ -1996,7 +2028,9 @@ void registerNatives(JavaVM *vm) {
         MAKE_NATIVE_METHOD(getAccessToken, "(J)Ljava/lang/String;"),
         MAKE_NATIVE_METHOD(listOfflineRegions, "(JLcom/mapbox/mapboxsdk/offline/OfflineManager$ListOfflineRegionsCallback;)V"),
         MAKE_NATIVE_METHOD(createOfflineRegion, "(JLcom/mapbox/mapboxsdk/offline/OfflineRegionDefinition;[BLcom/mapbox/mapboxsdk/offline/OfflineManager$CreateOfflineRegionCallback;)V"),
-        MAKE_NATIVE_METHOD(setOfflineMapboxTileCountLimit, "(JJ)V")
+        MAKE_NATIVE_METHOD(setOfflineMapboxTileCountLimit, "(JJ)V"),
+        MAKE_NATIVE_METHOD(addSupplementaryOfflineDatabase, "(JLjava/lang/String;ILcom/mapbox/mapboxsdk/geometry/LatLngBounds;)V"),
+        MAKE_NATIVE_METHOD(removeSupplementaryOfflineDatabases, "(JLjava/lang/String;)V")
     );
 
     jni::Class<OfflineManager::ListOfflineRegionsCallback> listOfflineRegionsCallbackClass = jni::Class<OfflineManager::ListOfflineRegionsCallback>::Find(env);
