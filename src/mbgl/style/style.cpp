@@ -690,5 +690,9 @@ void Style::dumpDebugLogs() const {
     spriteAtlas->dumpDebugLogs();
 }
 
+uint8_t Style::getMaxZoomLimit() const {
+    return maxZoomLimit;
+}
+
 } // namespace style
 } // namespace mbgl

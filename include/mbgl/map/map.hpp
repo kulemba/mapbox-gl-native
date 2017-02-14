@@ -70,6 +70,7 @@ public:
     void setStyleJSON(const std::string&, uint8_t = std::numeric_limits<uint8_t>::max());
     std::string getStyleURL() const;
     std::string getStyleJSON() const;
+    uint8_t getMaxZoomLimit() const;
 
     // Transition
     void cancelTransitions();

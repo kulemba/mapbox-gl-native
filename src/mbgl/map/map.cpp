@@ -423,6 +423,10 @@ std::string Map::getStyleJSON() const {
     return impl->styleJSON;
 }
 
+uint8_t Map::getMaxZoomLimit() const {
+    return impl->style->getMaxZoomLimit();
+}
+
 #pragma mark - Transitions
 
 void Map::cancelTransitions() {
