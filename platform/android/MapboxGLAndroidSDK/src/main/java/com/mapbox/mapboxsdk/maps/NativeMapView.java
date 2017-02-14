@@ -266,10 +266,14 @@ final class NativeMapView {
   }
 
   public void setStyleUrl(String url) {
+    setStyleUrl(url, (byte) 0xFF);
+  }
+
+  public void setStyleUrl(String url, byte maxZoomLimit) {
     if (isDestroyedOn("setStyleUrl")) {
       return;
     }
-    nativeSetStyleUrl(nativeMapViewPtr, url);
+    nativeSetStyleUrl(nativeMapViewPtr, url, maxZoomLimit);
   }
 
   public String getStyleUrl() {
@@ -280,10 +284,14 @@ final class NativeMapView {
   }
 
   public void setStyleJson(String newStyleJson) {
+    setStyleJson(newStyleJson, (byte) 0xFF);
+  }
+
+  public void setStyleJson(String newStyleJson, byte maxZoomLimit) {
     if (isDestroyedOn("setStyleJson")) {
       return;
     }
-    nativeSetStyleJson(nativeMapViewPtr, newStyleJson);
+    nativeSetStyleJson(nativeMapViewPtr, newStyleJson, maxZoomLimit);
   }
 
   public String getStyleJson() {
@@ -291,6 +299,13 @@ final class NativeMapView {
       return null;
     }
     return nativeGetStyleJson(nativeMapViewPtr);
+  }
+
+  public byte getMaxZoomLimit() {
+    if (isDestroyedOn("getMaxZoomLimit")) {
+      return 0;
+    }
+    return nativeGetMaxZoomLimit(nativeMapViewPtr);
   }
 
   public void setAccessToken(String accessToken) {
@@ -991,11 +1006,17 @@ final class NativeMapView {
 
   private native void nativeSetStyleUrl(long nativeMapViewPtr, String url);
 
+  private native void nativeSetStyleUrl(long nativeMapViewPtr, String url, byte maxZoomLimit);
+
   private native String nativeGetStyleUrl(long nativeMapViewPtr);
 
   private native void nativeSetStyleJson(long nativeMapViewPtr, String newStyleJson);
 
+  private native void nativeSetStyleJson(long nativeMapViewPtr, String newStyleJson, byte maxZoomLimit);
+
   private native String nativeGetStyleJson(long nativeMapViewPtr);
+
+  private native byte nativeGetMaxZoomLimit(long nativeMapViewPtr);
 
   private native void nativeSetAccessToken(long nativeMapViewPtr, String accessToken);
 

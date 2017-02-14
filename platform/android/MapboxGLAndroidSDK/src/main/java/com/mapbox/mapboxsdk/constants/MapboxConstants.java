@@ -118,6 +118,7 @@ public class MapboxConstants {
   public static final String STATE_DOUBLE_TAP_ENABLED_CHANGE = "doubleTapEnabledChange";
   public static final String STATE_DEBUG_ACTIVE = "debugActive";
   public static final String STATE_STYLE_URL = "styleUrl";
+  public static final String STATE_MAX_ZOOM_LIMIT = "maxZoomLimit";
   public static final String STATE_MY_LOCATION_ENABLED = "myLocationEnabled";
   public static final String STATE_MY_LOCATION_TRACKING_MODE = "myLocationTracking";
   public static final String STATE_MY_BEARING_TRACKING_MODE = "myBearingTracking";

@@ -104,6 +104,8 @@ public:
 
     void dumpDebugLogs() const;
 
+    uint8_t getMaxZoomLimit() const;
+
     FileSource& fileSource;
     std::unique_ptr<GlyphAtlas> glyphAtlas;
     std::unique_ptr<SpriteAtlas> spriteAtlas;

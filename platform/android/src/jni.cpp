@@ -432,10 +432,10 @@ void nativeSetAPIBaseURL(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr,
     nativeMapView->getFileSource().setAPIBaseURL(std_string_from_jstring(env, url));
 }
 
-void nativeSetStyleUrl(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr, jni::jstring* url) {
+void nativeSetStyleUrl(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr, jni::jstring* url, jbyte maxZoomLimit) {
     assert(nativeMapViewPtr != 0);
     NativeMapView *nativeMapView = reinterpret_cast<NativeMapView *>(nativeMapViewPtr);
-    nativeMapView->getMap().setStyleURL(std_string_from_jstring(env, url));
+    nativeMapView->getMap().setStyleURL(std_string_from_jstring(env, url), maxZoomLimit);
 }
 
 jni::jstring* nativeGetStyleUrl(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr){
@@ -444,16 +444,22 @@ jni::jstring* nativeGetStyleUrl(JNIEnv *env, jni::jobject* obj, jlong nativeMapV
     return std_string_to_jstring(env, nativeMapView->getMap().getStyleURL());
 }
 
-void nativeSetStyleJson(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr, jni::jstring* newStyleJson) {
+void nativeSetStyleJson(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr, jni::jstring* newStyleJson, jbyte maxZoomLimit) {
     assert(nativeMapViewPtr != 0);
     NativeMapView *nativeMapView = reinterpret_cast<NativeMapView *>(nativeMapViewPtr);
-    nativeMapView->getMap().setStyleJSON(std_string_from_jstring(env, newStyleJson));
+    nativeMapView->getMap().setStyleJSON(std_string_from_jstring(env, newStyleJson), maxZoomLimit);
 }
 
 jni::jstring* nativeGetStyleJson(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr) {
     assert(nativeMapViewPtr != 0);
     NativeMapView *nativeMapView = reinterpret_cast<NativeMapView *>(nativeMapViewPtr);
     return std_string_to_jstring(env, nativeMapView->getMap().getStyleJSON());
+}
+
+jni::jbyte nativeGetMaxZoomLimit(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr){
+    assert(nativeMapViewPtr != 0);
+    NativeMapView *nativeMapView = reinterpret_cast<NativeMapView *>(nativeMapViewPtr);
+    return nativeMapView->getMap().getMaxZoomLimit();
 }
 
 void nativeSetAccessToken(JNIEnv *env, jni::jobject* obj, jlong nativeMapViewPtr, jni::jstring* accessToken) {
@@ -1885,10 +1891,11 @@ void registerNatives(JavaVM *vm) {
         MAKE_NATIVE_METHOD(nativeHasClass, "(JLjava/lang/String;)Z"),
         MAKE_NATIVE_METHOD(nativeSetClasses, "(JLjava/util/List;)V"),
         MAKE_NATIVE_METHOD(nativeGetClasses, "(J)Ljava/util/List;"),
-        MAKE_NATIVE_METHOD(nativeSetStyleUrl, "(JLjava/lang/String;)V"),
+        MAKE_NATIVE_METHOD(nativeSetStyleUrl, "(JLjava/lang/String;B)V"),
         MAKE_NATIVE_METHOD(nativeGetStyleUrl, "(J)Ljava/lang/String;"),
-        MAKE_NATIVE_METHOD(nativeSetStyleJson, "(JLjava/lang/String;)V"),
+        MAKE_NATIVE_METHOD(nativeSetStyleJson, "(JLjava/lang/String;B)V"),
         MAKE_NATIVE_METHOD(nativeGetStyleJson, "(J)Ljava/lang/String;"),
+        MAKE_NATIVE_METHOD(nativeGetMaxZoomLimit, "(J)B"),
         MAKE_NATIVE_METHOD(nativeSetAccessToken, "(JLjava/lang/String;)V"),
         MAKE_NATIVE_METHOD(nativeGetAccessToken, "(J)Ljava/lang/String;"),
         MAKE_NATIVE_METHOD(nativeCancelTransitions, "(J)V"),
