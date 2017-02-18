@@ -1042,7 +1042,22 @@ public:
 }
 
 - (void)zoomBy:(double)zoomDelta animated:(BOOL)animated {
-    [self setZoomLevel:self.zoomLevel + zoomDelta animated:animated];
+    [self setZoomLevel:round(self.zoomLevel) + zoomDelta animated:animated];
+}
+
+- (void)zoomBy:(double)zoomDelta atPoint:(NSPoint)point animated:(BOOL)animated {
+    [self willChangeValueForKey:@"centerCoordinate"];
+    [self willChangeValueForKey:@"zoomLevel"];
+    double newZoom = round(self.zoomLevel) + zoomDelta;
+    MGLMapCamera *oldCamera = self.camera;
+    mbgl::ScreenCoordinate center(point.x, self.bounds.size.height - point.y);
+    _mbglMap->setZoom(newZoom, center, MGLDurationInSecondsFromTimeInterval(animated ? MGLAnimationDuration : 0));
+    if ([self.delegate respondsToSelector:@selector(mapView:shouldChangeFromCamera:toCamera:)]
+        && ![self.delegate mapView:self shouldChangeFromCamera:oldCamera toCamera:self.camera]) {
+        self.camera = oldCamera;
+    }
+    [self didChangeValueForKey:@"zoomLevel"];
+    [self didChangeValueForKey:@"centerCoordinate"];
 }
 
 - (void)scaleBy:(double)scaleFactor atPoint:(NSPoint)point animated:(BOOL)animated {
@@ -1500,7 +1515,7 @@ public:
     _mbglMap->cancelTransitions();
 
     NSPoint gesturePoint = [gestureRecognizer locationInView:self];
-    [self scaleBy:2 atPoint:gesturePoint animated:YES];
+    [self zoomBy:1 atPoint:gesturePoint animated:YES];
 }
 
 - (void)smartMagnifyWithEvent:(NSEvent *)event {
@@ -1512,7 +1527,7 @@ public:
 
     // Tap with two fingers (“right-click”) to zoom out on mice but not trackpads.
     NSPoint gesturePoint = [self convertPoint:event.locationInWindow fromView:nil];
-    [self scaleBy:0.5 atPoint:gesturePoint animated:YES];
+    [self zoomBy:-1 atPoint:gesturePoint animated:YES];
 }
 
 /// Rotate fingers to rotate.
@@ -1618,13 +1633,40 @@ public:
 #pragma mark Keyboard events
 
 - (void)keyDown:(NSEvent *)event {
-    if (event.modifierFlags & NSNumericPadKeyMask) {
-        // This is the recommended way to handle arrow key presses, causing
-        // methods like -moveUp: and -moveToBeginningOfParagraph: to be called
-        // for various standard keybindings.
-        [self interpretKeyEvents:@[event]];
-    } else {
-        [super keyDown:event];
+    // This is the recommended way to handle arrow key presses, causing
+    // methods like -moveUp: and -moveToBeginningOfParagraph: to be called
+    // for various standard keybindings.
+    [self interpretKeyEvents:@[event]];
+}
+
+// The following action methods are declared in NSResponder.h.
+
+- (void)insertTab:(id)sender {
+    if (self.window.firstResponder == self) {
+        [self.window selectNextKeyView:self];
+    }
+}
+
+- (void)insertBacktab:(id)sender {
+    if (self.window.firstResponder == self) {
+        [self.window selectPreviousKeyView:self];
+    }
+}
+
+- (void)insertText:(NSString *)insertString {
+    switch (insertString.length == 1 ? [insertString characterAtIndex:0] : 0) {
+        case '-':
+            [self moveToEndOfParagraph:nil];
+            break;
+            
+        case '+':
+        case '=':
+            [self moveToBeginningOfParagraph:nil];
+            break;
+            
+        default:
+            [super insertText:insertString];
+            break;
     }
 }
 
