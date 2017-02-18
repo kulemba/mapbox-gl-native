@@ -537,7 +537,13 @@ double Map::getScale() const {
 
 void Map::setZoom(double zoom, const Duration& duration) {
     impl->cameraMutated = true;
-    setZoom(zoom, {}, duration);
+    setZoom(zoom, optional<EdgeInsets> {}, duration);
+}
+
+void Map::setZoom(double zoom, optional<ScreenCoordinate> anchor, const Duration& duration) {
+    impl->cameraMutated = true;
+    impl->transform.setZoom(zoom, anchor, duration);
+    impl->onUpdate(Update::RecalculateStyle);
 }
 
 void Map::setZoom(double zoom, optional<EdgeInsets> padding, const Duration& duration) {
@@ -918,8 +924,6 @@ void Map::addImage(const std::string& name, std::unique_ptr<const SpriteImage> i
 
     impl->styleMutated = true;
     impl->style->spriteAtlas->setSprite(name, std::move(image));
-    impl->style->spriteAtlas->updateDirty();
-
     impl->onUpdate(Update::Repaint);
 }
 
@@ -930,8 +934,6 @@ void Map::removeImage(const std::string& name) {
 
     impl->styleMutated = true;
     impl->style->spriteAtlas->removeSprite(name);
-    impl->style->spriteAtlas->updateDirty();
-
     impl->onUpdate(Update::Repaint);
 }
 
