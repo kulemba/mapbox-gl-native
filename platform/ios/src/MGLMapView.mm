@@ -2988,14 +2988,17 @@ public:
     BOOL delegateImplementsViewForAnnotation = [self.delegate respondsToSelector:@selector(mapView:viewForAnnotation:)];
     BOOL delegateImplementsImageForPoint = [self.delegate respondsToSelector:@selector(mapView:imageForAnnotation:)];
 
-    NSMutableArray *newAnnotationViews = [[NSMutableArray alloc] initWithCapacity:annotations.count];
+    NSSet *deduplicatedAnnotations = [NSSet setWithArray:annotations];
+    NSArray *existingAnnotations = self.annotations;
+    
+    NSMutableArray *newAnnotationViews = [[NSMutableArray alloc] initWithCapacity:deduplicatedAnnotations.count];
 
-    for (id <MGLAnnotation> annotation in annotations)
+    for (id <MGLAnnotation> annotation in deduplicatedAnnotations)
     {
         NSAssert([annotation conformsToProtocol:@protocol(MGLAnnotation)], @"annotation should conform to MGLAnnotation");
 
         // adding the same annotation object twice is a no-op
-        if ([self.annotations containsObject:annotation])
+        if ([existingAnnotations containsObject:annotation])
         {
             continue;
         }
