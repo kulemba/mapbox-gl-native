@@ -11,6 +11,7 @@
 #import "MGLMultiPoint_Private.h"
 #import "MGLOfflineStorage_Private.h"
 #import "MGLStyle_Private.h"
+#import "MGLFoundation_Private.h"
 
 #import "MGLAccountManager.h"
 #import "MGLMapCamera.h"
@@ -35,6 +36,7 @@
 #import <mbgl/util/constants.hpp>
 #import <mbgl/util/chrono.hpp>
 #import <mbgl/util/run_loop.hpp>
+#import <mbgl/util/shared_thread_pool.hpp>
 
 #import <map>
 #import <unordered_map>
@@ -105,11 +107,6 @@ NSImage *MGLDefaultMarkerImage() {
     return [[NSImage alloc] initWithContentsOfFile:path];
 }
 
-/// Initializes the run loop shim that lives on the main thread.
-void MGLinitializeRunLoop() {
-    static mbgl::util::RunLoop mainRunLoop;
-}
-
 /// Converts a media timing function into a unit bezier object usable in mbgl.
 mbgl::util::UnitBezier MGLUnitBezierForMediaTimingFunction(CAMediaTimingFunction *function) {
     if (!function) {
@@ -151,7 +148,7 @@ public:
     /// Cross-platform map view controller.
     mbgl::Map *_mbglMap;
     MGLMapViewImpl *_mbglView;
-    mbgl::ThreadPool *_mbglThreadPool;
+    std::shared_ptr<mbgl::ThreadPool> _mbglThreadPool;
 
     NSPanGestureRecognizer *_panGestureRecognizer;
     NSMagnificationGestureRecognizer *_magnificationGestureRecognizer;
@@ -246,8 +243,6 @@ public:
 }
 
 - (void)commonInit {
-    MGLinitializeRunLoop();
-
     _isTargetingInterfaceBuilder = NSProcessInfo.processInfo.mgl_isInterfaceBuilderDesignablesAgent;
 
     // Set up cross-platform controllers and resources.
@@ -267,7 +262,7 @@ public:
 
     mbgl::DefaultFileSource* mbglFileSource = [MGLOfflineStorage sharedOfflineStorage].mbglFileSource;
 
-    _mbglThreadPool = new mbgl::ThreadPool(4);
+    _mbglThreadPool = mbgl::sharedThreadPool();
     _mbglMap = new mbgl::Map(*_mbglView, self.size, [NSScreen mainScreen].backingScaleFactor, *mbglFileSource, *_mbglThreadPool, mbgl::MapMode::Continuous, mbgl::GLContextMode::Unique, mbgl::ConstrainMode::None, mbgl::ViewportMode::Default);
     [self validateTileCacheSize];
 
@@ -522,10 +517,6 @@ public:
         delete _mbglView;
         _mbglView = nullptr;
     }
-    if (_mbglThreadPool) {
-        delete _mbglThreadPool;
-        _mbglThreadPool = nullptr;
-    }
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(__unused NSDictionary *)change context:(void *)context {
@@ -625,12 +616,13 @@ public:
 
     // Default to Streets.
     if (!styleURL) {
-        // An access token is required to load any default style, including
-        // Streets.
-        if (![MGLAccountManager accessToken]) {
-            return;
-        }
         styleURL = [MGLStyle streetsStyleURLWithVersion:MGLStyleDefaultVersion];
+    }
+    
+    // An access token is required to load any default style, including Streets.
+    if (![MGLAccountManager accessToken] && [styleURL.scheme isEqualToString:@"mapbox"]) {
+        NSLog(@"Cannot set the style URL to %@ because no access token has been specified.", styleURL);
+        return;
     }
 
     styleURL = styleURL.mgl_URLByStandardizingScheme;
@@ -1152,12 +1144,6 @@ public:
 }
 
 - (void)setCamera:(MGLMapCamera *)camera withDuration:(NSTimeInterval)duration animationTimingFunction:(nullable CAMediaTimingFunction *)function completionHandler:(nullable void (^)(void))completion {
-    _mbglMap->cancelTransitions();
-    if ([self.camera isEqual:camera]) {
-        return;
-    }
-
-    mbgl::CameraOptions cameraOptions = [self cameraOptionsObjectForAnimatingToCamera:camera];
     mbgl::AnimationOptions animationOptions;
     if (duration > 0) {
         animationOptions.duration.emplace(MGLDurationInSecondsFromTimeInterval(duration));
@@ -1173,8 +1159,19 @@ public:
             });
         };
     }
+    
+    if ([self.camera isEqualToMapCamera:camera]) {
+        if (completion) {
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(duration * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                completion();
+            });
+        }
+        return;
+    }
 
     [self willChangeValueForKey:@"camera"];
+    _mbglMap->cancelTransitions();
+    mbgl::CameraOptions cameraOptions = [self cameraOptionsObjectForAnimatingToCamera:camera];
     _mbglMap->easeTo(cameraOptions, animationOptions);
     [self didChangeValueForKey:@"camera"];
 }
@@ -1188,12 +1185,6 @@ public:
 }
 
 - (void)flyToCamera:(MGLMapCamera *)camera withDuration:(NSTimeInterval)duration peakAltitude:(CLLocationDistance)peakAltitude completionHandler:(nullable void (^)(void))completion {
-    _mbglMap->cancelTransitions();
-    if ([self.camera isEqual:camera]) {
-        return;
-    }
-
-    mbgl::CameraOptions cameraOptions = [self cameraOptionsObjectForAnimatingToCamera:camera];
     mbgl::AnimationOptions animationOptions;
     if (duration >= 0) {
         animationOptions.duration = MGLDurationInSecondsFromTimeInterval(duration);
@@ -1214,8 +1205,19 @@ public:
             });
         };
     }
+    
+    if ([self.camera isEqualToMapCamera:camera]) {
+        if (completion) {
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(duration * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                completion();
+            });
+        }
+        return;
+    }
 
     [self willChangeValueForKey:@"camera"];
+    _mbglMap->cancelTransitions();
+    mbgl::CameraOptions cameraOptions = [self cameraOptionsObjectForAnimatingToCamera:camera];
     _mbglMap->flyTo(cameraOptions, animationOptions);
     [self didChangeValueForKey:@"camera"];
 }
@@ -1263,6 +1265,11 @@ public:
     mbgl::AnimationOptions animationOptions;
     if (animated) {
         animationOptions.duration = MGLDurationInSecondsFromTimeInterval(MGLAnimationDuration);
+    }
+    
+    MGLMapCamera *camera = [self cameraForCameraOptions:cameraOptions];
+    if ([self.camera isEqualToMapCamera:camera]) {
+        return;
     }
 
     [self willChangeValueForKey:@"visibleCoordinateBounds"];

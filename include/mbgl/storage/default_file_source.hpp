@@ -36,6 +36,8 @@ public:
     void setAccessToken(const std::string&);
     std::string getAccessToken() const;
 
+    void setResourceTransform(std::function<std::string(Resource::Kind, std::string&&)>);
+
     std::unique_ptr<AsyncRequest> request(const Resource&, Callback) override;
 
     /*
@@ -115,6 +117,9 @@ public:
     
     void addSupplementaryOfflineDatabase(Resource::Kind kind, optional<LatLngBounds> latLngBounds, const std::string& cachePath);
     void removeSupplementaryOfflineDatabases(const std::string& cachePath);
+
+    void pause();
+    void resume();
 
     // For testing only.
     void put(const Resource&, const Response&);
