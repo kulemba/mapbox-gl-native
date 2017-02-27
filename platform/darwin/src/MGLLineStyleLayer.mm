@@ -119,8 +119,9 @@ namespace mbgl {
 
 - (void)removeFromMapView:(MGLMapView *)mapView
 {
-    _pendingLayer = nullptr;
-    self.rawLayer = nullptr;
+    if (self.rawLayer != mapView.mbglMap->getLayer(self.identifier.UTF8String)) {
+        return;
+    }
 
     auto removedLayer = mapView.mbglMap->removeLayer(self.identifier.UTF8String);
     if (!removedLayer) {
