@@ -959,6 +959,8 @@ final class NativeMapView {
 
   private native String nativeGetStyleJson();
 
+  private native byte nativeGetMaxZoomLimit();
+
   private native void nativeCancelTransitions();
 
   private native void nativeSetGestureInProgress(boolean inProgress);

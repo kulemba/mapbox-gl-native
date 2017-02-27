@@ -257,18 +257,22 @@ jni::String NativeMapView::getStyleUrl(jni::JNIEnv& env) {
     return jni::Make<jni::String>(env, map->getStyleURL());
 }
 
-void NativeMapView::setStyleUrl(jni::JNIEnv& env, jni::String url) {
-    map->setStyleURL(jni::Make<std::string>(env, url));
+void NativeMapView::setStyleUrl(jni::JNIEnv& env, jni::String url, jni::jbyte maxZoomLimit) {
+    map->setStyleURL(jni::Make<std::string>(env, url), maxZoomLimit);
 }
 
 jni::String NativeMapView::getStyleJson(jni::JNIEnv& env) {
     return jni::Make<jni::String>(env, map->getStyleJSON());
 }
 
-void NativeMapView::setStyleJson(jni::JNIEnv& env, jni::String json) {
-    map->setStyleJSON(jni::Make<std::string>(env, json));
+void NativeMapView::setStyleJson(jni::JNIEnv& env, jni::String json, jni::jbyte maxZoomLimit) {
+    map->setStyleJSON(jni::Make<std::string>(env, json), maxZoomLimit);
 }
 
+jni::jbyte NativeMapView::getMaxZoomLimit(jni::JNIEnv&) {
+    return map->getMaxZoomLimit();
+}
+    
 void NativeMapView::cancelTransitions(jni::JNIEnv&) {
     map->cancelTransitions();
 }
@@ -1275,6 +1279,7 @@ void NativeMapView::registerNative(jni::JNIEnv& env) {
             METHOD(&NativeMapView::setStyleUrl, "nativeSetStyleUrl"),
             METHOD(&NativeMapView::getStyleJson, "nativeGetStyleJson"),
             METHOD(&NativeMapView::setStyleJson, "nativeSetStyleJson"),
+            METHOD(&NativeMapView::getMaxZoomLimit, "nativeGetMaxZoomLimit"),
             METHOD(&NativeMapView::cancelTransitions, "nativeCancelTransitions"),
             METHOD(&NativeMapView::setGestureInProgress, "nativeSetGestureInProgress"),
             METHOD(&NativeMapView::moveBy, "nativeMoveBy"),
