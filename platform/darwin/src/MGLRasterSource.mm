@@ -82,9 +82,20 @@ static const CGFloat MGLRasterSourceRetinaTileSize = 512;
 }
 
 - (void)removeFromMapView:(MGLMapView *)mapView {
+    if (self.rawSource != mapView.mbglMap->getSource(self.identifier.UTF8String)) {
+        return;
+    }
+
     auto removedSource = mapView.mbglMap->removeSource(self.identifier.UTF8String);
 
-    _pendingSource = std::move(reinterpret_cast<std::unique_ptr<mbgl::style::RasterSource> &>(removedSource));
+    mbgl::style::RasterSource *source = dynamic_cast<mbgl::style::RasterSource *>(removedSource.get());
+    if (!source) {
+        return;
+    }
+
+    removedSource.release();
+
+    _pendingSource = std::unique_ptr<mbgl::style::RasterSource>(source);
     self.rawSource = _pendingSource.get();
 }
 
