@@ -86,9 +86,20 @@ const MGLShapeSourceOption MGLShapeSourceOptionSimplificationTolerance = @"MGLSh
 }
 
 - (void)removeFromMapView:(MGLMapView *)mapView {
+    if (self.rawSource != mapView.mbglMap->getSource(self.identifier.UTF8String)) {
+        return;
+    }
+
     auto removedSource = mapView.mbglMap->removeSource(self.identifier.UTF8String);
 
-    _pendingSource = std::move(reinterpret_cast<std::unique_ptr<mbgl::style::GeoJSONSource> &>(removedSource));
+    mbgl::style::GeoJSONSource *source = dynamic_cast<mbgl::style::GeoJSONSource *>(removedSource.get());
+    if (!source) {
+        return;
+    }
+
+    removedSource.release();
+
+    _pendingSource = std::unique_ptr<mbgl::style::GeoJSONSource>(source);
     self.rawSource = _pendingSource.get();
 }
 
