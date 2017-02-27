@@ -16,7 +16,6 @@ import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
 
-import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.annotations.Annotation;
 import com.mapbox.mapboxsdk.annotations.BaseMarkerOptions;
 import com.mapbox.mapboxsdk.annotations.BaseMarkerViewOptions;
@@ -38,8 +37,6 @@ import com.mapbox.mapboxsdk.constants.Style;
 import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.maps.widgets.MyLocationViewSettings;
 import com.mapbox.mapboxsdk.style.layers.Layer;
-import com.mapbox.mapboxsdk.style.layers.NoSuchLayerException;
-import com.mapbox.mapboxsdk.style.sources.NoSuchSourceException;
 import com.mapbox.mapboxsdk.style.sources.Source;
 import com.mapbox.services.commons.geojson.Feature;
 
@@ -262,10 +259,9 @@ public final class MapboxMap {
    * Removes the layer. Any references to the layer become invalid and should not be used anymore
    *
    * @param layerId the layer to remove
-   * @throws NoSuchLayerException the exception thrown when layer with layerId doesn't exist
    */
   @UiThread
-  public void removeLayer(@NonNull String layerId) throws NoSuchLayerException {
+  public void removeLayer(@NonNull String layerId) {
     nativeMapView.removeLayer(layerId);
   }
 
@@ -273,10 +269,9 @@ public final class MapboxMap {
    * Removes the layer. The reference is re-usable after this and can be re-added
    *
    * @param layer the layer to remove
-   * @throws NoSuchLayerException the exeption thrown when the layer doesn't exist
    */
   @UiThread
-  public void removeLayer(@NonNull Layer layer) throws NoSuchLayerException {
+  public void removeLayer(@NonNull Layer layer) {
     nativeMapView.removeLayer(layer);
   }
 
@@ -319,10 +314,9 @@ public final class MapboxMap {
    * Removes the source. Any references to the source become invalid and should not be used anymore
    *
    * @param sourceId the source to remove
-   * @throws NoSuchSourceException the exception thrown when the source with sourceId doesn't exist
    */
   @UiThread
-  public void removeSource(@NonNull String sourceId) throws NoSuchSourceException {
+  public void removeSource(@NonNull String sourceId) {
     nativeMapView.removeSource(sourceId);
   }
 
@@ -330,10 +324,9 @@ public final class MapboxMap {
    * Removes the source, preserving the reverence for re-use
    *
    * @param source the source to remove
-   * @throws NoSuchSourceException the exception thrown when the source with sourceId doesn't exist
    */
   @UiThread
-  public void removeSource(@NonNull Source source) throws NoSuchSourceException {
+  public void removeSource(@NonNull Source source) {
     nativeMapView.removeSource(source);
   }
 
@@ -872,10 +865,6 @@ public final class MapboxMap {
   private void setStyleUrl(@NonNull MapboxMapOptions options) {
     String style = options.getStyle();
     if (!TextUtils.isEmpty(style)) {
-      // stopgap for https://github.com/mapbox/mapbox-gl-native/issues/6242
-      if (TextUtils.isEmpty(nativeMapView.getAccessToken())) {
-        nativeMapView.setAccessToken(Mapbox.getAccessToken());
-      }
       setStyleUrl(style);
     }
   }
