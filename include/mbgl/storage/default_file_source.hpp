@@ -36,6 +36,8 @@ public:
     void setAccessToken(const std::string&);
     std::string getAccessToken() const;
 
+    void setResourceTransform(std::function<std::string(Resource::Kind, std::string&&)>);
+
     std::unique_ptr<AsyncRequest> request(const Resource&, Callback) override;
 
     /*
@@ -112,6 +114,9 @@ public:
      * by the Mapbox Terms of Service.
      */
     void setOfflineMapboxTileCountLimit(uint64_t) const;
+
+    void pause();
+    void resume();
 
     // For testing only.
     void put(const Resource&, const Response&);
