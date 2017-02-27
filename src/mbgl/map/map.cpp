@@ -2,6 +2,7 @@
 #include <mbgl/map/camera.hpp>
 #include <mbgl/map/view.hpp>
 #include <mbgl/map/backend.hpp>
+#include <mbgl/map/backend_scope.hpp>
 #include <mbgl/map/transform.hpp>
 #include <mbgl/map/transform_state.hpp>
 #include <mbgl/annotation/annotation_manager.hpp>
@@ -481,9 +482,9 @@ void Map::flyTo(const CameraOptions& camera, const AnimationOptions& animation) 
 
 #pragma mark - Position
 
-void Map::moveBy(const ScreenCoordinate& point, const Duration& duration) {
+void Map::moveBy(const ScreenCoordinate& point, const AnimationOptions& animation) {
     impl->cameraMutated = true;
-    impl->transform.moveBy(point, duration);
+    impl->transform.moveBy(point, animation);
     impl->onUpdate(Update::Repaint);
 }
 

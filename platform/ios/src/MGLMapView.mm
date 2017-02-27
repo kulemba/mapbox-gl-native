@@ -29,12 +29,14 @@
 #include <mbgl/util/default_styles.hpp>
 #include <mbgl/util/chrono.hpp>
 #include <mbgl/util/run_loop.hpp>
+#include <mbgl/util/shared_thread_pool.hpp>
 
 #import "Mapbox.h"
 #import "MGLFeature_Private.h"
 #import "MGLGeometry_Private.h"
 #import "MGLMultiPoint_Private.h"
 #import "MGLOfflineStorage_Private.h"
+#import "MGLFoundation_Private.h"
 
 #import "NSBundle+MGLAdditions.h"
 #import "NSDate+MGLAdditions.h"
@@ -135,11 +137,6 @@ typedef std::unordered_map<MGLAnnotationTag, MGLAnnotationContext> MGLAnnotation
 
 /// Mapping from an annotation object to an annotation tag.
 typedef std::map<id<MGLAnnotation>, MGLAnnotationTag> MGLAnnotationObjectTagMap;
-
-/// Initializes the run loop shim that lives on the main thread.
-void MGLinitializeRunLoop() {
-    static mbgl::util::RunLoop mainRunLoop;
-}
 
 mbgl::util::UnitBezier MGLUnitBezierForMediaTimingFunction(CAMediaTimingFunction *function)
 {
@@ -269,7 +266,7 @@ public:
 {
     mbgl::Map *_mbglMap;
     MBGLView *_mbglView;
-    mbgl::ThreadPool *_mbglThreadPool;
+    std::shared_ptr<mbgl::ThreadPool> _mbglThreadPool;
 
     BOOL _opaque;
 
@@ -409,8 +406,6 @@ public:
 
 - (void)commonInit
 {
-    MGLinitializeRunLoop();
-
     _isTargetingInterfaceBuilder = NSProcessInfo.processInfo.mgl_isInterfaceBuilderDesignablesAgent;
     _opaque = NO;
 
@@ -442,7 +437,7 @@ public:
     // setup mbgl map
     mbgl::DefaultFileSource *mbglFileSource = [MGLOfflineStorage sharedOfflineStorage].mbglFileSource;
     const float scaleFactor = [UIScreen instancesRespondToSelector:@selector(nativeScale)] ? [[UIScreen mainScreen] nativeScale] : [[UIScreen mainScreen] scale];
-    _mbglThreadPool = new mbgl::ThreadPool(4);
+    _mbglThreadPool = mbgl::sharedThreadPool();
     _mbglMap = new mbgl::Map(*_mbglView, self.size, scaleFactor, *mbglFileSource, *_mbglThreadPool, mbgl::MapMode::Continuous, mbgl::GLContextMode::Unique, mbgl::ConstrainMode::None, mbgl::ViewportMode::Default);
     [self validateTileCacheSize];
 
@@ -708,12 +703,6 @@ public:
     {
         delete _mbglView;
         _mbglView = nullptr;
-    }
-
-    if (_mbglThreadPool)
-    {
-        delete _mbglThreadPool;
-        _mbglThreadPool = nullptr;
     }
 
     if ([[EAGLContext currentContext] isEqual:_context])
@@ -2487,9 +2476,6 @@ public:
 
 - (void)_setCenterCoordinate:(CLLocationCoordinate2D)centerCoordinate edgePadding:(UIEdgeInsets)insets zoomLevel:(double)zoomLevel direction:(CLLocationDirection)direction duration:(NSTimeInterval)duration animationTimingFunction:(nullable CAMediaTimingFunction *)function completionHandler:(nullable void (^)(void))completion
 {
-    _mbglMap->cancelTransitions();
-    [self.userLocationAnnotationView.layer removeAllAnimations];
-
     mbgl::CameraOptions cameraOptions;
     cameraOptions.center = MGLLatLngFromLocationCoordinate2D(centerCoordinate);
     cameraOptions.padding = MGLEdgeInsetsFromNSEdgeInsets(insets);
@@ -2516,6 +2502,21 @@ public:
             });
         };
     }
+    
+    MGLMapCamera *camera = [self cameraForCameraOptions:cameraOptions];
+    if ([self.camera isEqualToMapCamera:camera])
+    {
+        if (completion)
+        {
+            [self animateWithDelay:duration animations:^{
+                completion();
+            }];
+        }
+        return;
+    }
+    
+    _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
     _mbglMap->easeTo(cameraOptions, animationOptions);
 }
 
@@ -2635,10 +2636,6 @@ public:
 
 - (void)_setVisibleCoordinates:(const CLLocationCoordinate2D *)coordinates count:(NSUInteger)count edgePadding:(UIEdgeInsets)insets direction:(CLLocationDirection)direction duration:(NSTimeInterval)duration animationTimingFunction:(nullable CAMediaTimingFunction *)function completionHandler:(nullable void (^)(void))completion
 {
-    _mbglMap->cancelTransitions();
-    [self.userLocationAnnotationView.layer removeAllAnimations];
-
-    [self willChangeValueForKey:@"visibleCoordinateBounds"];
     mbgl::EdgeInsets padding = MGLEdgeInsetsFromNSEdgeInsets(insets);
     padding += MGLEdgeInsetsFromNSEdgeInsets(self.contentInset);
     std::vector<mbgl::LatLng> latLngs;
@@ -2668,6 +2665,22 @@ public:
             });
         };
     }
+    
+    MGLMapCamera *camera = [self cameraForCameraOptions:cameraOptions];
+    if ([self.camera isEqualToMapCamera:camera])
+    {
+        if (completion)
+        {
+            [self animateWithDelay:duration animations:^{
+                completion();
+            }];
+        }
+        return;
+    }
+    
+    [self willChangeValueForKey:@"visibleCoordinateBounds"];
+    _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
     _mbglMap->easeTo(cameraOptions, animationOptions);
     [self didChangeValueForKey:@"visibleCoordinateBounds"];
 }
@@ -2754,15 +2767,6 @@ public:
 
 - (void)setCamera:(MGLMapCamera *)camera withDuration:(NSTimeInterval)duration animationTimingFunction:(nullable CAMediaTimingFunction *)function completionHandler:(nullable void (^)(void))completion
 {
-    self.userTrackingMode = MGLUserTrackingModeNone;
-    _mbglMap->cancelTransitions();
-    [self.userLocationAnnotationView.layer removeAllAnimations];
-    if ([self.camera isEqual:camera])
-    {
-        return;
-    }
-
-    mbgl::CameraOptions cameraOptions = [self cameraOptionsObjectForAnimatingToCamera:camera edgePadding:self.contentInset];
     mbgl::AnimationOptions animationOptions;
     if (duration > 0)
     {
@@ -2777,8 +2781,22 @@ public:
             });
         };
     }
+    
+    if ([self.camera isEqualToMapCamera:camera])
+    {
+        if (completion)
+        {
+            [self animateWithDelay:duration animations:^{
+                completion();
+            }];
+        }
+        return;
+    }
 
     [self willChangeValueForKey:@"camera"];
+    _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
+    mbgl::CameraOptions cameraOptions = [self cameraOptionsObjectForAnimatingToCamera:camera edgePadding:self.contentInset];
     _mbglMap->easeTo(cameraOptions, animationOptions);
     [self didChangeValueForKey:@"camera"];
 }
@@ -2795,21 +2813,11 @@ public:
 
 - (void)flyToCamera:(MGLMapCamera *)camera withDuration:(NSTimeInterval)duration peakAltitude:(CLLocationDistance)peakAltitude completionHandler:(nullable void (^)(void))completion
 {
-    self.userTrackingMode = MGLUserTrackingModeNone;
-
     [self _flyToCamera:camera edgePadding:self.contentInset withDuration:duration peakAltitude:peakAltitude completionHandler:completion];
 }
 
 - (void)_flyToCamera:(MGLMapCamera *)camera edgePadding:(UIEdgeInsets)insets withDuration:(NSTimeInterval)duration peakAltitude:(CLLocationDistance)peakAltitude completionHandler:(nullable void (^)(void))completion
 {
-    _mbglMap->cancelTransitions();
-    [self.userLocationAnnotationView.layer removeAllAnimations];
-    if ([self.camera isEqual:camera])
-    {
-        return;
-    }
-
-    mbgl::CameraOptions cameraOptions = [self cameraOptionsObjectForAnimatingToCamera:camera edgePadding:insets];
     mbgl::AnimationOptions animationOptions;
     if (duration >= 0)
     {
@@ -2830,8 +2838,22 @@ public:
             });
         };
     }
+    
+    if ([self.camera isEqualToMapCamera:camera])
+    {
+        if (completion)
+        {
+            [self animateWithDelay:duration animations:^{
+                completion();
+            }];
+        }
+        return;
+    }
 
     [self willChangeValueForKey:@"camera"];
+    _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
+    mbgl::CameraOptions cameraOptions = [self cameraOptionsObjectForAnimatingToCamera:camera edgePadding:insets];
     _mbglMap->flyTo(cameraOptions, animationOptions);
     [self didChangeValueForKey:@"camera"];
 }
@@ -4093,14 +4115,13 @@ public:
     {
         self.locationManager = [[CLLocationManager alloc] init];
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 80000
         if ([CLLocationManager instancesRespondToSelector:@selector(requestWhenInUseAuthorization)] && [CLLocationManager authorizationStatus] == kCLAuthorizationStatusNotDetermined)
         {
             BOOL hasLocationDescription = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"NSLocationAlwaysUsageDescription"] || [[NSBundle mainBundle] objectForInfoDictionaryKey:@"NSLocationWhenInUseUsageDescription"];
             if (!hasLocationDescription)
             {
                 [NSException raise:@"Missing Location Services usage description" format:
-                 @"In iOS 8 and above, this app must have a value for NSLocationAlwaysUsageDescription or NSLocationWhenInUseUsageDescription in its Info.plist."];
+                 @"This app must have a value for NSLocationAlwaysUsageDescription or NSLocationWhenInUseUsageDescription in its Info.plist."];
             }
 
             if ([[NSBundle mainBundle] objectForInfoDictionaryKey:@"NSLocationAlwaysUsageDescription"])
@@ -4112,7 +4133,6 @@ public:
                 [self.locationManager requestWhenInUseAuthorization];
             }
         }
-#endif
 
         self.locationManager.headingFilter = 5.0;
         self.locationManager.delegate = self;
