@@ -356,7 +356,7 @@ NSString * const MGLOfflinePackMaximumCountUserInfoKey = MGLOfflinePackUserInfoK
     return attributes.fileSize;
 }
 
-- (void)addSupplementaryOfflineDatabase:(NSString *)cachePath forResourceKind:(MGLResourceKind)resourceKind {
+- (void)addSupplementaryOfflineDatabase:(NSString *)cachePath forResourceKind:(MGLResourceKindMask)resourceKind {
     auto addSupplementaryOfflineDatabase = [self,cachePath](mbgl::Resource::Kind kind) {
         _mbglFileSource->addSupplementaryOfflineDatabase(kind, mbgl::optional<mbgl::LatLngBounds>(), cachePath.UTF8String);
     };
@@ -374,7 +374,7 @@ NSString * const MGLOfflinePackMaximumCountUserInfoKey = MGLOfflinePackUserInfoK
         addSupplementaryOfflineDatabase(mbgl::Resource::SpriteJSON);
 }
 
-- (void)addSupplementaryOfflineDatabase:(NSString *)cachePath forResourceKind:(MGLResourceKind)resourceKind andCoordinateBounds:(MGLCoordinateBounds)coordinateBounds {
+- (void)addSupplementaryOfflineDatabase:(NSString *)cachePath forResourceKind:(MGLResourceKindMask)resourceKind andCoordinateBounds:(MGLCoordinateBounds)coordinateBounds {
     auto addSupplementaryOfflineDatabase = [self,cachePath,coordinateBounds](mbgl::Resource::Kind kind) {
         _mbglFileSource->addSupplementaryOfflineDatabase(kind, mbgl::optional<mbgl::LatLngBounds>(MGLLatLngBoundsFromCoordinateBounds(coordinateBounds)), cachePath.UTF8String);
     };
