@@ -4303,8 +4303,6 @@ public:
 
             [self updateHeadingForDeviceOrientation];
 
-            [self.locationManager startUpdatingHeading];
-
             break;
         }
     }
