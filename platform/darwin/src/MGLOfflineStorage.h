@@ -10,7 +10,7 @@ NS_ASSUME_NONNULL_BEGIN
 @protocol MGLOfflineRegion;
 @protocol MGLOfflineStorageDelegate;
 
-typedef NS_OPTIONS(NSUInteger, MGLResourceKind) {
+typedef NS_OPTIONS(NSUInteger, MGLResourceKindMask) {
     MGLResourceNone = 0,
     MGLResourceStyle = 1 << 0,
     MGLResourceSource = 1 << 1,
@@ -298,9 +298,9 @@ MGL_EXPORT
  */
 @property (nonatomic, readonly) unsigned long long countOfBytesCompleted;
 
-- (void)addSupplementaryOfflineDatabase:(NSString *)cachePath forResourceKind:(MGLResourceKind)resourceKind;
+- (void)addSupplementaryOfflineDatabase:(NSString *)cachePath forResourceKind:(MGLResourceKindMask)resourceKind;
 
-- (void)addSupplementaryOfflineDatabase:(NSString *)cachePath forResourceKind:(MGLResourceKind)resourceKind andCoordinateBounds:(MGLCoordinateBounds)coordinateBounds;
+- (void)addSupplementaryOfflineDatabase:(NSString *)cachePath forResourceKind:(MGLResourceKindMask)resourceKind andCoordinateBounds:(MGLCoordinateBounds)coordinateBounds;
 
 - (void)removeSupplementaryOfflineDatabases:(NSString *)cachePath;
 
