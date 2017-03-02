@@ -4193,8 +4193,6 @@ public:
         {
             self.userTrackingState = MGLUserTrackingStatePossible;
 
-            [self.locationManager stopUpdatingHeading];
-
             // Immediately update the annotation view; other cases update inside
             // the locationManager:didUpdateLocations: method.
             [self updateUserLocationAnnotationView];
@@ -4236,8 +4234,6 @@ public:
             }
 
             [self updateHeadingForDeviceOrientation];
-
-            [self.locationManager startUpdatingHeading];
 
             break;
         }
