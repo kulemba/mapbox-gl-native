@@ -1,17 +1,13 @@
 package com.mapbox.mapboxsdk.offline;
 
 import android.content.Context;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 
-import com.mapbox.mapboxsdk.Mapbox;
-import com.mapbox.mapboxsdk.constants.MapboxConstants;
 import com.mapbox.mapboxsdk.geometry.LatLngBounds;
+import com.mapbox.mapboxsdk.storage.FileSource;
 
 import java.io.File;
 import java.lang.annotation.Retention;
@@ -33,18 +29,13 @@ public class OfflineManager {
     System.loadLibrary("mapbox-gl");
   }
 
-  // Default database name
-  private static final String DATABASE_NAME = "mbgl-offline.db";
 
-  /*
-   * The maximumCacheSize parameter is a limit applied to non-offline resources only,
-   * i.e. resources added to the database for the "ambient use" caching functionality.
-   * There is no size limit for offline resources.
-   */
-  private static final long DEFAULT_MAX_CACHE_SIZE = 50 * 1024 * 1024;
+  // Native peer pointer
+  private long nativePtr;
 
-  // Holds the pointer to JNI DefaultFileSource
-  private long mDefaultFileSourcePtr = 0;
+  // Reference to the file source to keep it alive for the
+  // lifetime of this object
+  private final FileSource fileSource;
 
   // Makes sure callbacks come back to the main thread
   private Handler handler;
@@ -106,75 +97,14 @@ public class OfflineManager {
   public static final int RESOURCE_SPRITEJSON = 1 << 5;
 
   /*
-   * Constructors
+   * Constructor
    */
   private OfflineManager(Context context) {
-    // Get a pointer to the DefaultFileSource instance
-    String assetRoot = getDatabasePath(context);
-    String cachePath = assetRoot + File.separator + DATABASE_NAME;
-    mDefaultFileSourcePtr = createDefaultFileSource(cachePath, assetRoot, DEFAULT_MAX_CACHE_SIZE);
-    setAccessToken(mDefaultFileSourcePtr, Mapbox.getAccessToken());
+    this.fileSource = FileSource.getInstance(context);
+    initialize(fileSource);
 
     // Delete any existing previous ambient cache database
     deleteAmbientDatabase(context);
-  }
-
-  public static String getDatabasePath(Context context) {
-    // Default value
-    boolean setStorageExternal = MapboxConstants.DEFAULT_SET_STORAGE_EXTERNAL;
-
-    try {
-      // Try getting a custom value from the app Manifest
-      ApplicationInfo appInfo = context.getPackageManager().getApplicationInfo(
-        context.getPackageName(), PackageManager.GET_META_DATA);
-      setStorageExternal = appInfo.metaData.getBoolean(
-        MapboxConstants.KEY_META_DATA_SET_STORAGE_EXTERNAL,
-        MapboxConstants.DEFAULT_SET_STORAGE_EXTERNAL);
-    } catch (PackageManager.NameNotFoundException exception) {
-      Timber.e("Failed to read the package metadata: ", exception);
-    } catch (Exception exception) {
-      Timber.e("Failed to read the storage key: ", exception);
-    }
-
-    String databasePath = null;
-    if (setStorageExternal && isExternalStorageReadable()) {
-      try {
-        // Try getting the external storage path
-        databasePath = context.getExternalFilesDir(null).getAbsolutePath();
-      } catch (NullPointerException exception) {
-        Timber.e("Failed to obtain the external storage path: ", exception);
-      }
-    }
-
-    if (databasePath == null) {
-      // Default to internal storage
-      databasePath = context.getFilesDir().getAbsolutePath();
-    }
-
-    return databasePath;
-  }
-
-  /**
-   * Checks if external storage is available to at least read. In order for this to work, make
-   * sure you include &lt;uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" /&gt;
-   * (or WRITE_EXTERNAL_STORAGE) for API level &lt; 18 in your app Manifest.
-   * <p>
-   * Code from https://developer.android.com/guide/topics/data/data-storage.html#filesExternal
-   * </p>
-   *
-   * @return true if external storage is readable
-   */
-  public static boolean isExternalStorageReadable() {
-    String state = Environment.getExternalStorageState();
-    if (Environment.MEDIA_MOUNTED.equals(state) || Environment.MEDIA_MOUNTED_READ_ONLY.equals(state)) {
-      return true;
-    }
-
-    Timber.w("External storage was requested but it isn't readable. For API level < 18"
-      + " make sure you've requested READ_EXTERNAL_STORAGE or WRITE_EXTERNAL_STORAGE"
-      + " permissions in your app Manifest (defaulting to internal storage).");
-
-    return false;
   }
 
   private void deleteAmbientDatabase(final Context context) {
@@ -222,7 +152,8 @@ public class OfflineManager {
    * @param callback the callback to be invoked
    */
   public void listOfflineRegions(@NonNull final ListOfflineRegionsCallback callback) {
-    listOfflineRegions(mDefaultFileSourcePtr, new ListOfflineRegionsCallback() {
+    listOfflineRegions(fileSource, new ListOfflineRegionsCallback() {
+
       @Override
       public void onList(final OfflineRegion[] offlineRegions) {
         getHandler().post(new Runnable() {
@@ -266,7 +197,8 @@ public class OfflineManager {
     @NonNull byte[] metadata,
     @NonNull final CreateOfflineRegionCallback callback) {
 
-    createOfflineRegion(mDefaultFileSourcePtr, definition, metadata, new CreateOfflineRegionCallback() {
+    createOfflineRegion(fileSource, definition, metadata, new CreateOfflineRegionCallback() {
+
       @Override
       public void onCreate(final OfflineRegion offlineRegion) {
         getHandler().post(new Runnable() {
@@ -289,49 +221,28 @@ public class OfflineManager {
     });
   }
 
-  /*
-  * Changing or bypassing this limit without permission from Mapbox is prohibited
-  * by the Mapbox Terms of Service.
-  */
-  public void setOfflineMapboxTileCountLimit(long limit) {
-    setOfflineMapboxTileCountLimit(mDefaultFileSourcePtr, limit);
-  }
-
   public void addSupplementaryOfflineDatabase(final String cachePath, @ResourceKind int resourceKind) {
     addSupplementaryOfflineDatabase(cachePath, resourceKind, null);
   }
 
-  public void addSupplementaryOfflineDatabase(final String cachePath, @ResourceKind int resourceKind, @NonNull LatLngBounds latLngBounds) {
-    addSupplementaryOfflineDatabase(mDefaultFileSourcePtr, cachePath, resourceKind, latLngBounds);
-  }
-
-  public void removeSupplementaryOfflineDatabases(final String cachePath) {
-    removeSupplementaryOfflineDatabases(mDefaultFileSourcePtr, cachePath);
-  }
-
-
   /*
-   * Native methods
-   */
-  private native long createDefaultFileSource(
-    String cachePath, String assetRoot, long maximumCacheSize);
+  * Changing or bypassing this limit without permission from Mapbox is prohibited
+  * by the Mapbox Terms of Service.
+  */
+  public native void setOfflineMapboxTileCountLimit(long limit);
 
-  private native void setAccessToken(long defaultFileSourcePtr, String accessToken);
+  private native void initialize(FileSource fileSource);
 
-  private native String getAccessToken(long defaultFileSourcePtr);
+  @Override
+  protected native void finalize() throws Throwable;
 
-  private native void listOfflineRegions(
-    long defaultFileSourcePtr, ListOfflineRegionsCallback callback);
+  private native void listOfflineRegions(FileSource fileSource, ListOfflineRegionsCallback callback);
 
-  private native void createOfflineRegion(
-    long defaultFileSourcePtr, OfflineRegionDefinition definition,
-    byte[] metadata, CreateOfflineRegionCallback callback);
+  private native void createOfflineRegion(FileSource fileSource, OfflineRegionDefinition definition,
+                                          byte[] metadata, CreateOfflineRegionCallback callback);
 
-  private native void setOfflineMapboxTileCountLimit(
-    long defaultFileSourcePtr, long limit);
+  public native void addSupplementaryOfflineDatabase(String cachePath, @ResourceKind int resourceKind, LatLngBounds latLngBounds);
 
-  private native void addSupplementaryOfflineDatabase(long defaultFileSourcePtr, String cachePath, int resourceKind, LatLngBounds latLngBounds);
-
-  private native void removeSupplementaryOfflineDatabases(long defaultFileSourcePtr, String cachePath);
+  public native void removeSupplementaryOfflineDatabases(String cachePath);
 
 }

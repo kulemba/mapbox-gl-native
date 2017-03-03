@@ -15,7 +15,7 @@ if ((ANDROID_ABI STREQUAL "armeabi") OR (ANDROID_ABI STREQUAL "armeabi-v7a") OR 
     set(CMAKE_SHARED_LINKER_FLAGS "-fuse-ld=gold -Wl,--icf=safe ${CMAKE_SHARED_LINKER_FLAGS}")
 endif()
 
-mason_use(jni.hpp VERSION 2.0.0-1 HEADER_ONLY)
+mason_use(jni.hpp VERSION 3.0.0 HEADER_ONLY)
 mason_use(libzip VERSION 1.1.3)
 mason_use(nunicode VERSION 1.7.1)
 mason_use(sqlite VERSION 3.14.2)
@@ -26,6 +26,10 @@ set(ANDROID_SDK_PROJECT_DIR ${CMAKE_SOURCE_DIR}/platform/android/MapboxGLAndroid
 set(ANDROID_JNI_TARGET_DIR ${ANDROID_SDK_PROJECT_DIR}/src/main/jniLibs/${ANDROID_ABI})
 set(ANDROID_ASSETS_TARGET_DIR ${ANDROID_SDK_PROJECT_DIR}/src/main/assets)
 set(ANDROID_TEST_APP_JNI_TARGET_DIR ${CMAKE_SOURCE_DIR}/platform/android/MapboxGLAndroidSDKTestApp/src/main/jniLibs/${ANDROID_ABI})
+
+if (NOT DEFINED ANDROID_TOOLCHAIN_PREFIX)
+    set(ANDROID_TOOLCHAIN_PREFIX "${MASON_XC_ROOT}/bin/${ANDROID_TOOLCHAIN}-")
+endif()
 
 ## mbgl core ##
 
@@ -71,6 +75,8 @@ macro(mbgl_platform_core)
         PRIVATE platform/android/src/image.cpp
 
         # Thread pool
+        PRIVATE platform/default/mbgl/util/shared_thread_pool.cpp
+        PRIVATE platform/default/mbgl/util/shared_thread_pool.hpp
         PRIVATE platform/default/mbgl/util/default_thread_pool.cpp
         PRIVATE platform/default/mbgl/util/default_thread_pool.hpp
 
@@ -129,6 +135,10 @@ macro(mbgl_platform_core)
         platform/android/src/style/functions/interval_stops.cpp
         platform/android/src/style/functions/interval_stops.hpp
 
+        # FileSource holder
+        platform/android/src/file_source.cpp
+        platform/android/src/file_source.hpp
+
         # Connectivity
         platform/android/src/connectivity_listener.cpp
         platform/android/src/connectivity_listener.hpp
@@ -136,6 +146,46 @@ macro(mbgl_platform_core)
         # Native map
         platform/android/src/native_map_view.cpp
         platform/android/src/native_map_view.hpp
+
+        # Java core classes
+        platform/android/src/java/util.cpp
+        platform/android/src/java/util.hpp
+
+        # Graphics
+        platform/android/src/graphics/pointf.cpp
+        platform/android/src/graphics/pointf.hpp
+        platform/android/src/graphics/rectf.cpp
+        platform/android/src/graphics/rectf.hpp
+
+        # Geometry
+        platform/android/src/geometry/feature.cpp
+        platform/android/src/geometry/feature.hpp
+        platform/android/src/geometry/lat_lng.cpp
+        platform/android/src/geometry/lat_lng.hpp
+        platform/android/src/geometry/lat_lng_bounds.cpp
+        platform/android/src/geometry/lat_lng_bounds.hpp
+        platform/android/src/geometry/projected_meters.cpp
+        platform/android/src/geometry/projected_meters.hpp
+
+        # Annotation
+        platform/android/src/annotation/marker.cpp
+        platform/android/src/annotation/marker.hpp
+        platform/android/src/annotation/polygon.cpp
+        platform/android/src/annotation/polygon.hpp
+        platform/android/src/annotation/polyline.cpp
+        platform/android/src/annotation/polyline.hpp
+
+        # Offline
+        platform/android/src/offline/offline_manager.cpp
+        platform/android/src/offline/offline_manager.hpp
+        platform/android/src/offline/offline_region.cpp
+        platform/android/src/offline/offline_region.hpp
+        platform/android/src/offline/offline_region_definition.cpp
+        platform/android/src/offline/offline_region_definition.hpp
+        platform/android/src/offline/offline_region_error.cpp
+        platform/android/src/offline/offline_region_error.hpp
+        platform/android/src/offline/offline_region_status.cpp
+        platform/android/src/offline/offline_region_status.hpp
 
         # Main jni bindings
         platform/android/src/attach_env.cpp
@@ -201,7 +251,7 @@ target_link_libraries(mapbox-gl
 # Create a stripped version of the library and copy it to the JNIDIR.
 add_custom_command(TARGET mapbox-gl POST_BUILD
                    COMMAND ${CMAKE_COMMAND} -E make_directory ${ANDROID_JNI_TARGET_DIR}
-                   COMMAND ${STRIP_COMMAND} $<TARGET_FILE:mapbox-gl> -o ${ANDROID_JNI_TARGET_DIR}/$<TARGET_FILE_NAME:mapbox-gl>)
+                   COMMAND ${ANDROID_TOOLCHAIN_PREFIX}strip $<TARGET_FILE:mapbox-gl> -o ${ANDROID_JNI_TARGET_DIR}/$<TARGET_FILE_NAME:mapbox-gl>)
 
 ## Test library ##
 
@@ -262,8 +312,8 @@ target_add_mason_package(mbgl-test PRIVATE geojsonvt)
 
 add_custom_command(TARGET mbgl-test POST_BUILD
                    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/stripped
-                   COMMAND ${STRIP_COMMAND} $<TARGET_FILE:mapbox-gl> -o ${CMAKE_CURRENT_BINARY_DIR}/stripped/$<TARGET_FILE_NAME:mapbox-gl>
-                   COMMAND ${STRIP_COMMAND} $<TARGET_FILE:mbgl-test> -o ${CMAKE_CURRENT_BINARY_DIR}/stripped/$<TARGET_FILE_NAME:mbgl-test>)
+                   COMMAND ${ANDROID_TOOLCHAIN_PREFIX}strip $<TARGET_FILE:mapbox-gl> -o ${CMAKE_CURRENT_BINARY_DIR}/stripped/$<TARGET_FILE_NAME:mapbox-gl>
+                   COMMAND ${ANDROID_TOOLCHAIN_PREFIX}strip $<TARGET_FILE:mbgl-test> -o ${CMAKE_CURRENT_BINARY_DIR}/stripped/$<TARGET_FILE_NAME:mbgl-test>)
 
 ## Custom layer example ##
 
@@ -285,4 +335,4 @@ target_link_libraries(example-custom-layer
 
 add_custom_command(TARGET example-custom-layer POST_BUILD
                    COMMAND ${CMAKE_COMMAND} -E make_directory ${ANDROID_TEST_APP_JNI_TARGET_DIR}
-                   COMMAND ${STRIP_COMMAND} $<TARGET_FILE:example-custom-layer> -o ${ANDROID_TEST_APP_JNI_TARGET_DIR}/$<TARGET_FILE_NAME:example-custom-layer>)
+                   COMMAND ${ANDROID_TOOLCHAIN_PREFIX}strip $<TARGET_FILE:example-custom-layer> -o ${ANDROID_TEST_APP_JNI_TARGET_DIR}/$<TARGET_FILE_NAME:example-custom-layer>)

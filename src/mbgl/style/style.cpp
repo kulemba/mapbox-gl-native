@@ -160,7 +160,7 @@ std::unique_ptr<Source> Style::removeSource(const std::string& id) {
     });
 
     if (it == sources.end()) {
-        throw std::runtime_error("no such source");
+        return nullptr;
     }
 
     auto source = std::move(*it);
@@ -232,7 +232,7 @@ std::unique_ptr<Layer> Style::removeLayer(const std::string& id) {
     });
 
     if (it == layers.end())
-        throw std::runtime_error("no such layer");
+        return nullptr;
 
     auto layer = std::move(*it);
 
