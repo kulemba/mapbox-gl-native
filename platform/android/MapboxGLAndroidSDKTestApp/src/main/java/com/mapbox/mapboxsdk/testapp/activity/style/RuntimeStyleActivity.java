@@ -70,7 +70,7 @@ import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.symbolPlacement;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.visibility;
 
 /**
- * Sample Activity to show off the runtime style api
+ * Test activity showcasing the runtime style API.
  */
 public class RuntimeStyleActivity extends AppCompatActivity {
 
@@ -150,6 +150,12 @@ public class RuntimeStyleActivity extends AppCompatActivity {
   @Override
   public boolean onOptionsItemSelected(MenuItem item) {
     switch (item.getItemId()) {
+      case R.id.action_list_layers:
+        listLayers();
+        return true;
+      case R.id.action_list_sources:
+        listSources();
+        return true;
       case R.id.action_water_color:
         setWaterColor();
         return true;
@@ -195,6 +201,26 @@ public class RuntimeStyleActivity extends AppCompatActivity {
       default:
         return super.onOptionsItemSelected(item);
     }
+  }
+
+  private void listLayers() {
+    List<Layer> layers = mapboxMap.getLayers();
+    StringBuilder builder = new StringBuilder("Layers:");
+    for (Layer layer : layers) {
+      builder.append("\n");
+      builder.append(layer.getId());
+    }
+    Toast.makeText(this, builder.toString(), Toast.LENGTH_LONG).show();
+  }
+
+  private void listSources() {
+    List<Source> sources = mapboxMap.getSources();
+    StringBuilder builder = new StringBuilder("Sources:");
+    for (Source source : sources) {
+      builder.append("\n");
+      builder.append(source.getId());
+    }
+    Toast.makeText(this, builder.toString(), Toast.LENGTH_LONG).show();
   }
 
   private void setLayerInvisible() {
@@ -275,7 +301,7 @@ public class RuntimeStyleActivity extends AppCompatActivity {
     // Only show me parks (except westerpark with stroke-width == 3)
     layer.setFilter(all(eq("type", "park"), eq("stroke-width", 2)));
 
-    mapboxMap.addLayer(layer, "building");
+    mapboxMap.addLayerBelow(layer, "building");
     // layer.setPaintProperty(fillColor(Color.RED)); // XXX But not after the object is attached
 
     // Or get the object later and set it. It's all good.
