@@ -199,23 +199,37 @@ public:
 
     jni::Array<jlong> queryPointAnnotations(JNIEnv&, jni::Object<RectF>);
 
-    jni::Array<jni::Object<Feature>> queryRenderedFeaturesForPoint(JNIEnv&, jni::jfloat, jni::jfloat, jni::Array<jni::String>);
+    jni::Array<jni::Object<Feature>> queryRenderedFeaturesForPoint(JNIEnv&, jni::jfloat, jni::jfloat,
+                                                                   jni::Array<jni::String>,
+                                                                   jni::Array<jni::Object<>> jfilter);
 
-    jni::Array<jni::Object<Feature>> queryRenderedFeaturesForBox(JNIEnv&, jni::jfloat, jni::jfloat, jni::jfloat, jni::jfloat, jni::Array<jni::String>);
+    jni::Array<jni::Object<Feature>> queryRenderedFeaturesForBox(JNIEnv&, jni::jfloat, jni::jfloat, jni::jfloat,
+                                                                 jni::jfloat, jni::Array<jni::String>,
+                                                                 jni::Array<jni::Object<>> jfilter);
+
+    jni::Array<jni::Object<Layer>> getLayers(JNIEnv&);
 
     jni::Object<Layer> getLayer(JNIEnv&, jni::String);
 
     void addLayer(JNIEnv&, jlong, jni::String);
 
-    void removeLayerById(JNIEnv&, jni::String);
+    void addLayerAbove(JNIEnv&, jlong, jni::String);
+
+    void addLayerAt(JNIEnv&, jni::jlong, jni::jint);
+
+    jni::Object<Layer> removeLayerById(JNIEnv&, jni::String);
+
+    jni::Object<Layer> removeLayerAt(JNIEnv&, jni::jint);
 
     void removeLayer(JNIEnv&, jlong);
+
+    jni::Array<jni::Object<Source>> getSources(JNIEnv&);
 
     jni::Object<Source> getSource(JNIEnv&, jni::String);
 
     void addSource(JNIEnv&, jni::jlong);
 
-    void removeSourceById(JNIEnv&, jni::String);
+    jni::Object<Source> removeSourceById(JNIEnv&, jni::String);
 
     void removeSource(JNIEnv&, jlong);
 
