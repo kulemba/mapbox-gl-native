@@ -114,6 +114,8 @@ macro(mbgl_platform_core)
         platform/android/src/style/layers/raster_layer.hpp
         platform/android/src/style/layers/symbol_layer.cpp
         platform/android/src/style/layers/symbol_layer.hpp
+        platform/android/src/style/layers/unknown_layer.cpp
+        platform/android/src/style/layers/unknown_layer.hpp
         platform/android/src/style/sources/geojson_source.cpp
         platform/android/src/style/sources/geojson_source.hpp
         platform/android/src/style/sources/source.cpp
@@ -122,6 +124,8 @@ macro(mbgl_platform_core)
         platform/android/src/style/sources/sources.hpp
         platform/android/src/style/sources/raster_source.cpp
         platform/android/src/style/sources/raster_source.hpp
+        platform/android/src/style/sources/unknown_source.cpp
+        platform/android/src/style/sources/unknown_source.hpp
         platform/android/src/style/sources/vector_source.cpp
         platform/android/src/style/sources/vector_source.hpp
         platform/android/src/style/functions/stop.cpp
@@ -214,7 +218,6 @@ macro(mbgl_platform_core)
         PRIVATE -fvisibility=hidden
         PRIVATE -ffunction-sections
         PRIVATE -fdata-sections
-        PRIVATE -Os
     )
 
     target_link_libraries(mbgl-core
@@ -240,7 +243,6 @@ target_compile_options(mapbox-gl
     PRIVATE -fvisibility=hidden
     PRIVATE -ffunction-sections
     PRIVATE -fdata-sections
-    PRIVATE -Os
 )
 
 target_link_libraries(mapbox-gl
@@ -281,7 +283,6 @@ target_sources(mbgl-test
 
 target_compile_options(mbgl-test
     PRIVATE -fvisibility=hidden
-    PRIVATE -Os
 )
 
 target_compile_definitions(mbgl-test
@@ -325,7 +326,6 @@ target_compile_options(example-custom-layer
     PRIVATE -fvisibility=hidden
     PRIVATE -ffunction-sections
     PRIVATE -fdata-sections
-    PRIVATE -Os
 )
 
 target_link_libraries(example-custom-layer
