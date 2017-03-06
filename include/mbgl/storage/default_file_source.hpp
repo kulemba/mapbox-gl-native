@@ -118,7 +118,23 @@ public:
     void addSupplementaryOfflineDatabase(Resource::Kind kind, optional<LatLngBounds> latLngBounds, const std::string& cachePath);
     void removeSupplementaryOfflineDatabases(const std::string& cachePath);
 
+    /*
+     * Pause file request activity.
+     *
+     * If pause is called then no revalidation or network request activity
+     * will occur.
+     *
+     * Note: Calling pause and then calling getAPIBaseURL or getAccessToken
+     * will lock the thread that those calls are made on.
+     */
     void pause();
+
+    /*
+     * Resume file request activity.
+     *
+     * Calling resume will unpause the file source and process any tasks that
+     * expired while the file source was paused.
+     */
     void resume();
 
     // For testing only.
@@ -130,6 +146,8 @@ private:
     const std::unique_ptr<util::Thread<Impl>> thread;
     const std::unique_ptr<FileSource> assetFileSource;
     const std::unique_ptr<FileSource> localFileSource;
+    std::string cachedBaseURL = mbgl::util::API_BASE_URL;
+    std::string cachedAccessToken;
 };
 
 } // namespace mbgl
