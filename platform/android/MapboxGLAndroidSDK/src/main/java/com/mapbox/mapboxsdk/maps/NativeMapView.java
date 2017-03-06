@@ -6,6 +6,7 @@ import android.graphics.Bitmap;
 import android.graphics.PointF;
 import android.graphics.RectF;
 import android.os.Build;
+import android.support.annotation.IntRange;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
@@ -21,6 +22,7 @@ import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.geometry.ProjectedMeters;
 import com.mapbox.mapboxsdk.storage.FileSource;
 import com.mapbox.mapboxsdk.style.layers.CannotAddLayerException;
+import com.mapbox.mapboxsdk.style.layers.Filter;
 import com.mapbox.mapboxsdk.style.layers.Layer;
 import com.mapbox.mapboxsdk.style.sources.CannotAddSourceException;
 import com.mapbox.mapboxsdk.style.sources.Source;
@@ -34,7 +36,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import timber.log.Timber;
 
-;
 
 // Class that wraps the native methods for convenience
 final class NativeMapView {
@@ -747,6 +748,13 @@ final class NativeMapView {
     nativeSetTransitionDelay(delay);
   }
 
+  public List<Layer> getLayers() {
+    if (isDestroyedOn("getLayers")) {
+      return null;
+    }
+    return Arrays.asList(nativeGetLayers());
+  }
+
   public Layer getLayer(String layerId) {
     if (isDestroyedOn("getLayer")) {
       return null;
@@ -754,25 +762,64 @@ final class NativeMapView {
     return nativeGetLayer(layerId);
   }
 
-  public void addLayer(@NonNull Layer layer, @Nullable String before) {
-    if (isDestroyedOn("")) {
+  public void addLayer(@NonNull Layer layer) {
+    if (isDestroyedOn("addLayer")) {
       return;
     }
-    nativeAddLayer(layer.getNativePtr(), before);
+    nativeAddLayer(layer.getNativePtr(), null);
   }
 
-  public void removeLayer(@NonNull String layerId) {
-    if (isDestroyedOn("removeLayer")) {
+  public void addLayerBelow(@NonNull Layer layer, @NonNull String below) {
+    if (isDestroyedOn("addLayerBelow")) {
       return;
     }
-    nativeRemoveLayerById(layerId);
+    nativeAddLayer(layer.getNativePtr(), below);
   }
 
-  public void removeLayer(@NonNull Layer layer) {
-    if (isDestroyedOn("removeLayer")) {
+  public void addLayerAbove(@NonNull Layer layer, @NonNull String above) {
+    if (isDestroyedOn("addLayerAbove")) {
       return;
+    }
+    nativeAddLayerAbove(layer.getNativePtr(), above);
+  }
+
+  public void addLayerAt(@NonNull Layer layer, @IntRange(from = 0) int index) {
+    if (isDestroyedOn("addLayerAt")) {
+      return;
+    }
+    nativeAddLayerAt(layer.getNativePtr(), index);
+  }
+
+  @Nullable
+  public Layer removeLayer(@NonNull String layerId) {
+    if (isDestroyedOn("removeLayer")) {
+      return null;
+    }
+    return nativeRemoveLayerById(layerId);
+  }
+
+  @Nullable
+  public Layer removeLayer(@NonNull Layer layer) {
+    if (isDestroyedOn("removeLayer")) {
+      return null;
     }
     nativeRemoveLayer(layer.getNativePtr());
+    return layer;
+  }
+
+  @Nullable
+  public Layer removeLayerAt(@IntRange(from = 0) int index) {
+    if (isDestroyedOn("removeLayerAt")) {
+      return null;
+    }
+    return nativeRemoveLayerAt(index);
+  }
+
+  public List<Source> getSources() {
+    if (isDestroyedOn("getSources")) {
+      return null;
+    }
+    return Arrays.asList(nativeGetSources());
   }
 
   public Source getSource(@NonNull String sourceId) {
@@ -789,18 +836,20 @@ final class NativeMapView {
     nativeAddSource(source.getNativePtr());
   }
 
-  public void removeSource(@NonNull String sourceId) {
+  @Nullable
+  public Source removeSource(@NonNull String sourceId) {
     if (isDestroyedOn("removeSource")) {
-      return;
+      return null;
     }
-    nativeRemoveSourceById(sourceId);
+    return nativeRemoveSourceById(sourceId);
   }
 
-  public void removeSource(@NonNull Source source) {
+  public Source removeSource(@NonNull Source source) {
     if (isDestroyedOn("removeSource")) {
-      return;
+      return null;
     }
     nativeRemoveSource(source.getNativePtr());
+    return source;
   }
 
   public void addImage(@NonNull String name, @NonNull Bitmap image) {
@@ -833,27 +882,31 @@ final class NativeMapView {
   // Feature querying
 
   @NonNull
-  public List<Feature> queryRenderedFeatures(PointF coordinates, String... layerIds) {
+  public List<Feature> queryRenderedFeatures(@NonNull PointF coordinates,
+                                             @Nullable String[] layerIds,
+                                             @Nullable Filter.Statement filter) {
     if (isDestroyedOn("queryRenderedFeatures")) {
       return new ArrayList<>();
     }
     Feature[] features = nativeQueryRenderedFeaturesForPoint(coordinates.x / pixelRatio,
-      coordinates.y / pixelRatio, layerIds);
+      coordinates.y / pixelRatio, layerIds, filter != null ? filter.toArray() : null);
     return features != null ? Arrays.asList(features) : new ArrayList<Feature>();
   }
 
   @NonNull
-  public List<Feature> queryRenderedFeatures(RectF coordinates, String... layerIds) {
+  public List<Feature> queryRenderedFeatures(@NonNull RectF coordinates,
+                                             @Nullable String[] layerIds,
+                                             @Nullable Filter.Statement filter) {
     if (isDestroyedOn("queryRenderedFeatures")) {
       return new ArrayList<>();
     }
     Feature[] features = nativeQueryRenderedFeaturesForBox(
-
       coordinates.left / pixelRatio,
       coordinates.top / pixelRatio,
       coordinates.right / pixelRatio,
       coordinates.bottom / pixelRatio,
-      layerIds);
+      layerIds,
+      filter != null ? filter.toArray() : null);
     return features != null ? Arrays.asList(features) : new ArrayList<Feature>();
   }
 
@@ -1054,19 +1107,29 @@ final class NativeMapView {
 
   private native void nativeSetTransitionDelay(long delay);
 
+  private native Layer[] nativeGetLayers();
+
   private native Layer nativeGetLayer(String layerId);
 
   private native void nativeAddLayer(long layerPtr, String before) throws CannotAddLayerException;
 
-  private native void nativeRemoveLayerById(String layerId);
+  private native void nativeAddLayerAbove(long layerPtr, String above) throws CannotAddLayerException;
+
+  private native void nativeAddLayerAt(long layerPtr, int index) throws CannotAddLayerException;
+
+  private native Layer nativeRemoveLayerById(String layerId);
 
   private native void nativeRemoveLayer(long layerId);
+
+  private native Layer nativeRemoveLayerAt(int index);
+
+  private native Source[] nativeGetSources();
 
   private native Source nativeGetSource(String sourceId);
 
   private native void nativeAddSource(long nativeSourcePtr) throws CannotAddSourceException;
 
-  private native void nativeRemoveSourceById(String sourceId);
+  private native Source nativeRemoveSourceById(String sourceId);
 
   private native void nativeRemoveSource(long sourcePtr);
 
@@ -1081,12 +1144,14 @@ final class NativeMapView {
 
   private native void nativeTakeSnapshot();
 
-  private native Feature[] nativeQueryRenderedFeaturesForPoint(float x, float y, String[]
-    layerIds);
+  private native Feature[] nativeQueryRenderedFeaturesForPoint(float x, float y,
+                                                               String[] layerIds,
+                                                               Object[] filter);
 
   private native Feature[] nativeQueryRenderedFeaturesForBox(float left, float top,
                                                              float right, float bottom,
-                                                             String[] layerIds);
+                                                             String[] layerIds,
+                                                             Object[] filter);
 
   int getWidth() {
     if (isDestroyedOn("")) {
