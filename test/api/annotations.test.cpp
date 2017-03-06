@@ -27,7 +27,7 @@ public:
     OffscreenView view { backend.getContext() };
     StubFileSource fileSource;
     ThreadPool threadPool { 4 };
-    Map map { backend, view.size, 1, fileSource, threadPool, MapMode::Still };
+    Map map { backend, view.getSize(), 1, fileSource, threadPool, MapMode::Still };
 
     void checkRendering(const char * name) {
         test::checkImage(std::string("test/fixtures/annotations/") + name,
@@ -45,7 +45,7 @@ TEST(Annotations, SymbolAnnotation) {
     test.map.addAnnotation(SymbolAnnotation { Point<double>(0, 0), "default_marker" });
     test.checkRendering("point_annotation");
 
-//    auto size = test.view.size;
+//    auto size = test.view.getSize();
 //    auto screenBox = ScreenBox { {}, { double(size.width), double(size.height) } };
 //    for (uint8_t zoom = test.map.getMinZoom(); zoom <= test.map.getMaxZoom(); ++zoom) {
 //        test.map.setZoom(zoom);
@@ -351,7 +351,7 @@ TEST(Annotations, QueryRenderedFeatures) {
 TEST(Annotations, QueryFractionalZoomLevels) {
     AnnotationTest test;
 
-    auto viewSize = test.view.size;
+    auto viewSize = test.view.getSize();
     auto box = ScreenBox { {}, { double(viewSize.width), double(viewSize.height) } };
 
     test.map.setStyleJSON(util::read_file("test/fixtures/api/empty.json"));
@@ -383,7 +383,7 @@ TEST(Annotations, QueryFractionalZoomLevels) {
 TEST(Annotations, VisibleFeatures) {
     AnnotationTest test;
 
-    auto viewSize = test.view.size;
+    auto viewSize = test.view.getSize();
     auto box = ScreenBox { {}, { double(viewSize.width), double(viewSize.height) } };
 
     test.map.setStyleJSON(util::read_file("test/fixtures/api/empty.json"));
@@ -401,7 +401,7 @@ TEST(Annotations, VisibleFeatures) {
     test.map.setBearing(45);
     test::render(test.map, test.view);
 
-    auto features = test.map.queryRenderedFeatures(box);
+    auto features = test.map.queryRenderedFeatures(box, {});
     auto sortID = [](const Feature& lhs, const Feature& rhs) { return lhs.id < rhs.id; };
     auto sameID = [](const Feature& lhs, const Feature& rhs) { return lhs.id == rhs.id; };
     std::sort(features.begin(), features.end(), sortID);
