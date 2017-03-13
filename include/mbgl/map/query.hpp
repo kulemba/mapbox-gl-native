@@ -3,16 +3,19 @@
 #include <mbgl/util/optional.hpp>
 #include <mbgl/style/filter.hpp>
 
+#include <string>
+#include <vector>
+
 namespace mbgl {
 
 /**
- * Options for Map queries.
+ * Options for query rendered features.
  */
-class QueryOptions {
+class RenderedQueryOptions {
 public:
     /** layerIDs to include in the query */
     optional<std::vector<std::string>> layerIDs;
-    
+
     optional<style::Filter> filter;
 };
 
