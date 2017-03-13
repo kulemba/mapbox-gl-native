@@ -205,8 +205,12 @@ set(MBGL_CORE_FILES
     src/mbgl/shaders/line_pattern.hpp
     src/mbgl/shaders/line_sdf.cpp
     src/mbgl/shaders/line_sdf.hpp
+    src/mbgl/shaders/preludes.cpp
+    src/mbgl/shaders/preludes.hpp
     src/mbgl/shaders/raster.cpp
     src/mbgl/shaders/raster.hpp
+    src/mbgl/shaders/shaders.cpp
+    src/mbgl/shaders/shaders.hpp
     src/mbgl/shaders/symbol_icon.cpp
     src/mbgl/shaders/symbol_icon.hpp
     src/mbgl/shaders/symbol_sdf.cpp
@@ -243,6 +247,7 @@ set(MBGL_CORE_FILES
     include/mbgl/style/filter_evaluator.hpp
     include/mbgl/style/layer.hpp
     include/mbgl/style/property_value.hpp
+    include/mbgl/style/query.hpp
     include/mbgl/style/source.hpp
     include/mbgl/style/transition_options.hpp
     include/mbgl/style/types.hpp

@@ -21,10 +21,11 @@ class DebugBucket;
 class TransformState;
 class TileObserver;
 class PlacementConfig;
-class QueryOptions;
+class RenderedQueryOptions;
 
 namespace style {
 class Layer;
+class SourceQueryOptions;
 } // namespace style
 
 class Tile : private util::noncopyable {
@@ -56,7 +57,11 @@ public:
             std::unordered_map<std::string, std::vector<Feature>>& result,
             const GeometryCoordinates& queryGeometry,
             const TransformState&,
-            const QueryOptions& options);
+            const RenderedQueryOptions& options);
+
+    virtual void querySourceFeatures(
+            std::vector<Feature>& result,
+            const style::SourceQueryOptions&);
 
     void setTriedOptional();
 
