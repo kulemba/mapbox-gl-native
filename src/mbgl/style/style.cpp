@@ -166,6 +166,7 @@ std::unique_ptr<Source> Style::removeSource(const std::string& id) {
     sources.erase(it);
     updateBatch.sourceIDs.erase(id);
 
+    source->baseImpl->detach();
     return source;
 }
 
@@ -504,7 +505,7 @@ RenderData Style::getRenderData(MapDebugOptions debugOptions, float angle) const
 
 std::vector<Feature> Style::queryRenderedFeatures(const ScreenLineString& geometry,
                                                   const TransformState& transformState,
-                                                  const QueryOptions& options) const {
+                                                  const RenderedQueryOptions& options) const {
     std::unordered_set<std::string> sourceFilter;
 
     if (options.layerIDs) {

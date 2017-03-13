@@ -1,12 +1,9 @@
 #pragma once
 
 #include <mbgl/gl/program.hpp>
-#include <mbgl/programs/program_parameters.hpp>
 #include <mbgl/programs/attributes.hpp>
 #include <mbgl/style/paint_property.hpp>
-
-#include <sstream>
-#include <cassert>
+#include <mbgl/shaders/shaders.hpp>
 
 namespace mbgl {
 
@@ -33,29 +30,10 @@ public:
     ProgramType program;
 
     Program(gl::Context& context, const ProgramParameters& programParameters)
-        : program(context, vertexSource(programParameters), fragmentSource(programParameters))
+        : program(context,
+                  shaders::vertexSource(programParameters, Shaders::vertexSource),
+                  shaders::fragmentSource(programParameters, Shaders::fragmentSource))
         {}
-
-    static std::string pixelRatioDefine(const ProgramParameters& parameters) {
-        std::ostringstream pixelRatioSS;
-        pixelRatioSS.imbue(std::locale("C"));
-        pixelRatioSS.setf(std::ios_base::showpoint);
-        pixelRatioSS << parameters.pixelRatio;
-        return std::string("#define DEVICE_PIXEL_RATIO ") + pixelRatioSS.str() + "\n";
-    }
-
-    static std::string fragmentSource(const ProgramParameters& parameters) {
-        std::string source = pixelRatioDefine(parameters) + Shaders::fragmentSource;
-        if (parameters.overdraw) {
-            assert(source.find("#ifdef OVERDRAW_INSPECTOR") != std::string::npos);
-            source.replace(source.find_first_of('\n'), 1, "\n#define OVERDRAW_INSPECTOR\n");
-        }
-        return source;
-    }
-
-    static std::string vertexSource(const ProgramParameters& parameters) {
-        return pixelRatioDefine(parameters) + Shaders::vertexSource;
-    }
 
     template <class DrawMode>
     void draw(gl::Context& context,
