@@ -14,12 +14,6 @@
 
 #include <unistd.h>
 
-#if UV_VERSION_MAJOR == 0 && UV_VERSION_MINOR <= 10
-#define UV_ASYNC_PARAMS(handle) uv_async_t *handle, int
-#else
-#define UV_ASYNC_PARAMS(handle) uv_async_t *handle
-#endif
-
 namespace node_mbgl {
 
 struct NodeMap::RenderOptions {
@@ -882,7 +876,7 @@ void NodeMap::QueryRenderedFeatures(const Nan::FunctionCallbackInfo<v8::Value>& 
         return Nan::ThrowTypeError("First argument must have two components");
     }
 
-    mbgl::QueryOptions queryOptions;
+    mbgl::RenderedQueryOptions queryOptions;
     if (!info[1]->IsNull() && !info[1]->IsUndefined()) {
         if (!info[1]->IsObject()) {
             return Nan::ThrowTypeError("options argument must be an object");
@@ -975,7 +969,7 @@ NodeMap::NodeMap(v8::Local<v8::Object> options)
     });
 
     async->data = this;
-    uv_async_init(uv_default_loop(), async, [](UV_ASYNC_PARAMS(h)) {
+    uv_async_init(uv_default_loop(), async, [](uv_async_t* h) {
         reinterpret_cast<NodeMap *>(h->data)->renderFinished();
     });
 
