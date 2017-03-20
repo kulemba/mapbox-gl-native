@@ -4,6 +4,10 @@ Mapbox welcomes participation and contributions from everyone. Please read [CONT
 
 ## master
 
+* The error passed into `-[MGLMapViewDelegate mapViewDidFailLoadingMap:withError:]` now includes a more specific description and failure reason. ([#8418](https://github.com/mapbox/mapbox-gl-native/pull/8418))
+
+## 3.5.0
+
 ### Internationalization
 
 * Added support for right-to-left text and Arabic ligatures in labels. ([#6984](https://github.com/mapbox/mapbox-gl-native/pull/6984), [#7123](https://github.com/mapbox/mapbox-gl-native/pull/7123))
