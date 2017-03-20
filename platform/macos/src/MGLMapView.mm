@@ -35,8 +35,10 @@
 #import <mbgl/math/wrap.hpp>
 #import <mbgl/util/constants.hpp>
 #import <mbgl/util/chrono.hpp>
+#import <mbgl/util/exception.hpp>
 #import <mbgl/util/run_loop.hpp>
 #import <mbgl/util/shared_thread_pool.hpp>
+#import <mbgl/util/string.hpp>
 
 #import <map>
 #import <unordered_map>
@@ -820,131 +822,148 @@ public:
     [self.layer setNeedsDisplay];
 }
 
-- (void)notifyMapChange:(mbgl::MapChange)change {
-    // Ignore map updates when the Map object isn't set.
+- (void)cameraWillChangeAnimated:(BOOL)animated {
     if (!_mbglMap) {
         return;
     }
 
-    switch (change) {
-        case mbgl::MapChangeRegionWillChange:
-        case mbgl::MapChangeRegionWillChangeAnimated:
-        {
-            if ([self.delegate respondsToSelector:@selector(mapView:cameraWillChangeAnimated:)]) {
-                BOOL animated = change == mbgl::MapChangeRegionWillChangeAnimated;
-                [self.delegate mapView:self cameraWillChangeAnimated:animated];
-            }
-            break;
-        }
-        case mbgl::MapChangeRegionIsChanging:
-        {
-            // Update a minimum of UI that needs to stay attached to the map
-            // while animating.
-            [self updateCompass];
-            [self updateAnnotationCallouts];
-
-            if ([self.delegate respondsToSelector:@selector(mapViewCameraIsChanging:)]) {
-                [self.delegate mapViewCameraIsChanging:self];
-            }
-            break;
-        }
-        case mbgl::MapChangeRegionDidChange:
-        case mbgl::MapChangeRegionDidChangeAnimated:
-        {
-            // Update all UI at the end of an animation or atomic change to the
-            // viewport. More expensive updates can happen here, but care should
-            // still be taken to minimize the work done here because scroll
-            // gesture recognition and momentum scrolling is performed as a
-            // series of atomic changes, not an animation.
-            [self updateZoomControls];
-            [self updateCompass];
-            [self updateAnnotationCallouts];
-            [self updateAnnotationTrackingAreas];
-
-            if ([self.delegate respondsToSelector:@selector(mapView:cameraDidChangeAnimated:)]) {
-                BOOL animated = change == mbgl::MapChangeRegionDidChangeAnimated;
-                [self.delegate mapView:self cameraDidChangeAnimated:animated];
-            }
-            break;
-        }
-        case mbgl::MapChangeWillStartLoadingMap:
-        {
-            if ([self.delegate respondsToSelector:@selector(mapViewWillStartLoadingMap:)]) {
-                [self.delegate mapViewWillStartLoadingMap:self];
-            }
-            break;
-        }
-        case mbgl::MapChangeDidFinishLoadingMap:
-        {
-            [self.style willChangeValueForKey:@"sources"];
-            [self.style didChangeValueForKey:@"sources"];
-            [self.style willChangeValueForKey:@"layers"];
-            [self.style didChangeValueForKey:@"layers"];
-            if ([self.delegate respondsToSelector:@selector(mapViewDidFinishLoadingMap:)]) {
-                [self.delegate mapViewDidFinishLoadingMap:self];
-            }
-            break;
-        }
-        case mbgl::MapChangeDidFailLoadingMap:
-        {
-            if ([self.delegate respondsToSelector:@selector(mapViewDidFailLoadingMap:withError:)]) {
-                NSError *error = [NSError errorWithDomain:MGLErrorDomain code:0 userInfo:nil];
-                [self.delegate mapViewDidFailLoadingMap:self withError:error];
-            }
-            break;
-        }
-        case mbgl::MapChangeWillStartRenderingMap:
-        {
-            if ([self.delegate respondsToSelector:@selector(mapViewWillStartRenderingMap:)]) {
-                [self.delegate mapViewWillStartRenderingMap:self];
-            }
-            break;
-        }
-        case mbgl::MapChangeDidFinishRenderingMap:
-        case mbgl::MapChangeDidFinishRenderingMapFullyRendered:
-        {
-            if ([self.delegate respondsToSelector:@selector(mapViewDidFinishRenderingMap:fullyRendered:)]) {
-                BOOL fullyRendered = change == mbgl::MapChangeDidFinishRenderingMapFullyRendered;
-                [self.delegate mapViewDidFinishRenderingMap:self fullyRendered:fullyRendered];
-            }
-            break;
-        }
-        case mbgl::MapChangeWillStartRenderingFrame:
-        {
-            if ([self.delegate respondsToSelector:@selector(mapViewWillStartRenderingFrame:)]) {
-                [self.delegate mapViewWillStartRenderingFrame:self];
-            }
-            break;
-        }
-        case mbgl::MapChangeDidFinishRenderingFrame:
-        case mbgl::MapChangeDidFinishRenderingFrameFullyRendered:
-        {
-            if (_isChangingAnnotationLayers) {
-                _isChangingAnnotationLayers = NO;
-                [self.style didChangeValueForKey:@"layers"];
-            }
-            if ([self.delegate respondsToSelector:@selector(mapViewDidFinishRenderingFrame:fullyRendered:)]) {
-                BOOL fullyRendered = change == mbgl::MapChangeDidFinishRenderingFrameFullyRendered;
-                [self.delegate mapViewDidFinishRenderingFrame:self fullyRendered:fullyRendered];
-            }
-            break;
-        }
-        case mbgl::MapChangeDidFinishLoadingStyle:
-        {
-            self.style = [[MGLStyle alloc] initWithMapView:self];
-            if ([self.delegate respondsToSelector:@selector(mapView:didFinishLoadingStyle:)])
-            {
-                [self.delegate mapView:self didFinishLoadingStyle:self.style];
-            }
-            break;
-        }
-        case mbgl::MapChangeSourceDidChange:
-        {
-            [self installAttributionView];
-            self.needsUpdateConstraints = YES;
-            break;
-        }
+    if ([self.delegate respondsToSelector:@selector(mapView:cameraWillChangeAnimated:)]) {
+        [self.delegate mapView:self cameraWillChangeAnimated:animated];
     }
+}
+
+- (void)cameraIsChanging {
+    if (!_mbglMap) {
+        return;
+    }
+
+    // Update a minimum of UI that needs to stay attached to the map
+    // while animating.
+    [self updateCompass];
+    [self updateAnnotationCallouts];
+
+    if ([self.delegate respondsToSelector:@selector(mapViewCameraIsChanging:)]) {
+        [self.delegate mapViewCameraIsChanging:self];
+    }
+}
+
+- (void)cameraDidChangeAnimated:(BOOL)animated {
+    if (!_mbglMap) {
+        return;
+    }
+
+    // Update all UI at the end of an animation or atomic change to the
+    // viewport. More expensive updates can happen here, but care should
+    // still be taken to minimize the work done here because scroll
+    // gesture recognition and momentum scrolling is performed as a
+    // series of atomic changes, not an animation.
+    [self updateZoomControls];
+    [self updateCompass];
+    [self updateAnnotationCallouts];
+    [self updateAnnotationTrackingAreas];
+
+    if ([self.delegate respondsToSelector:@selector(mapView:cameraDidChangeAnimated:)]) {
+        [self.delegate mapView:self cameraDidChangeAnimated:animated];
+    }
+}
+
+- (void)mapViewWillStartLoadingMap {
+    if (!_mbglMap) {
+        return;
+    }
+
+    if ([self.delegate respondsToSelector:@selector(mapViewWillStartLoadingMap:)]) {
+        [self.delegate mapViewWillStartLoadingMap:self];
+    }
+}
+
+- (void)mapViewDidFinishLoadingMap {
+    if (!_mbglMap) {
+        return;
+    }
+
+    [self.style willChangeValueForKey:@"sources"];
+    [self.style didChangeValueForKey:@"sources"];
+    [self.style willChangeValueForKey:@"layers"];
+    [self.style didChangeValueForKey:@"layers"];
+    if ([self.delegate respondsToSelector:@selector(mapViewDidFinishLoadingMap:)]) {
+        [self.delegate mapViewDidFinishLoadingMap:self];
+    }
+}
+
+- (void)mapViewDidFailLoadingMapWithError:(NSError *)error {
+    if (!_mbglMap) {
+        return;
+    }
+
+    if ([self.delegate respondsToSelector:@selector(mapViewDidFailLoadingMap:withError:)]) {
+        [self.delegate mapViewDidFailLoadingMap:self withError:error];
+    }
+}
+
+- (void)mapViewWillStartRenderingFrame {
+    if (!_mbglMap) {
+        return;
+    }
+
+    if ([self.delegate respondsToSelector:@selector(mapViewWillStartRenderingFrame:)]) {
+        [self.delegate mapViewWillStartRenderingFrame:self];
+    }
+}
+
+- (void)mapViewDidFinishRenderingFrameFullyRendered:(BOOL)fullyRendered {
+    if (!_mbglMap) {
+        return;
+    }
+
+    if (_isChangingAnnotationLayers) {
+        _isChangingAnnotationLayers = NO;
+        [self.style didChangeValueForKey:@"layers"];
+    }
+    if ([self.delegate respondsToSelector:@selector(mapViewDidFinishRenderingFrame:fullyRendered:)]) {
+        [self.delegate mapViewDidFinishRenderingFrame:self fullyRendered:fullyRendered];
+    }
+}
+
+- (void)mapViewWillStartRenderingMap {
+    if (!_mbglMap) {
+        return;
+    }
+
+    if ([self.delegate respondsToSelector:@selector(mapViewWillStartRenderingMap:)]) {
+        [self.delegate mapViewWillStartRenderingMap:self];
+    }
+}
+
+- (void)mapViewDidFinishRenderingMapFullyRendered:(BOOL)fullyRendered {
+    if (!_mbglMap) {
+        return;
+    }
+
+    if ([self.delegate respondsToSelector:@selector(mapViewDidFinishRenderingMap:fullyRendered:)]) {
+        [self.delegate mapViewDidFinishRenderingMap:self fullyRendered:fullyRendered];
+    }
+}
+
+- (void)mapViewDidFinishLoadingStyle {
+    if (!_mbglMap) {
+        return;
+    }
+
+    self.style = [[MGLStyle alloc] initWithMapView:self];
+    if ([self.delegate respondsToSelector:@selector(mapView:didFinishLoadingStyle:)])
+    {
+        [self.delegate mapView:self didFinishLoadingStyle:self.style];
+    }
+}
+
+- (void)sourceDidChange {
+    if (!_mbglMap) {
+        return;
+    }
+
+    [self installAttributionView];
+    self.needsUpdateConstraints = YES;
 }
 
 #pragma mark Printing
@@ -2754,8 +2773,78 @@ public:
     MGLMapViewImpl(MGLMapView *nativeView_)
         : nativeView(nativeView_) {}
 
-    void notifyMapChange(mbgl::MapChange change) override {
-        [nativeView notifyMapChange:change];
+    void onCameraWillChange(mbgl::MapObserver::CameraChangeMode mode) override {
+        bool animated = mode == mbgl::MapObserver::CameraChangeMode::Animated;
+        [nativeView cameraWillChangeAnimated:animated];
+    }
+
+    void onCameraIsChanging() override {
+        [nativeView cameraIsChanging];
+    }
+
+    void onCameraDidChange(mbgl::MapObserver::CameraChangeMode mode) override {
+        bool animated = mode == mbgl::MapObserver::CameraChangeMode::Animated;
+        [nativeView cameraDidChangeAnimated:animated];
+    }
+
+    void onWillStartLoadingMap() override {
+        [nativeView mapViewWillStartLoadingMap];
+    }
+
+    void onDidFinishLoadingMap() override {
+        [nativeView mapViewDidFinishLoadingMap];
+    }
+
+    void onDidFailLoadingMap(std::exception_ptr exception) override {
+        NSString *description;
+        MGLErrorCode code;
+        try {
+            std::rethrow_exception(exception);
+        } catch (const mbgl::util::StyleParseException&) {
+            code = MGLErrorCodeParseStyleFailed;
+            description = NSLocalizedStringWithDefaultValue(@"PARSE_STYLE_FAILED_DESC", nil, nil, @"The map failed to load because the style is corrupted.", @"User-friendly error description");
+        } catch (const mbgl::util::StyleLoadException&) {
+            code = MGLErrorCodeLoadStyleFailed;
+            description = NSLocalizedStringWithDefaultValue(@"LOAD_STYLE_FAILED_DESC", nil, nil, @"The map failed to load because the style can't be loaded.", @"User-friendly error description");
+        } catch (const mbgl::util::NotFoundException&) {
+            code = MGLErrorCodeNotFound;
+            description = NSLocalizedStringWithDefaultValue(@"STYLE_NOT_FOUND_DESC", nil, nil, @"The map failed to load because the style can’t be found or is incompatible.", @"User-friendly error description");
+        } catch (...) {
+            code = MGLErrorCodeUnknown;
+            description = NSLocalizedStringWithDefaultValue(@"LOAD_MAP_FAILED_DESC", nil, nil, @"The map failed to load because an unknown error occurred.", @"User-friendly error description");
+        }
+        NSDictionary *userInfo = @{
+            NSLocalizedDescriptionKey: description,
+            NSLocalizedFailureReasonErrorKey: @(mbgl::util::toString(exception).c_str()),
+        };
+        NSError *error = [NSError errorWithDomain:MGLErrorDomain code:code userInfo:userInfo];
+        [nativeView mapViewDidFailLoadingMapWithError:error];
+    }
+
+    void onWillStartRenderingFrame() override {
+        [nativeView mapViewWillStartRenderingFrame];
+    }
+
+    void onDidFinishRenderingFrame(mbgl::MapObserver::RenderMode mode) override {
+        bool fullyRendered = mode == mbgl::MapObserver::RenderMode::Full;
+        [nativeView mapViewDidFinishRenderingFrameFullyRendered:fullyRendered];
+    }
+
+    void onWillStartRenderingMap() override {
+        [nativeView mapViewWillStartRenderingMap];
+    }
+
+    void onDidFinishRenderingMap(mbgl::MapObserver::RenderMode mode) override {
+        bool fullyRendered = mode == mbgl::MapObserver::RenderMode::Full;
+        [nativeView mapViewDidFinishRenderingMapFullyRendered:fullyRendered];
+    }
+
+    void onDidFinishLoadingStyle() override {
+        [nativeView mapViewDidFinishLoadingStyle];
+    }
+
+    void onSourceDidChange() override {
+        [nativeView sourceDidChange];
     }
 
     void invalidate() override {

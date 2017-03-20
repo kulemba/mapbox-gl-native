@@ -7,6 +7,8 @@
 #include <mbgl/gl/headless_backend.hpp>
 #include <mbgl/gl/offscreen_view.hpp>
 
+#include <exception>
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wshadow"
@@ -14,6 +16,12 @@
 #pragma GCC diagnostic pop
 
 namespace node_mbgl {
+
+class NodeBackend : public mbgl::HeadlessBackend {
+public:
+    NodeBackend();
+    void onDidFailLoadingMap(std::exception_ptr) final;
+};
 
 class NodeMap : public Nan::ObjectWrap,
                 public mbgl::FileSource {
@@ -59,7 +67,7 @@ public:
     std::unique_ptr<mbgl::AsyncRequest> request(const mbgl::Resource&, mbgl::FileSource::Callback);
 
     const float pixelRatio;
-    mbgl::HeadlessBackend backend;
+    NodeBackend backend;
     std::unique_ptr<mbgl::OffscreenView> view;
     NodeThreadPool threadpool;
     std::unique_ptr<mbgl::Map> map;
