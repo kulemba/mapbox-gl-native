@@ -1,6 +1,7 @@
 #pragma once
 
 #include <mbgl/map/backend.hpp>
+#include <mbgl/map/change.hpp>
 #include <mbgl/map/camera.hpp>
 #include <mbgl/map/map.hpp>
 #include <mbgl/map/view.hpp>
@@ -22,6 +23,7 @@
 #include "style/layers/layers.hpp"
 #include "style/sources/sources.hpp"
 
+#include <exception>
 #include <string>
 #include <jni.h>
 #include <android/native_window.h>
@@ -51,7 +53,23 @@ public:
     // mbgl::Backend //
 
     void invalidate() override;
-    void notifyMapChange(mbgl::MapChange) override;
+
+    // Deprecated //
+    void notifyMapChange(mbgl::MapChange);
+
+    // mbgl::Backend (mbgl::MapObserver) //
+    void onCameraWillChange(MapObserver::CameraChangeMode) override;
+    void onCameraIsChanging() override;
+    void onCameraDidChange(MapObserver::CameraChangeMode) override;
+    void onWillStartLoadingMap() override;
+    void onDidFinishLoadingMap() override;
+    void onDidFailLoadingMap(std::exception_ptr) override;
+    void onWillStartRenderingFrame() override;
+    void onDidFinishRenderingFrame(MapObserver::RenderMode) override;
+    void onWillStartRenderingMap() override;
+    void onDidFinishRenderingMap(MapObserver::RenderMode) override;
+    void onDidFinishLoadingStyle() override;
+    void onSourceDidChange() override;
 
     // JNI //
 
