@@ -35,10 +35,6 @@ set(MBGL_CORE_FILES
     src/mbgl/annotation/symbol_annotation_impl.cpp
     src/mbgl/annotation/symbol_annotation_impl.hpp
 
-    # clipper
-    src/clipper/clipper.cpp
-    src/clipper/clipper.hpp
-
     # csscolorparser
     src/csscolorparser/csscolorparser.cpp
     src/csscolorparser/csscolorparser.hpp
@@ -70,7 +66,6 @@ set(MBGL_CORE_FILES
     src/mbgl/gl/framebuffer.hpp
     src/mbgl/gl/gl.cpp
     src/mbgl/gl/index_buffer.hpp
-    src/mbgl/gl/normalization.hpp
     src/mbgl/gl/object.cpp
     src/mbgl/gl/object.hpp
     src/mbgl/gl/primitives.hpp
@@ -107,6 +102,7 @@ set(MBGL_CORE_FILES
     include/mbgl/map/backend_scope.hpp
     include/mbgl/map/camera.hpp
     include/mbgl/map/map.hpp
+    include/mbgl/map/map_observer.hpp
     include/mbgl/map/mode.hpp
     include/mbgl/map/query.hpp
     include/mbgl/map/view.hpp
