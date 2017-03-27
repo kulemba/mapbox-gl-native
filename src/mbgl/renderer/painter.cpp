@@ -33,6 +33,8 @@
 
 #include <mbgl/util/offscreen_texture.hpp>
 
+#include <mbgl/util/stopwatch.hpp>
+
 #include <cassert>
 #include <algorithm>
 #include <iostream>
@@ -77,7 +79,10 @@ static gl::VertexVector<RasterLayoutVertex> rasterVertices() {
     return result;
 }
 
-Painter::Painter(gl::Context& context_, const TransformState& state_, float pixelRatio)
+Painter::Painter(gl::Context& context_,
+                 const TransformState& state_,
+                 float pixelRatio,
+                 const std::string& programCacheDir)
     : context(context_),
       state(state_),
       tileVertexBuffer(context.createVertexBuffer(tileVertices())),
@@ -89,14 +94,11 @@ Painter::Painter(gl::Context& context_, const TransformState& state_, float pixe
     tileBorderSegments.emplace_back(0, 0, 4, 5);
     rasterSegments.emplace_back(0, 0, 4, 6);
 
-    gl::debugging::enable();
-
-    ProgramParameters programParameters{ pixelRatio, false };
-    programs = std::make_unique<Programs>(context, programParameters);
+    programs = std::make_unique<Programs>(context,
+                                          ProgramParameters{ pixelRatio, false, programCacheDir });
 #ifndef NDEBUG
-
-    ProgramParameters programParametersOverdraw{ pixelRatio, true };
-    overdrawPrograms = std::make_unique<Programs>(context, programParametersOverdraw);
+    overdrawPrograms =
+        std::make_unique<Programs>(context, ProgramParameters{ pixelRatio, true, programCacheDir });
 #endif
 }
 
@@ -148,7 +150,7 @@ void Painter::render(const Style& style, const FrameData& frame_, View& view, Sp
     // - UPLOAD PASS -------------------------------------------------------------------------------
     // Uploads all required buffers and images before we do any actual rendering.
     {
-        MBGL_DEBUG_GROUP("upload");
+        MBGL_DEBUG_GROUP(context, "upload");
 
         spriteAtlas->upload(context, 0);
 
@@ -168,7 +170,7 @@ void Painter::render(const Style& style, const FrameData& frame_, View& view, Sp
     // Renders the backdrop of the OpenGL view. This also paints in areas where we don't have any
     // tiles whatsoever.
     {
-        MBGL_DEBUG_GROUP("clear");
+        MBGL_DEBUG_GROUP(context, "clear");
         view.bind();
         context.clear(paintMode() == PaintMode::Overdraw
                         ? Color::black()
@@ -180,7 +182,7 @@ void Painter::render(const Style& style, const FrameData& frame_, View& view, Sp
     // - CLIPPING MASKS ----------------------------------------------------------------------------
     // Draws the clipping masks to the stencil buffer.
     {
-        MBGL_DEBUG_GROUP("clip");
+        MBGL_DEBUG_GROUP(context, "clip");
 
         // Update all clipping IDs.
         algorithm::ClipIDGenerator generator;
@@ -188,10 +190,10 @@ void Painter::render(const Style& style, const FrameData& frame_, View& view, Sp
             source->baseImpl->startRender(generator, projMatrix, state);
         }
 
-        MBGL_DEBUG_GROUP("clipping masks");
+        MBGL_DEBUG_GROUP(context, "clipping masks");
 
         for (const auto& stencil : generator.getStencils()) {
-            MBGL_DEBUG_GROUP(std::string{ "mask: " } + util::toString(stencil.first));
+            MBGL_DEBUG_GROUP(context, std::string{ "mask: " } + util::toString(stencil.first));
             renderClippingMask(stencil.first, stencil.second);
         }
     }
@@ -228,7 +230,7 @@ void Painter::render(const Style& style, const FrameData& frame_, View& view, Sp
     // - DEBUG PASS --------------------------------------------------------------------------------
     // Renders debug overlays.
     {
-        MBGL_DEBUG_GROUP("debug");
+        MBGL_DEBUG_GROUP(context, "debug");
 
         // Finalize the rendering, e.g. by calling debug render calls per tile.
         // This guarantees that we have at least one function per tile called.
@@ -248,7 +250,7 @@ void Painter::render(const Style& style, const FrameData& frame_, View& view, Sp
     // TODO: Find a better way to unbind VAOs after we're done with them without introducing
     // unnecessary bind(0)/bind(N) sequences.
     {
-        MBGL_DEBUG_GROUP("cleanup");
+        MBGL_DEBUG_GROUP(context, "cleanup");
 
         context.activeTexture = 1;
         context.texture[1] = 0;
@@ -266,7 +268,7 @@ void Painter::renderPass(PaintParameters& parameters,
                          uint32_t i, int8_t increment) {
     pass = pass_;
 
-    MBGL_DEBUG_GROUP(pass == RenderPass::Opaque ? "opaque" : "translucent");
+    MBGL_DEBUG_GROUP(context, pass == RenderPass::Opaque ? "opaque" : "translucent");
 
     if (debug::renderTree) {
         Log::Info(Event::Render, "%*s%s {", indent++ * 4, "",
@@ -283,10 +285,10 @@ void Painter::renderPass(PaintParameters& parameters,
             continue;
 
         if (layer.is<BackgroundLayer>()) {
-            MBGL_DEBUG_GROUP("background");
+            MBGL_DEBUG_GROUP(context, "background");
             renderBackground(parameters, *layer.as<BackgroundLayer>());
         } else if (layer.is<CustomLayer>()) {
-            MBGL_DEBUG_GROUP(layer.baseImpl->id + " - custom");
+            MBGL_DEBUG_GROUP(context, layer.baseImpl->id + " - custom");
 
             // Reset GL state to a known state so the CustomLayer always has a clean slate.
             context.vertexArrayObject = 0;
@@ -301,7 +303,7 @@ void Painter::renderPass(PaintParameters& parameters,
             parameters.view.bind();
             context.setDirtyState();
         } else {
-            MBGL_DEBUG_GROUP(layer.baseImpl->id + " - " + util::toString(item.tile->id));
+            MBGL_DEBUG_GROUP(context, layer.baseImpl->id + " - " + util::toString(item.tile->id));
             item.bucket->render(*this, parameters, layer, *item.tile);
         }
     }
