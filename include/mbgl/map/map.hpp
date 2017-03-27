@@ -42,7 +42,8 @@ public:
                  MapMode mapMode = MapMode::Continuous,
                  GLContextMode contextMode = GLContextMode::Unique,
                  ConstrainMode constrainMode = ConstrainMode::HeightOnly,
-                 ViewportMode viewportMode = ViewportMode::Default);
+                 ViewportMode viewportMode = ViewportMode::Default,
+                 const std::string& programCacheDir = "");
     ~Map();
 
     // Register a callback that will get called (on the render thread) when all resources have
@@ -107,6 +108,7 @@ public:
     void setLatLngZoom(const LatLng&, double zoom, optional<EdgeInsets>, const AnimationOptions& = {});
     CameraOptions cameraForLatLngBounds(const LatLngBounds&, optional<EdgeInsets>) const;
     CameraOptions cameraForLatLngs(const std::vector<LatLng>&, optional<EdgeInsets>) const;
+    LatLngBounds latLngBoundsForCamera(const CameraOptions&) const;
     void resetZoom();
     void setMinZoom(const double minZoom);
     double getMinZoom() const;

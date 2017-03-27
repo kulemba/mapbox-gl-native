@@ -331,15 +331,13 @@ void Style::recalculate(float z, const TimePoint& timePoint, MapMode mode) {
 
     hasPendingTransitions = false;
     for (const auto& layer : layers) {
-        const bool hasTransitions = layer->baseImpl->evaluate(parameters);
+        hasPendingTransitions |= layer->baseImpl->evaluate(parameters);
 
         // Disable this layer if it doesn't need to be rendered.
         const bool needsRendering = layer->baseImpl->needsRendering(zoomHistory.lastZoom);
         if (!needsRendering) {
             continue;
         }
-
-        hasPendingTransitions |= hasTransitions;
 
         // If this layer has a source, make sure that it gets loaded.
         if (Source* source = getSource(layer->baseImpl->source)) {
@@ -595,8 +593,8 @@ void Style::onSourceLoaded(Source& source) {
     observer->onUpdate(Update::Repaint);
 }
 
-void Style::onSourceAttributionChanged(Source& source, const std::string& attribution) {
-    observer->onSourceAttributionChanged(source, attribution);
+void Style::onSourceChanged(Source& source) {
+    observer->onSourceChanged(source);
 }
 
 void Style::onSourceError(Source& source, std::exception_ptr error) {
