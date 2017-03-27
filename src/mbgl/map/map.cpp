@@ -57,9 +57,10 @@ public:
          MapMode,
          GLContextMode,
          ConstrainMode,
-         ViewportMode);
+         ViewportMode,
+         const std::string& programCacheDir);
 
-    void onSourceAttributionChanged(style::Source&, const std::string&) override;
+    void onSourceChanged(style::Source&) override;
     void onUpdate(Update) override;
     void onStyleLoaded() override;
     void onStyleError(std::exception_ptr) override;
@@ -82,6 +83,7 @@ public:
     const MapMode mode;
     const GLContextMode contextMode;
     const float pixelRatio;
+    const std::string programCacheDir;
 
     MapDebugOptions debugOptions { MapDebugOptions::NoDebug };
 
@@ -113,7 +115,8 @@ Map::Map(Backend& backend,
          MapMode mapMode,
          GLContextMode contextMode,
          ConstrainMode constrainMode,
-         ViewportMode viewportMode)
+         ViewportMode viewportMode,
+         const std::string& programCacheDir)
     : impl(std::make_unique<Impl>(*this,
                                   backend,
                                   pixelRatio,
@@ -122,7 +125,8 @@ Map::Map(Backend& backend,
                                   mapMode,
                                   contextMode,
                                   constrainMode,
-                                  viewportMode)) {
+                                  viewportMode,
+                                  programCacheDir)) {
     impl->transform.resize(size);
 }
 
@@ -134,7 +138,8 @@ Map::Impl::Impl(Map& map_,
                 MapMode mode_,
                 GLContextMode contextMode_,
                 ConstrainMode constrainMode_,
-                ViewportMode viewportMode_)
+                ViewportMode viewportMode_,
+                const std::string& programCacheDir_)
     : map(map_),
       observer(backend_),
       backend(backend_),
@@ -146,6 +151,7 @@ Map::Impl::Impl(Map& map_,
       mode(mode_),
       contextMode(contextMode_),
       pixelRatio(pixelRatio_),
+      programCacheDir(programCacheDir_),
       annotationManager(std::make_unique<AnnotationManager>(pixelRatio)),
       asyncInvalidate([this] {
           if (mode == MapMode::Continuous) {
@@ -261,8 +267,9 @@ void Map::Impl::render(View& view) {
 
     updateFlags = Update::Nothing;
 
+    gl::Context& context = backend.getContext();
     if (!painter) {
-        painter = std::make_unique<Painter>(backend.getContext(), transform.getState(), pixelRatio);
+        painter = std::make_unique<Painter>(context, transform.getState(), pixelRatio, programCacheDir);
     }
 
     if (mode == MapMode::Continuous) {
@@ -635,6 +642,17 @@ CameraOptions Map::cameraForLatLngs(const std::vector<LatLng>& latLngs, optional
     options.center = latLngForPixel(centerPixel);
     options.zoom = zoom;
     return options;
+}
+
+LatLngBounds Map::latLngBoundsForCamera(const CameraOptions& camera) const {
+    Transform shallow { impl->transform.getState() };
+    Size size = shallow.getState().getSize();
+
+    shallow.jumpTo(camera);
+    return LatLngBounds::hull(
+        shallow.screenCoordinateToLatLng({}),
+        shallow.screenCoordinateToLatLng({ double(size.width), double(size.height) })
+    );
 }
 
 void Map::resetZoom() {
@@ -1089,8 +1107,8 @@ void Map::onLowMemory() {
     }
 }
 
-void Map::Impl::onSourceAttributionChanged(style::Source&, const std::string&) {
-    observer.onSourceDidChange();
+void Map::Impl::onSourceChanged(style::Source& source) {
+    observer.onSourceChanged(source);
 }
 
 void Map::Impl::onUpdate(Update flags) {
