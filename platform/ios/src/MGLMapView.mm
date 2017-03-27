@@ -1,7 +1,6 @@
 #import "MGLMapView_Private.h"
 
 #include <mbgl/util/logging.hpp>
-#include <mbgl/gl/extension.hpp>
 #include <mbgl/gl/context.hpp>
 
 #import <GLKit/GLKit.h>
@@ -21,6 +20,7 @@
 #include <mbgl/style/transition_options.hpp>
 #include <mbgl/style/layers/custom_layer.hpp>
 #include <mbgl/map/backend.hpp>
+#include <mbgl/map/backend_scope.hpp>
 #include <mbgl/math/wrap.hpp>
 #include <mbgl/util/exception.hpp>
 #include <mbgl/util/geo.hpp>
@@ -58,6 +58,7 @@
 #import "MGLStyle_Private.h"
 #import "MGLStyleLayer_Private.h"
 #import "MGLMapboxEvents.h"
+#import "MGLSDKUpdateChecker.h"
 #import "MGLCompactCalloutView.h"
 #import "MGLAnnotationContainerView.h"
 #import "MGLAnnotationContainerView_Private.h"
@@ -360,6 +361,14 @@ public:
     return self;
 }
 
++ (void)initialize
+{
+    if (self == [MGLMapView self])
+    {
+        [MGLSDKUpdateChecker checkForUpdates];
+    }
+}
+
 + (NS_SET_OF(NSString *) *)keyPathsForValuesAffectingStyle
 {
     return [NSSet setWithObject:@"styleURL"];
@@ -548,14 +557,11 @@ public:
 
     _decelerationRate = MGLMapViewDecelerationRateNormal;
 
-    if ([[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPhone)
-    {
-        _quickZoom = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleQuickZoomGesture:)];
-        _quickZoom.numberOfTapsRequired = 1;
-        _quickZoom.minimumPressDuration = 0;
-        [_quickZoom requireGestureRecognizerToFail:doubleTap];
-        [self addGestureRecognizer:_quickZoom];
-    }
+    _quickZoom = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleQuickZoomGesture:)];
+    _quickZoom.numberOfTapsRequired = 1;
+    _quickZoom.minimumPressDuration = 0;
+    [_quickZoom requireGestureRecognizerToFail:doubleTap];
+    [self addGestureRecognizer:_quickZoom];
 
     // observe app activity
     //
@@ -618,21 +624,6 @@ public:
     [_glView bindDrawable];
     [self insertSubview:_glView atIndex:0];
     _glView.contentMode = UIViewContentModeCenter;
-
-    // load extensions
-    //
-    mbgl::gl::InitializeExtensions([](const char * name) {
-        static CFBundleRef framework = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.opengles"));
-        if (!framework) {
-            throw std::runtime_error("Failed to load OpenGL framework.");
-        }
-
-        CFStringRef str = CFStringCreateWithCString(kCFAllocatorDefault, name, kCFStringEncodingASCII);
-        void* symbol = CFBundleGetFunctionPointerForName(framework, str);
-        CFRelease(str);
-
-        return reinterpret_cast<mbgl::gl::glProc>(symbol);
-    });
 }
 
 - (UIImage *)compassImage
@@ -892,6 +883,9 @@ public:
 {
     if ( ! self.dormant)
     {
+        // The OpenGL implementation automatically enables the OpenGL context for us.
+        mbgl::BackendScope scope { *_mbglView, mbgl::BackendScope::ScopeType::Implicit };
+
         _mbglView->updateViewBinding();
         _mbglMap->render(*_mbglView);
 
@@ -1259,7 +1253,7 @@ public:
             if (![self.delegate respondsToSelector:@selector(mapView:shouldChangeFromCamera:toCamera:)] ||
                 [self.delegate mapView:self shouldChangeFromCamera:oldCamera toCamera:toCamera])
             {
-                _mbglMap->moveBy({ offset.x, offset.y }, MGLDurationInSecondsFromTimeInterval(self.decelerationRate));
+                _mbglMap->moveBy({ offset.x, offset.y }, MGLDurationFromTimeInterval(self.decelerationRate));
             }
         }
 
@@ -1369,7 +1363,7 @@ public:
         } else {
             if (drift)
             {
-                _mbglMap->setScale(newScale, mbgl::ScreenCoordinate { centerPoint.x, centerPoint.y }, MGLDurationInSecondsFromTimeInterval(duration));
+                _mbglMap->setScale(newScale, mbgl::ScreenCoordinate { centerPoint.x, centerPoint.y }, MGLDurationFromTimeInterval(duration));
             }
         }
 
@@ -1441,7 +1435,7 @@ public:
             if (![self.delegate respondsToSelector:@selector(mapView:shouldChangeFromCamera:toCamera:)] ||
                 [self.delegate mapView:self shouldChangeFromCamera:oldCamera toCamera:toCamera])
             {
-                _mbglMap->setBearing(newDegrees, mbgl::ScreenCoordinate { centerPoint.x, centerPoint.y }, MGLDurationInSecondsFromTimeInterval(decelerationRate));
+                _mbglMap->setBearing(newDegrees, mbgl::ScreenCoordinate { centerPoint.x, centerPoint.y }, MGLDurationFromTimeInterval(decelerationRate));
                 
                 [self notifyGestureDidEndWithDrift:YES];
                 
@@ -1538,14 +1532,18 @@ public:
             return nil;
         }
     }
-
+    
     // Handle the case of an offset annotation view by converting the tap point to be the geo location
     // of the annotation itself that the view represents
     for (MGLAnnotationView *view in self.annotationContainerView.annotationViews)
     {
         if (view.centerOffset.dx != 0 || view.centerOffset.dy != 0) {
             if (CGRectContainsPoint(view.frame, tapPoint)) {
-                NSAssert(view.annotation, @"Annotation's view annotation property should not be nil.");
+                if (!view.annotation) {
+                    [NSException raise:NSInvalidArgumentException
+                                format:@"Annotation view's annotation property should not be nil."];
+                }
+                
                 CGPoint annotationPoint = [self convertCoordinate:view.annotation.coordinate toPointToView:self];
                 tapPoint = annotationPoint;
             }
@@ -1589,7 +1587,7 @@ public:
             [self trackGestureEvent:MGLEventGestureDoubleTap forRecognizer:doubleTap];
             
             mbgl::ScreenCoordinate center(gesturePoint.x, gesturePoint.y);
-            _mbglMap->setZoom(newZoom, center, MGLDurationInSecondsFromTimeInterval(MGLAnimationDuration));
+            _mbglMap->setZoom(newZoom, center, MGLDurationFromTimeInterval(MGLAnimationDuration));
             
             __weak MGLMapView *weakSelf = self;
             
@@ -1628,7 +1626,7 @@ public:
             [self.delegate mapView:self shouldChangeFromCamera:oldCamera toCamera:toCamera])
         {
             mbgl::ScreenCoordinate center(gesturePoint.x, gesturePoint.y);
-            _mbglMap->setZoom(newZoom, center, MGLDurationInSecondsFromTimeInterval(MGLAnimationDuration));
+            _mbglMap->setZoom(newZoom, center, MGLDurationFromTimeInterval(MGLAnimationDuration));
             
             __weak MGLMapView *weakSelf = self;
             
@@ -2026,10 +2024,7 @@ public:
 
             // Update the annotation’s backing geometry to match the annotation model object. Any associated annotation view is also moved by side effect. However, -updateAnnotationViews disables the view’s animation actions, because it can’t distinguish between moves due to the viewport changing and moves due to the annotation’s coordinate changing.
             _mbglMap->updateAnnotation(annotationTag, mbgl::SymbolAnnotation { point, symbolName.UTF8String });
-            if (annotationTag == _selectedAnnotationTag)
-            {
-                [self deselectAnnotation:annotation animated:YES];
-            }
+            [self updateCalloutView];
         }
     }
     else if ([keyPath isEqualToString:@"coordinates"] && [object isKindOfClass:[MGLMultiPoint class]])
@@ -2046,13 +2041,7 @@ public:
         {
             // Update the annotation’s backing geometry to match the annotation model object.
             _mbglMap->updateAnnotation(annotationTag, [annotation annotationObjectWithDelegate:self]);
-
-            // We don't current support shape multipoint annotation selection, but let's make sure
-            // deselection is handled just to avoid problems in the future.
-            if (annotationTag == _selectedAnnotationTag)
-            {
-                [self deselectAnnotation:annotation animated:YES];
-            }
+            [self updateCalloutView];
         }
     }
 }
@@ -2493,7 +2482,7 @@ public:
     mbgl::AnimationOptions animationOptions;
     if (duration)
     {
-        animationOptions.duration.emplace(MGLDurationInSecondsFromTimeInterval(duration));
+        animationOptions.duration.emplace(MGLDurationFromTimeInterval(duration));
         animationOptions.easing.emplace(MGLUnitBezierForMediaTimingFunction(function));
     }
     if (completion)
@@ -2550,7 +2539,7 @@ public:
 
     _mbglMap->setZoom(zoomLevel,
                       MGLEdgeInsetsFromNSEdgeInsets(self.contentInset),
-                      MGLDurationInSecondsFromTimeInterval(duration));
+                      MGLDurationFromTimeInterval(duration));
 }
 
 - (void)setMinimumZoomLevel:(double)minimumZoomLevel
@@ -2659,7 +2648,7 @@ public:
     mbgl::AnimationOptions animationOptions;
     if (duration > 0)
     {
-        animationOptions.duration.emplace(MGLDurationInSecondsFromTimeInterval(duration));
+        animationOptions.duration.emplace(MGLDurationFromTimeInterval(duration));
         animationOptions.easing.emplace(MGLUnitBezierForMediaTimingFunction(function));
     }
     if (completion)
@@ -2724,13 +2713,13 @@ public:
     {
         _mbglMap->setBearing(direction,
                              MGLEdgeInsetsFromNSEdgeInsets(self.contentInset),
-                             MGLDurationInSecondsFromTimeInterval(duration));
+                             MGLDurationFromTimeInterval(duration));
     }
     else
     {
         CGPoint centerPoint = self.userLocationAnnotationViewCenter;
         _mbglMap->setBearing(direction, mbgl::ScreenCoordinate { centerPoint.x, centerPoint.y },
-                             MGLDurationInSecondsFromTimeInterval(duration));
+                             MGLDurationFromTimeInterval(duration));
     }
 }
 
@@ -2775,7 +2764,7 @@ public:
     mbgl::AnimationOptions animationOptions;
     if (duration > 0)
     {
-        animationOptions.duration.emplace(MGLDurationInSecondsFromTimeInterval(duration));
+        animationOptions.duration.emplace(MGLDurationFromTimeInterval(duration));
         animationOptions.easing.emplace(MGLUnitBezierForMediaTimingFunction(function));
     }
     if (completion)
@@ -2826,7 +2815,7 @@ public:
     mbgl::AnimationOptions animationOptions;
     if (duration >= 0)
     {
-        animationOptions.duration = MGLDurationInSecondsFromTimeInterval(duration);
+        animationOptions.duration = MGLDurationFromTimeInterval(duration);
     }
     if (peakAltitude >= 0)
     {
@@ -3135,7 +3124,7 @@ public:
     return annotationContext.annotation;
 }
 
-/// Returns the annotation tag assigned to the given annotation. Relatively expensive.
+/// Returns the annotation tag assigned to the given annotation.
 - (MGLAnnotationTag)annotationTagForAnnotation:(id <MGLAnnotation>)annotation
 {
     if ( ! annotation || annotation == self.userLocation
@@ -3175,7 +3164,7 @@ public:
         NSAssert([annotation conformsToProtocol:@protocol(MGLAnnotation)], @"annotation should conform to MGLAnnotation");
 
         // adding the same annotation object twice is a no-op
-        if ([self.annotations containsObject:annotation])
+        if (_annotationTagsByAnnotation.count(annotation) != 0)
         {
             continue;
         }
@@ -5490,6 +5479,20 @@ public:
 
     void onDidFinishLoadingStyle() override {
         [nativeView didFinishLoadingStyle];
+    }
+
+    mbgl::gl::ProcAddress initializeExtension(const char* name) override {
+        static CFBundleRef framework = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.opengles"));
+        if (!framework) {
+            throw std::runtime_error("Failed to load OpenGL framework.");
+        }
+
+        CFStringRef str =
+            CFStringCreateWithCString(kCFAllocatorDefault, name, kCFStringEncodingASCII);
+        void* symbol = CFBundleGetFunctionPointerForName(framework, str);
+        CFRelease(str);
+
+        return reinterpret_cast<mbgl::gl::ProcAddress>(symbol);
     }
 
     void invalidate() override
