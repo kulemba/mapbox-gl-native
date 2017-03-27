@@ -15,7 +15,6 @@
 #include <mbgl/util/indexed_tuple.hpp>
 #include <mbgl/util/ignore.hpp>
 
-#include <unordered_map>
 #include <utility>
 
 namespace mbgl {
@@ -139,8 +138,8 @@ public:
     }
 
 private:
-    std::unordered_map<ClassID, Value> values;
-    std::unordered_map<ClassID, TransitionOptions> transitions;
+    std::map<ClassID, Value> values;
+    std::map<ClassID, TransitionOptions> transitions;
 };
 
 template <class T>
@@ -224,6 +223,11 @@ public:
     template <class P>
     void setTransition(const TransitionOptions& value, const optional<std::string>& klass) {
         cascading.template get<P>().setTransition(value, klass);
+    }
+    
+    template <class P>
+    auto getTransition(const optional<std::string>& klass) const {
+        return cascading.template get<P>().getTransition(klass);
     }
 
     void cascade(const CascadeParameters& parameters) {
