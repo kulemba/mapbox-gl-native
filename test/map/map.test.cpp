@@ -47,6 +47,7 @@ public:
 struct MapTest {
     util::RunLoop runLoop;
     BackendTest backend;
+    BackendScope scope { backend };
     OffscreenView view { backend.getContext() };
     StubFileSource fileSource;
     ThreadPool threadPool { 4 };
@@ -66,6 +67,27 @@ TEST(Map, LatLngBehavior) {
 
     ASSERT_DOUBLE_EQ(latLng1.latitude, latLng2.latitude);
     ASSERT_DOUBLE_EQ(latLng1.longitude, latLng2.longitude);
+}
+
+TEST(Map, CameraToLatLngBounds) {
+    MapTest test;
+    Map map(test.backend, test.view.getSize(), 1, test.fileSource, test.threadPool, MapMode::Still);
+
+    map.setLatLngZoom({ 45, 90 }, 16);
+
+    LatLngBounds bounds = LatLngBounds::hull(
+            map.latLngForPixel({}),
+            map.latLngForPixel({ double(map.getSize().width), double(map.getSize().height) }));
+
+    CameraOptions camera = map.getCameraOptions({});
+
+    ASSERT_EQ(bounds, map.latLngBoundsForCamera(camera));
+
+    // Map::cameraForLatLngBounds only sets zoom and center.
+    CameraOptions virtualCamera = map.cameraForLatLngBounds(bounds, {});
+    ASSERT_NEAR(*camera.zoom, *virtualCamera.zoom, 1e-7);
+    ASSERT_NEAR(camera.center->latitude, virtualCamera.center->latitude, 1e-7);
+    ASSERT_NEAR(camera.center->longitude, virtualCamera.center->longitude, 1e-7);
 }
 
 TEST(Map, Offline) {
@@ -552,6 +574,7 @@ public:
 TEST(Map, TEST_DISABLED_ON_CI(ContinuousRendering)) {
     util::RunLoop runLoop;
     MockBackend backend { test::sharedDisplay() };
+    BackendScope scope { backend };
     OffscreenView view { backend.getContext() };
     ThreadPool threadPool { 4 };
 
@@ -585,7 +608,7 @@ TEST(Map, TEST_DISABLED_ON_CI(ContinuousRendering)) {
             });
         }
 
-        BackendScope scope(backend);
+        BackendScope scope2(backend);
         map.render(view);
     }};
 
