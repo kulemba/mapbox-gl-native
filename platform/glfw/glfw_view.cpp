@@ -4,12 +4,12 @@
 #include <mbgl/sprite/sprite_image.hpp>
 #include <mbgl/style/transition_options.hpp>
 #include <mbgl/gl/gl.hpp>
-#include <mbgl/gl/extension.hpp>
 #include <mbgl/gl/context.hpp>
 #include <mbgl/util/logging.hpp>
 #include <mbgl/util/platform.hpp>
 #include <mbgl/util/string.hpp>
 #include <mbgl/util/chrono.hpp>
+#include <mbgl/map/backend_scope.hpp>
 #include <mbgl/map/camera.hpp>
 
 #include <mbgl/gl/state.hpp>
@@ -84,8 +84,6 @@ GLFWView::GLFWView(bool fullscreen_, bool benchmark_)
     glfwSetFramebufferSizeCallback(window, onFramebufferResize);
     glfwSetScrollCallback(window, onScroll);
     glfwSetKeyCallback(window, onKey);
-
-    mbgl::gl::InitializeExtensions(glfwGetProcAddress);
 
     glfwGetWindowSize(window, &width, &height);
     glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
@@ -461,7 +459,8 @@ void GLFWView::run() {
         if (dirty) {
             const double started = glfwGetTime();
 
-            glfwMakeContextCurrent(window);
+            activate();
+            mbgl::BackendScope scope { *this, mbgl::BackendScope::ScopeType::Implicit };
 
             updateViewBinding();
             map->render(*this);
@@ -495,6 +494,10 @@ mbgl::Size GLFWView::getSize() const {
 
 mbgl::Size GLFWView::getFramebufferSize() const {
     return { static_cast<uint32_t>(fbWidth), static_cast<uint32_t>(fbHeight) };
+}
+
+mbgl::gl::ProcAddress GLFWView::initializeExtension(const char* name) {
+    return glfwGetProcAddress(name);
 }
 
 void GLFWView::activate() {
