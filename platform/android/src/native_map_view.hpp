@@ -42,7 +42,13 @@ public:
 
     static void registerNative(jni::JNIEnv&);
 
-    NativeMapView(jni::JNIEnv&, jni::Object<NativeMapView>, jni::Object<FileSource>, jni::jfloat, jni::jint, jni::jlong);
+    NativeMapView(jni::JNIEnv&,
+                  jni::Object<NativeMapView>,
+                  jni::Object<FileSource>,
+                  jni::jfloat pixelRatio,
+                  jni::String programCacheDir,
+                  jni::jint availableProcessors,
+                  jni::jlong totalMemory);
 
     virtual ~NativeMapView();
 
@@ -69,7 +75,7 @@ public:
     void onWillStartRenderingMap() override;
     void onDidFinishRenderingMap(MapObserver::RenderMode) override;
     void onDidFinishLoadingStyle() override;
-    void onSourceDidChange() override;
+    void onSourceChanged(mbgl::style::Source&) override;
 
     // JNI //
 
@@ -133,7 +139,7 @@ public:
 
     jni::jdouble getScale(jni::JNIEnv&);
 
-    void setZoom(jni::JNIEnv&, jni::jdouble, jni::jlong);
+    void setZoom(jni::JNIEnv&, jni::jdouble, jni::jdouble, jni::jdouble, jni::jlong);
 
     jni::jdouble getZoom(jni::JNIEnv&);
 
@@ -256,6 +262,7 @@ public:
 protected:
     // mbgl::Backend //
 
+    gl::ProcAddress initializeExtension(const char*) override;
     void activate() override;
     void deactivate() override;
 

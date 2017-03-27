@@ -5,10 +5,10 @@
 #include "qt_geojson.hpp"
 
 #include <mbgl/annotation/annotation.hpp>
-#include <mbgl/gl/gl.hpp>
-#include <mbgl/gl/context.hpp>
 #include <mbgl/map/camera.hpp>
 #include <mbgl/map/map.hpp>
+#include <mbgl/gl/context.hpp>
+#include <mbgl/map/backend_scope.hpp>
 #include <mbgl/style/conversion.hpp>
 #include <mbgl/style/conversion/layer.hpp>
 #include <mbgl/style/conversion/source.hpp>
@@ -31,6 +31,7 @@
 #include <QOpenGLContext>
 #else
 #include <QCoreApplication>
+#include <QGLContext>
 #endif
 
 #include <QDebug>
@@ -1084,6 +1085,14 @@ void QMapboxGL::resize(const QSize& size, const QSize& framebufferSize)
 }
 
 /*!
+    If Mapbox GL needs to rebind the default framebuffer, it will use the
+    ID supplied here.
+*/
+void QMapboxGL::setFramebufferObject(quint32 fbo) {
+    d_ptr->fbObject = fbo;
+}
+
+/*!
     Adds an \a icon to the annotation icon pool. This can be later used by the annotation
     functions to shown any drawing on the map by referencing its \a name.
 
@@ -1242,9 +1251,10 @@ void QMapboxGL::addSource(const QString &id, const QVariantMap &params)
     using namespace mbgl::style;
     using namespace mbgl::style::conversion;
 
-    Result<std::unique_ptr<Source>> source = convert<std::unique_ptr<Source>>(QVariant(params), id.toStdString());
+    Error error;
+    mbgl::optional<std::unique_ptr<Source>> source = convert<std::unique_ptr<Source>>(QVariant(params), error, id.toStdString());
     if (!source) {
-        qWarning() << "Unable to add source:" << source.error().message.c_str();
+        qWarning() << "Unable to add source:" << error.message.c_str();
         return;
     }
 
@@ -1283,7 +1293,8 @@ void QMapboxGL::updateSource(const QString &id, const QVariantMap &params)
     }
 
     if (params.contains("data")) {
-        auto result = convertGeoJSON(params["data"]);
+        Error error;
+        auto result = convertGeoJSON(params["data"], error);
         if (result) {
             sourceGeoJSON->setGeoJSON(*result);
         }
@@ -1354,9 +1365,10 @@ void QMapboxGL::addLayer(const QVariantMap &params)
     using namespace mbgl::style;
     using namespace mbgl::style::conversion;
 
-    Result<std::unique_ptr<Layer>> layer = convert<std::unique_ptr<Layer>>(QVariant(params));
+    Error error;
+    mbgl::optional<std::unique_ptr<Layer>> layer = convert<std::unique_ptr<Layer>>(QVariant(params), error);
     if (!layer) {
-        qWarning() << "Unable to add layer:" << layer.error().message.c_str();
+        qWarning() << "Unable to add layer:" << error.message.c_str();
         return;
     }
 
@@ -1437,9 +1449,10 @@ void QMapboxGL::setFilter(const QString& layer, const QVariant& filter)
 
     Filter filter_;
 
-    Result<Filter> converted = convert<Filter>(filter);
+    Error error;
+    mbgl::optional<Filter> converted = convert<Filter>(filter, error);
     if (!converted) {
-        qWarning() << "Error parsing filter:" << converted.error().message.c_str();
+        qWarning() << "Error parsing filter:" << error.message.c_str();
         return;
     }
     filter_ = std::move(*converted);
@@ -1483,7 +1496,11 @@ void QMapboxGL::render()
     }
 #endif
 
+    // The OpenGL implementation automatically enables the OpenGL context for us.
+    mbgl::BackendScope scope { *d_ptr, mbgl::BackendScope::ScopeType::Implicit };
+
     d_ptr->dirty = false;
+    d_ptr->updateViewBinding();
     d_ptr->mapObj->render(*d_ptr);
 }
 
@@ -1554,11 +1571,20 @@ QMapboxGLPrivate::~QMapboxGLPrivate()
 {
 }
 
+mbgl::Size QMapboxGLPrivate::framebufferSize() const {
+    return { static_cast<uint32_t>(fbSize.width()), static_cast<uint32_t>(fbSize.height()) };
+}
+
+void QMapboxGLPrivate::updateViewBinding() {
+    getContext().bindFramebuffer.setCurrentValue(fbObject);
+    assert(mbgl::gl::value::BindFramebuffer::Get() == getContext().bindFramebuffer.getCurrentValue());
+    getContext().viewport.setCurrentValue({ 0, 0, framebufferSize() });
+    assert(mbgl::gl::value::Viewport::Get() == getContext().viewport.getCurrentValue());
+}
+
 void QMapboxGLPrivate::bind() {
-    getContext().bindFramebuffer = 0;
-    getContext().viewport = {
-        0, 0, { static_cast<uint32_t>(fbSize.width()), static_cast<uint32_t>(fbSize.height()) }
-    };
+    getContext().bindFramebuffer = fbObject;
+    getContext().viewport = { 0, 0, framebufferSize() };
 }
 
 void QMapboxGLPrivate::invalidate()
@@ -1640,7 +1666,7 @@ void QMapboxGLPrivate::onDidFinishLoadingStyle()
     emit mapChanged(QMapboxGL::MapChangeDidFinishLoadingStyle);
 }
 
-void QMapboxGLPrivate::onSourceDidChange()
+void QMapboxGLPrivate::onSourceChanged(mbgl::style::Source&)
 {
     std::string attribution;
     for (const auto& source : mapObj->getSources()) {
@@ -1650,6 +1676,20 @@ void QMapboxGLPrivate::onSourceDidChange()
     }
     emit copyrightsChanged(QString::fromStdString(attribution));
     emit mapChanged(QMapboxGL::MapChangeSourceDidChange);
+}
+
+/*!
+    Initializes an OpenGL extension function such as Vertex Array Objects (VAOs),
+    required by Mapbox GL Native engine.
+*/
+mbgl::gl::ProcAddress QMapboxGLPrivate::initializeExtension(const char* name) {
+#if QT_VERSION >= 0x050000
+    QOpenGLContext* thisContext = QOpenGLContext::currentContext();
+    return thisContext->getProcAddress(name);
+#else
+    const QGLContext* thisContext = QGLContext::currentContext();
+    return reinterpret_cast<mbgl::gl::ProcAddress>(thisContext->getProcAddress(name));
+#endif
 }
 
 void QMapboxGLPrivate::connectionEstablished()

@@ -97,7 +97,8 @@ final class NativeMapView {
     onMapChangedListeners = new CopyOnWriteArrayList<>();
     this.mapView = mapView;
 
-    nativeInitialize(this, fileSource, pixelRatio, availableProcessors, totalMemory);
+    String programCacheDir = context.getCacheDir().getAbsolutePath();
+    nativeInitialize(this, fileSource, pixelRatio, programCacheDir, availableProcessors, totalMemory);
   }
 
   //
@@ -378,18 +379,11 @@ final class NativeMapView {
     return nativeGetScale();
   }
 
-  public void setZoom(double zoom) {
+  public void setZoom(double zoom, PointF focalPoint, long duration) {
     if (isDestroyedOn("setZoom")) {
       return;
     }
-    setZoom(zoom, 0);
-  }
-
-  public void setZoom(double zoom, long duration) {
-    if (isDestroyedOn("setZoom")) {
-      return;
-    }
-    nativeSetZoom(zoom, duration);
+    nativeSetZoom(zoom, focalPoint.x / pixelRatio, focalPoint.y / pixelRatio, duration);
   }
 
   public double getZoom() {
@@ -968,8 +962,12 @@ final class NativeMapView {
   // JNI methods
   //
 
-  private native void nativeInitialize(NativeMapView nativeMapView, FileSource fileSource,
-                                       float pixelRatio, int availableProcessors, long totalMemory);
+  private native void nativeInitialize(NativeMapView nativeMapView,
+                                       FileSource fileSource,
+                                       float pixelRatio,
+                                       String programCacheDir,
+                                       int availableProcessors,
+                                       long totalMemory);
 
   private native void nativeDestroy();
 
@@ -1023,7 +1021,7 @@ final class NativeMapView {
 
   private native double nativeGetScale();
 
-  private native void nativeSetZoom(double zoom, long duration);
+  private native void nativeSetZoom(double zoom, double cx, double cy, long duration);
 
   private native double nativeGetZoom();
 
