@@ -6,6 +6,7 @@ import android.os.Looper;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 
+import com.mapbox.mapboxsdk.R;
 import com.mapbox.mapboxsdk.geometry.LatLngBounds;
 import com.mapbox.mapboxsdk.net.ConnectivityReceiver;
 import com.mapbox.mapboxsdk.storage.FileSource;
@@ -29,7 +30,6 @@ public class OfflineManager {
   static {
     System.loadLibrary("mapbox-gl");
   }
-
 
   // Native peer pointer
   private long nativePtr;
@@ -156,7 +156,8 @@ public class OfflineManager {
    *
    * @param callback the callback to be invoked
    */
-  public void listOfflineRegions(@NonNull final ListOfflineRegionsCallback callback) {
+  public void listOfflineRegions(@NonNull
+                                 final ListOfflineRegionsCallback callback) {
     listOfflineRegions(fileSource, new ListOfflineRegionsCallback() {
 
       @Override
@@ -197,10 +198,15 @@ public class OfflineManager {
    * @param metadata   the metadata in bytes
    * @param callback   the callback to be invoked
    */
-  public void createOfflineRegion(
-    @NonNull OfflineRegionDefinition definition,
-    @NonNull byte[] metadata,
-    @NonNull final CreateOfflineRegionCallback callback) {
+  public void createOfflineRegion(@NonNull OfflineRegionDefinition definition, @NonNull byte[] metadata,
+                                  final CreateOfflineRegionCallback callback) {
+    if (!isValidOfflineRegionDefinition(definition)) {
+      callback.onError(
+        String.format(context.getString(R.string.mapbox_offline_error_region_definition_invalid),
+          definition.getBounds())
+      );
+      return;
+    }
 
     ConnectivityReceiver.instance(context).activate();
     createOfflineRegion(fileSource, definition, metadata, new CreateOfflineRegionCallback() {
@@ -227,6 +233,16 @@ public class OfflineManager {
         });
       }
     });
+  }
+
+  /**
+   * Validates if the offline region definition bounds is valid for an offline region download.
+   *
+   * @param definition the offline region definition
+   * @return true if the region fits the world bounds.
+   */
+  private boolean isValidOfflineRegionDefinition(OfflineRegionDefinition definition) {
+    return LatLngBounds.world().contains(definition.getBounds());
   }
 
   public void addSupplementaryOfflineDatabase(final String cachePath, @ResourceKind int resourceKind) {
