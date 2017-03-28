@@ -114,7 +114,7 @@ public:
      * by the Mapbox Terms of Service.
      */
     void setOfflineMapboxTileCountLimit(uint64_t) const;
-
+    
     /*
      * Pause file request activity.
      *
@@ -130,6 +130,9 @@ public:
      * expired while the file source was paused.
      */
     void resume();
+
+    void addSupplementaryOfflineDatabase(Resource::Kind kind, optional<LatLngBounds> latLngBounds, const std::string& cachePath);
+    void removeSupplementaryOfflineDatabases(const std::string& cachePath);
 
     // For testing only.
     void put(const Resource&, const Response&);
