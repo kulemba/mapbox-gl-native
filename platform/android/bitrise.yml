@@ -14,38 +14,7 @@ workflows:
   primary:
     steps:
     - script:
-        title: Check for skipping CI
-        inputs:
-        - content: |-
-            #!/bin/bash
-
-            if [[ -n "$(echo $GIT_CLONE_COMMIT_MESSAGE_SUBJECT | sed -n '/\[skip ci\]/p')"  ||
-                  -n "$(echo $GIT_CLONE_COMMIT_MESSAGE_SUBJECT | sed -n '/\[ci skip\]/p')"  ||
-                  -n "$(echo $GIT_CLONE_COMMIT_MESSAGE_BODY    | sed -n 's/\[skip ci\]/p')" ||
-                  -n "$(echo $GIT_CLONE_COMMIT_MESSAGE_BODY    | sed -n 's/\[ci skip\]/p')" ]]; then
-                envman add --key SKIPCI --value true
-            else
-                envman add --key SKIPCI --value false
-            fi
-    - script:
-        title: Configure GL-native build environement
-        run_if: '{{enveq "SKIPCI" "false"}}'
-        inputs:
-        - content: |-
-            #!/bin/bash
-            set -eu -o pipefail
-            sudo apt-get install -y pkg-config cmake
-    - script:
-        title: Run Checkstyle
-        run_if: '{{enveq "SKIPCI" "false"}}'
-        inputs:
-        - content: |-
-            #!/bin/bash
-            # Run checkstyle gradle task on all modules
-            cd platform/android && ./gradlew checkstyle
-    - script:
         title: Configure Google Cloud SDK
-        run_if: '{{enveq "SKIPCI" "false"}}'
         inputs:
         - content: |-
             #!/bin/bash
@@ -66,16 +35,17 @@ workflows:
             wget -O secret.json "$BITRISEIO_GCLOUD_SERVICE_ACCOUNT_JSON_URL"
     - script:
         title: Build libmapbox-gl.so for armeabi-v7a
-        run_if: '{{enveq "SKIPCI" "false"}}'
         inputs:
         - content: |-
             #!/bin/bash
+            # Accept Android SDK license
+            echo "Accepting Android SDK license..."
+            mkdir -p "${ANDROID_HOME}/licenses"
+            echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > "${ANDROID_HOME}/licenses/android-sdk-license"
             echo "Compile libmapbox-gl.so for armeabi-v7a abi:"
-            export BUILDTYPE=Debug
-            make android-lib-arm-v7
+            BUILDTYPE=Debug make android-lib-arm-v7
     - script:
         title: Compile Core tests
-        run_if: '{{enveq "SKIPCI" "false"}}'
         inputs:
         - content: |-
             #!/bin/bash
@@ -83,7 +53,6 @@ workflows:
             BUILDTYPE=Debug make android-test-lib-arm-v7
     - script:
         title: Run local JVM Unit tests on phone module
-        run_if: '{{enveq "SKIPCI" "false"}}'
         inputs:
         - content: |-
             #!/bin/bash
@@ -91,7 +60,6 @@ workflows:
             make run-android-unit-test
     - script:
         title: Run local JVM Unit tests on wear module
-        run_if: '{{enveq "SKIPCI" "false"}}'
         inputs:
         - content: |-
             #!/bin/bash
@@ -99,15 +67,20 @@ workflows:
             make run-android-wear-unit-test
     - script:
         title: Generate Espresso sanity tests
-        run_if: '{{enveq "SKIPCI" "false"}}'
         inputs:
         - content: |-
             #!/bin/bash
             echo "Generate these test locally by executing:"
             make test-code-android
     - script:
+        title: Run Checkstyle
+        inputs:
+        - content: |-
+            #!/bin/bash
+            # Run checkstyle gradle task on all modules
+            make android-checkstyle
+    - script:
         title: Run Firebase instrumentation tests
-        run_if: '{{enveq "SKIPCI" "false"}}'
         inputs:
         - content: |-
             #!/bin/bash
@@ -115,7 +88,7 @@ workflows:
             wget -O platform/android/MapboxGLAndroidSDKTestApp/src/main/res/values/developer-config.xml "$BITRISEIO_TEST_ACCESS_TOKEN_UI_TEST_URL"
 
             echo "Build seperate test apk:"
-            make android-ui-test
+            make android-ui-test-arm-v7
 
             echo "Run tests on firebase:"
             gcloud auth activate-service-account --key-file secret.json --project android-gl-native
@@ -123,7 +96,6 @@ workflows:
             gcloud beta test android run --type instrumentation --app platform/android/MapboxGLAndroidSDKTestApp/build/outputs/apk/MapboxGLAndroidSDKTestApp-debug.apk --test platform/android/MapboxGLAndroidSDKTestApp/build/outputs/apk/MapboxGLAndroidSDKTestApp-debug-androidTest.apk --device-ids shamu --os-version-ids 22 --locales en --orientations portrait --timeout 15m --test-targets "class com.mapbox.mapboxsdk.testapp.maps.widgets.AttributionTest"
     - script:
         title: Download Firebase results
-        run_if: '{{enveq "SKIPCI" "false"}}'
         is_always_run: true
         inputs:
         - content: |-
@@ -139,13 +111,11 @@ workflows:
             find platform/android/MapboxGLAndroidSDKTestApp/build/outputs/apk -type f -name "logcat" -print0 | xargs -0 -Imylogcat mv -i mylogcat ./
             cat logcat | ndk-stack -sym build/android-arm-v7/Debug
     - deploy-to-bitrise-io:
-        run_if: '{{enveq "SKIPCI" "false"}}'
         inputs:
         - deploy_path: platform/android/MapboxGLAndroidSDKTestApp/build/outputs/apk
         - is_compress: 'true'
         - notify_user_groups: none
     - slack:
-        run_if: '{{enveq "SKIPCI" "false"}}'
         title: Post to Slack
         inputs:
         - webhook_url: "$SLACK_HOOK_URL"
@@ -164,13 +134,6 @@ workflows:
         - icon_url_on_error: https://bitrise-public-content-production.s3.amazonaws.com/slack/bitrise-slack-error-icon-128.png
   scheduled:
     steps:
-    - script:
-        title: Configure GL-native build environement
-        inputs:
-        - content: |-
-            #!/bin/bash
-            set -eu -o pipefail
-            sudo apt-get install -y pkg-config cmake
     - script:
         title: Configure AWS-CLI
         inputs:
@@ -196,21 +159,19 @@ workflows:
         inputs:
         - content: |-
             #!/bin/bash
+            # Accept Android SDK license
+            echo "Accepting Android SDK license..."
+            mkdir -p "${ANDROID_HOME}/licenses"
+            echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > "${ANDROID_HOME}/licenses/android-sdk-license"
             echo "Compile libmapbox-gl.so for all supportd abi's:"
-            export BUILDTYPE=Release
-            make android-lib-arm-v5
-            make android-lib-arm-v7
-            make android-lib-arm-v8
-            make android-lib-x86
-            make android-lib-x86-64
-            cd platform/android && ./gradlew :MapboxGLAndroidSDK:assembleRelease
+            export BUILDTYPE=Release make apackage
     - script:
         title: Publish to maven
         inputs:
         - content: |-
             #!/bin/bash
             echo "Upload aar file to maven:"
-            cd platform/android && ./gradlew :MapboxGLAndroidSDK:uploadArchives
+            make run-android-upload-archives
     - slack:
         title: Post to Slack
         inputs:
@@ -225,17 +186,14 @@ workflows:
   devicefarmUpload:
     steps:
     - script:
-        title: Configure GL-native build environement
-        inputs:
-        - content: |-
-            #!/bin/bash
-            set -eu -o pipefail
-            sudo apt-get install -y pkg-config cmake
-    - script:
         title: Build release
         inputs:
         - content: |-
             #!/bin/bash
+            # Accept Android SDK license
+            echo "Accepting Android SDK license..."
+            mkdir -p "${ANDROID_HOME}/licenses"
+            echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > "${ANDROID_HOME}/licenses/android-sdk-license"
             echo "Compile libmapbox-gl.so for all supportd abi's:"
             export BUILDTYPE=Release
             make apackage
@@ -259,7 +217,7 @@ workflows:
         - content: |-
             #!/bin/bash
             echo "Run tests on device farm:"
-            cd platform/android && ./gradlew devicefarmUpload
+            make run-android-ui-test-aws
     - slack:
         title: Post to Slack
         inputs:
@@ -274,13 +232,6 @@ workflows:
   nightly-release:
     steps:
     - script:
-        title: Configure GL-native build environement
-        inputs:
-        - content: |-
-            #!/bin/bash
-            set -eu -o pipefail
-            sudo apt-get install -y pkg-config cmake
-    - script:
         title: Configure AWS-CLI
         inputs:
         - content: |-
@@ -292,13 +243,13 @@ workflows:
         inputs:
         - content: |-
             #!/bin/bash
+            # Accept Android SDK license
+            echo "Accepting Android SDK license..."
+            mkdir -p "${ANDROID_HOME}/licenses"
+            echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > "${ANDROID_HOME}/licenses/android-sdk-license"
             echo "Compile libmapbox-gl.so for all supportd abi's:"
             export BUILDTYPE=Release
-            make android-lib-arm-v5
-            make android-lib-arm-v7
-            make android-lib-arm-v8
-            make android-lib-x86
-            cd platform/android && ./gradlew :MapboxGLAndroidSDK:assembleRelease
+            make apackage
     - script:
         title: Log metrics
         inputs:

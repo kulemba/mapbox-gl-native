@@ -3,25 +3,21 @@ package com.mapbox.mapboxsdk.maps;
 import android.app.Activity;
 import android.app.Dialog;
 import android.app.Fragment;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.graphics.Canvas;
 import android.graphics.PointF;
 import android.graphics.SurfaceTexture;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.annotation.CallSuper;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.UiThread;
 import android.support.v7.app.AlertDialog;
-import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -35,6 +31,7 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.ZoomButtonsController;
 
 import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.R;
@@ -45,6 +42,7 @@ import com.mapbox.mapboxsdk.constants.Style;
 import com.mapbox.mapboxsdk.maps.widgets.CompassView;
 import com.mapbox.mapboxsdk.maps.widgets.MyLocationView;
 import com.mapbox.mapboxsdk.maps.widgets.MyLocationViewSettings;
+import com.mapbox.mapboxsdk.net.ConnectivityReceiver;
 import com.mapbox.services.android.telemetry.MapboxEvent;
 import com.mapbox.services.android.telemetry.MapboxTelemetry;
 
@@ -72,7 +70,7 @@ public class MapView extends FrameLayout {
 
   private NativeMapView nativeMapView;
   private boolean destroyed;
-  private boolean hasSurface = false;
+  private boolean hasSurface;
 
   private MapboxMap mapboxMap;
   private MapCallback mapCallback;
@@ -82,8 +80,6 @@ public class MapView extends FrameLayout {
   private MapGestureDetector mapGestureDetector;
   private MapKeyListener mapKeyListener;
   private MapZoomButtonController mapZoomButtonController;
-
-  private ConnectivityReceiver connectivityReceiver;
 
   @UiThread
   public MapView(@NonNull Context context) {
@@ -106,7 +102,7 @@ public class MapView extends FrameLayout {
   @UiThread
   public MapView(@NonNull Context context, @Nullable MapboxMapOptions options) {
     super(context);
-    initialise(context, options);
+    initialise(context, options == null ? MapboxMapOptions.createFromAttributes(context, null) : options);
   }
 
   private void initialise(@NonNull final Context context, @NonNull final MapboxMapOptions options) {
@@ -122,6 +118,9 @@ public class MapView extends FrameLayout {
     MyLocationView myLocationView = (MyLocationView) view.findViewById(R.id.userLocationView);
     ImageView attrView = (ImageView) view.findViewById(R.id.attributionView);
     initalizeDrawingSurface(context, options);
+
+    // add accessibility support
+    setContentDescription(context.getString(R.string.mapbox_mapActionDescription));
 
     // create native Map object
     nativeMapView = new NativeMapView(this);
@@ -149,7 +148,9 @@ public class MapView extends FrameLayout {
     // user input
     mapGestureDetector = new MapGestureDetector(context, transform, proj, uiSettings, trackingSettings, annotations);
     mapKeyListener = new MapKeyListener(transform, trackingSettings, uiSettings);
-    mapZoomButtonController = new MapZoomButtonController(this, uiSettings, transform);
+
+    MapZoomControllerListener zoomListener = new MapZoomControllerListener(mapGestureDetector, uiSettings, transform);
+    mapZoomButtonController = new MapZoomButtonController(this, uiSettings, zoomListener);
 
     // inject widgets with MapboxMap
     compassView.setMapboxMap(mapboxMap);
@@ -167,7 +168,7 @@ public class MapView extends FrameLayout {
     setWillNotDraw(false);
 
     // notify Map object about current connectivity state
-    nativeMapView.setReachability(isConnected());
+    nativeMapView.setReachability(ConnectivityReceiver.instance(context).isConnected(context));
 
     // initialise MapboxMap
     mapboxMap.initialise(context, options);
@@ -202,8 +203,6 @@ public class MapView extends FrameLayout {
    */
   @UiThread
   public void onCreate(@Nullable Bundle savedInstanceState) {
-    nativeMapView.setAccessToken(Mapbox.getAccessToken());
-
     if (savedInstanceState == null) {
       MapboxTelemetry.getInstance().pushEvent(MapboxEvent.buildMapLoadEvent());
     } else if (savedInstanceState.getBoolean(MapboxConstants.STATE_HAS_SAVED_STATE)) {
@@ -237,7 +236,7 @@ public class MapView extends FrameLayout {
   public void onStart() {
     onStartCalled = true;
     mapboxMap.onStart();
-    registerConnectivityReceiver();
+    ConnectivityReceiver.instance(getContext()).activate();
   }
 
   /**
@@ -267,7 +266,7 @@ public class MapView extends FrameLayout {
   public void onStop() {
     onStopCalled = true;
     mapboxMap.onStop();
-    unregisterConnectivityReceiver();
+    ConnectivityReceiver.instance(getContext()).deactivate();
   }
 
   /**
@@ -287,18 +286,6 @@ public class MapView extends FrameLayout {
     nativeMapView.destroySurface();
     nativeMapView.destroy();
     nativeMapView = null;
-  }
-
-  private void registerConnectivityReceiver() {
-    getContext().registerReceiver(connectivityReceiver = new ConnectivityReceiver(),
-      new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
-  }
-
-  private void unregisterConnectivityReceiver() {
-    if (connectivityReceiver != null) {
-      getContext().unregisterReceiver(connectivityReceiver);
-      connectivityReceiver = null;
-    }
   }
 
   @Override
@@ -410,11 +397,6 @@ public class MapView extends FrameLayout {
   public void setStyleUrl(@NonNull String url, byte maxZoomLimit) {
     if (destroyed) {
       return;
-    }
-
-    // stopgap for https://github.com/mapbox/mapbox-gl-native/issues/6242
-    if (TextUtils.isEmpty(nativeMapView.getAccessToken())) {
-      nativeMapView.setAccessToken(Mapbox.getAccessToken());
     }
 
     nativeMapView.setStyleUrl(url, maxZoomLimit);
@@ -533,7 +515,7 @@ public class MapView extends FrameLayout {
       if (destroyed) {
         return;
       }
-      mapboxMap.onUpdate();
+      mapboxMap.onUpdateRegionChange();
     }
   }
 
@@ -546,40 +528,18 @@ public class MapView extends FrameLayout {
   @CallSuper
   protected void onDetachedFromWindow() {
     super.onDetachedFromWindow();
-    mapZoomButtonController.setVisible(false);
+    if (mapZoomButtonController != null) {
+      mapZoomButtonController.setVisible(false);
+    }
   }
 
   // Called when view is hidden and shown
   @Override
   protected void onVisibilityChanged(@NonNull View changedView, int visibility) {
-    if (isInEditMode()) {
+    if (isInEditMode() || mapZoomButtonController == null) {
       return;
     }
     mapZoomButtonController.setVisible(visibility == View.VISIBLE);
-  }
-
-  //
-  // Connectivity events
-  //
-
-  // This class handles connectivity changes
-  private class ConnectivityReceiver extends BroadcastReceiver {
-
-    // Called when an action we are listening to in the manifest has been sent
-    @Override
-    public void onReceive(Context context, Intent intent) {
-      if (!destroyed && intent.getAction().equals(ConnectivityManager.CONNECTIVITY_ACTION)) {
-        nativeMapView.setReachability(!intent.getBooleanExtra(ConnectivityManager.EXTRA_NO_CONNECTIVITY, false));
-      }
-    }
-  }
-
-  // Called when MapView is being created
-  private boolean isConnected() {
-    ConnectivityManager connectivityManager = (ConnectivityManager)
-      getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
-    NetworkInfo activeNetwork = connectivityManager.getActiveNetworkInfo();
-    return (activeNetwork != null) && activeNetwork.isConnectedOrConnecting();
   }
 
   //
@@ -850,7 +810,7 @@ public class MapView extends FrameLayout {
   public static final int DID_FINISH_RENDERING_FRAME = 9;
 
   /**
-   * This event is triggered when the map finished rendeirng the frame fully.
+   * This event is triggered when the map finished rendering the frame fully.
    * <p>
    * Register to {@link MapChange} events with {@link MapView#addOnMapChangedListener(OnMapChangedListener)}.
    * </p>
@@ -986,12 +946,59 @@ public class MapView extends FrameLayout {
     }
   }
 
+  private class MapZoomControllerListener implements ZoomButtonsController.OnZoomListener {
+
+    private final MapGestureDetector mapGestureDetector;
+    private final UiSettings uiSettings;
+    private final Transform transform;
+
+    MapZoomControllerListener(MapGestureDetector detector, UiSettings uiSettings, Transform transform) {
+      this.mapGestureDetector = detector;
+      this.uiSettings = uiSettings;
+      this.transform = transform;
+    }
+
+    // Not used
+    @Override
+    public void onVisibilityChanged(boolean visible) {
+      // Ignore
+    }
+
+    // Called when user pushes a zoom button on the ZoomButtonController
+    @Override
+    public void onZoom(boolean zoomIn) {
+      if (uiSettings.isZoomGesturesEnabled()) {
+        onZoom(zoomIn, mapGestureDetector.getFocalPoint());
+      }
+    }
+
+    private void onZoom(boolean zoomIn, @Nullable PointF focalPoint) {
+      if (focalPoint != null) {
+        transform.zoom(zoomIn, focalPoint);
+      } else {
+        PointF centerPoint = new PointF(getMeasuredWidth() / 2, getMeasuredHeight() / 2);
+        transform.zoom(zoomIn, centerPoint);
+      }
+    }
+  }
+
   private class CameraZoomInvalidator implements TrackingSettings.CameraZoomInvalidator {
+
     @Override
     public void zoomTo(double zoomLevel) {
-      double currentZoomLevel = mapboxMap.getCameraPosition().zoom;
+      Transform transform = mapboxMap.getTransform();
+      double currentZoomLevel = transform.getCameraPosition().zoom;
       if (currentZoomLevel < zoomLevel) {
-        mapboxMap.getTransform().setZoom(zoomLevel);
+        setZoom(zoomLevel, mapGestureDetector.getFocalPoint(), transform);
+      }
+    }
+
+    private void setZoom(double zoomLevel, @Nullable PointF focalPoint, @NonNull Transform transform) {
+      if (focalPoint != null) {
+        transform.setZoom(zoomLevel, focalPoint);
+      } else {
+        PointF centerPoint = new PointF(getMeasuredWidth() / 2, getMeasuredHeight() / 2);
+        transform.setZoom(zoomLevel, centerPoint);
       }
     }
   }
@@ -1010,11 +1017,18 @@ public class MapView extends FrameLayout {
     public void onMapChanged(@MapChange int change) {
       if (change == DID_FINISH_LOADING_STYLE && initialLoad) {
         initialLoad = false;
-        mapboxMap.onPreMapReady();
-        onMapReady();
-        mapboxMap.onPostMapReady();
+        new Handler().post(new Runnable() {
+          @Override
+          public void run() {
+            mapboxMap.onPreMapReady();
+            onMapReady();
+            mapboxMap.onPostMapReady();
+          }
+        });
+      } else if (change == DID_FINISH_RENDERING_FRAME || change == DID_FINISH_RENDERING_FRAME_FULLY_RENDERED) {
+        mapboxMap.onUpdateFullyRendered();
       } else if (change == REGION_IS_CHANGING || change == REGION_DID_CHANGE || change == DID_FINISH_LOADING_MAP) {
-        mapboxMap.onUpdate();
+        mapboxMap.onUpdateRegionChange();
       }
     }
 

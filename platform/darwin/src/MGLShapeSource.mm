@@ -5,6 +5,7 @@
 #import "MGLFeature_Private.h"
 #import "MGLShape_Private.h"
 
+#import "NSPredicate+MGLAdditions.h"
 #import "NSURL+MGLAdditions.h"
 
 #include <mbgl/map/map.hpp>
@@ -86,9 +87,20 @@ const MGLShapeSourceOption MGLShapeSourceOptionSimplificationTolerance = @"MGLSh
 }
 
 - (void)removeFromMapView:(MGLMapView *)mapView {
+    if (self.rawSource != mapView.mbglMap->getSource(self.identifier.UTF8String)) {
+        return;
+    }
+
     auto removedSource = mapView.mbglMap->removeSource(self.identifier.UTF8String);
 
-    _pendingSource = std::move(reinterpret_cast<std::unique_ptr<mbgl::style::GeoJSONSource> &>(removedSource));
+    mbgl::style::GeoJSONSource *source = dynamic_cast<mbgl::style::GeoJSONSource *>(removedSource.get());
+    if (!source) {
+        return;
+    }
+
+    removedSource.release();
+
+    _pendingSource = std::unique_ptr<mbgl::style::GeoJSONSource>(source);
     self.rawSource = _pendingSource.get();
 }
 
@@ -122,6 +134,17 @@ const MGLShapeSourceOption MGLShapeSourceOptionSimplificationTolerance = @"MGLSh
 - (NSString *)description {
     return [NSString stringWithFormat:@"<%@: %p; identifier = %@; URL = %@; shape = %@>",
             NSStringFromClass([self class]), (void *)self, self.identifier, self.URL, self.shape];
+}
+
+- (NS_ARRAY_OF(id <MGLFeature>) *)featuresMatchingPredicate:(nullable NSPredicate *)predicate {
+    
+    mbgl::optional<mbgl::style::Filter> optionalFilter;
+    if (predicate) {
+        optionalFilter = predicate.mgl_filter;
+    }
+    
+    std::vector<mbgl::Feature> features = self.rawSource->querySourceFeatures({ {}, optionalFilter });
+    return MGLFeaturesFromMBGLFeatures(features);
 }
 
 @end

@@ -1,18 +1,20 @@
 #pragma once
 
-#include <mbgl/map/change.hpp>
+#include <mbgl/map/map_observer.hpp>
 
 #include <memory>
+#include <mutex>
 
 namespace mbgl {
 
 namespace gl {
 class Context;
+using ProcAddress = void (*)();
 } // namespace gl
 
 class BackendScope;
 
-class Backend {
+class Backend : public MapObserver {
 public:
     Backend();
     virtual ~Backend();
@@ -24,10 +26,12 @@ public:
     // in the near future. (Not called for Map::renderStill() mode.)
     virtual void invalidate() = 0;
 
-    // Notifies a watcher of map x/y/scale/rotation changes.
-    virtual void notifyMapChange(MapChange change);
-
 protected:
+    // Called with the name of an OpenGL extension that should be loaded. Backend implementations
+    // must call the API-specific version that obtains the function pointer for this function,
+    // or a null pointer if unsupported/unavailable.
+    virtual gl::ProcAddress initializeExtension(const char*) = 0;
+
     // Called when the backend's GL context needs to be made active or inactive. These are called,
     // as a matched pair, in four situations:
     //
@@ -41,24 +45,13 @@ protected:
     virtual void activate() = 0;
     virtual void deactivate() = 0;
 
+protected:
+    std::unique_ptr<gl::Context> context;
+
 private:
-    const std::unique_ptr<gl::Context> context;
+    std::once_flag initialized;
 
     friend class BackendScope;
-};
-
-class BackendScope {
-public:
-    BackendScope(Backend& backend_) : backend(backend_) {
-        backend.activate();
-    }
-
-    ~BackendScope() {
-        backend.deactivate();
-    }
-
-private:
-    Backend& backend;
 };
 
 } // namespace mbgl

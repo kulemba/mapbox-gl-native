@@ -35,10 +35,6 @@ set(MBGL_CORE_FILES
     src/mbgl/annotation/symbol_annotation_impl.cpp
     src/mbgl/annotation/symbol_annotation_impl.hpp
 
-    # clipper
-    src/clipper/clipper.cpp
-    src/clipper/clipper.hpp
-
     # csscolorparser
     src/csscolorparser/csscolorparser.cpp
     src/csscolorparser/csscolorparser.hpp
@@ -62,19 +58,21 @@ set(MBGL_CORE_FILES
     src/mbgl/gl/context.hpp
     src/mbgl/gl/debugging.cpp
     src/mbgl/gl/debugging.hpp
+    src/mbgl/gl/debugging_extension.cpp
+    src/mbgl/gl/debugging_extension.hpp
     src/mbgl/gl/depth_mode.cpp
     src/mbgl/gl/depth_mode.hpp
     src/mbgl/gl/draw_mode.hpp
-    src/mbgl/gl/extension.cpp
     src/mbgl/gl/extension.hpp
+    src/mbgl/gl/features.hpp
     src/mbgl/gl/framebuffer.hpp
     src/mbgl/gl/gl.cpp
     src/mbgl/gl/index_buffer.hpp
-    src/mbgl/gl/normalization.hpp
     src/mbgl/gl/object.cpp
     src/mbgl/gl/object.hpp
     src/mbgl/gl/primitives.hpp
     src/mbgl/gl/program.hpp
+    src/mbgl/gl/program_binary_extension.hpp
     src/mbgl/gl/renderbuffer.hpp
     src/mbgl/gl/segment.cpp
     src/mbgl/gl/segment.hpp
@@ -87,8 +85,7 @@ set(MBGL_CORE_FILES
     src/mbgl/gl/uniform.hpp
     src/mbgl/gl/value.cpp
     src/mbgl/gl/value.hpp
-    src/mbgl/gl/vertex_array.cpp
-    src/mbgl/gl/vertex_array.hpp
+    src/mbgl/gl/vertex_array_extension.hpp
     src/mbgl/gl/vertex_buffer.hpp
 
     # layout
@@ -104,11 +101,15 @@ set(MBGL_CORE_FILES
 
     # map
     include/mbgl/map/backend.hpp
+    include/mbgl/map/backend_scope.hpp
     include/mbgl/map/camera.hpp
     include/mbgl/map/map.hpp
+    include/mbgl/map/map_observer.hpp
     include/mbgl/map/mode.hpp
+    include/mbgl/map/query.hpp
     include/mbgl/map/view.hpp
     src/mbgl/map/backend.cpp
+    src/mbgl/map/backend_scope.cpp
     src/mbgl/map/change.hpp
     src/mbgl/map/map.cpp
     src/mbgl/map/transform.cpp
@@ -131,6 +132,8 @@ set(MBGL_CORE_FILES
 
     # programs
     src/mbgl/programs/attributes.hpp
+    src/mbgl/programs/binary_program.cpp
+    src/mbgl/programs/binary_program.hpp
     src/mbgl/programs/circle_program.cpp
     src/mbgl/programs/circle_program.hpp
     src/mbgl/programs/collision_box_program.cpp
@@ -202,8 +205,12 @@ set(MBGL_CORE_FILES
     src/mbgl/shaders/line_pattern.hpp
     src/mbgl/shaders/line_sdf.cpp
     src/mbgl/shaders/line_sdf.hpp
+    src/mbgl/shaders/preludes.cpp
+    src/mbgl/shaders/preludes.hpp
     src/mbgl/shaders/raster.cpp
     src/mbgl/shaders/raster.hpp
+    src/mbgl/shaders/shaders.cpp
+    src/mbgl/shaders/shaders.hpp
     src/mbgl/shaders/symbol_icon.cpp
     src/mbgl/shaders/symbol_icon.hpp
     src/mbgl/shaders/symbol_sdf.cpp
@@ -240,6 +247,7 @@ set(MBGL_CORE_FILES
     include/mbgl/style/filter_evaluator.hpp
     include/mbgl/style/layer.hpp
     include/mbgl/style/property_value.hpp
+    include/mbgl/style/query.hpp
     include/mbgl/style/source.hpp
     include/mbgl/style/transition_options.hpp
     include/mbgl/style/types.hpp
@@ -267,9 +275,6 @@ set(MBGL_CORE_FILES
     src/mbgl/style/possibly_evaluated_property_value.hpp
     src/mbgl/style/property_evaluation_parameters.hpp
     src/mbgl/style/property_evaluator.hpp
-    src/mbgl/style/property_parsing.cpp
-    src/mbgl/style/property_parsing.hpp
-    src/mbgl/style/query_parameters.hpp
     src/mbgl/style/rapidjson_conversion.hpp
     src/mbgl/style/source.cpp
     src/mbgl/style/source_impl.cpp

@@ -31,9 +31,6 @@ struct EGLImpl : public HeadlessBackend::Impl {
     }
 
     ~EGLImpl() {
-        if (glContext != eglGetCurrentContext()) {
-            activateContext();
-        }
         if (!eglDestroyContext(display, glContext)) {
             throw std::runtime_error("Failed to destroy EGL context.\n");
         }
@@ -63,7 +60,7 @@ struct EGLImpl : public HeadlessBackend::Impl {
     EGLSurface glSurface = EGL_NO_SURFACE;
 };
 
-gl::glProc HeadlessBackend::initializeExtension(const char* name) {
+gl::ProcAddress HeadlessBackend::initializeExtension(const char* name) {
     return eglGetProcAddress(name);
 }
 

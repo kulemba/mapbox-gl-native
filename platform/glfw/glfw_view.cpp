@@ -4,12 +4,12 @@
 #include <mbgl/sprite/sprite_image.hpp>
 #include <mbgl/style/transition_options.hpp>
 #include <mbgl/gl/gl.hpp>
-#include <mbgl/gl/extension.hpp>
 #include <mbgl/gl/context.hpp>
 #include <mbgl/util/logging.hpp>
 #include <mbgl/util/platform.hpp>
 #include <mbgl/util/string.hpp>
 #include <mbgl/util/chrono.hpp>
+#include <mbgl/map/backend_scope.hpp>
 #include <mbgl/map/camera.hpp>
 
 #include <mbgl/gl/state.hpp>
@@ -85,8 +85,6 @@ GLFWView::GLFWView(bool fullscreen_, bool benchmark_)
     glfwSetScrollCallback(window, onScroll);
     glfwSetKeyCallback(window, onKey);
 
-    mbgl::gl::InitializeExtensions(glfwGetProcAddress);
-
     glfwGetWindowSize(window, &width, &height);
     glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
     pixelRatio = static_cast<float>(fbWidth) / width;
@@ -109,10 +107,11 @@ GLFWView::GLFWView(bool fullscreen_, bool benchmark_)
     printf("- Press `7` through `0` to add increasing numbers of shape annotations for testing\n");
     printf("\n");
     printf("- Press `Q` to remove annotations\n");
-    printf("- Press `P` to add a random custom runtime imagery annotation\n");
+    printf("- Press `K` to add a random custom runtime imagery annotation\n");
     printf("- Press `L` to add a random line annotation\n");
     printf("- Press `W` to pop the last-added annotation off\n");
     printf("\n");
+    printf("- Press `P` to pause tile requests\n");
     printf("- `Control` + mouse drag to rotate\n");
     printf("- `Shift` + mouse drag to tilt\n");
     printf("\n");
@@ -200,10 +199,13 @@ void GLFWView::onKey(GLFWwindow *window, int key, int /*scancode*/, int action, 
             auto result = view->map->queryPointAnnotations({ {}, { double(view->getSize().width), double(view->getSize().height) } });
             printf("visible point annotations: %lu\n", result.size());
         } break;
+        case GLFW_KEY_P:
+            view->pauseResumeCallback();
+            break;
         case GLFW_KEY_C:
             view->clearAnnotations();
             break;
-        case GLFW_KEY_P:
+        case GLFW_KEY_K:
             view->addRandomCustomPointAnnotations(1);
             break;
         case GLFW_KEY_L:
@@ -386,6 +388,7 @@ void GLFWView::onFramebufferResize(GLFWwindow *window, int width, int height) {
     GLFWView *view = reinterpret_cast<GLFWView *>(glfwGetWindowUserPointer(window));
     view->fbWidth = width;
     view->fbHeight = height;
+    view->bind();
 
     // This is only triggered when the framebuffer is resized, but not the window. It can
     // happen when you move the window between screens with a different pixel ratio.
@@ -412,9 +415,9 @@ void GLFWView::onMouseClick(GLFWwindow *window, int button, int action, int modi
             double now = glfwGetTime();
             if (now - view->lastClick < 0.4 /* ms */) {
                 if (modifiers & GLFW_MOD_SHIFT) {
-                    view->map->scaleBy(0.5, mbgl::ScreenCoordinate { view->lastX, view->lastY }, mbgl::Milliseconds(500));
+                    view->map->scaleBy(0.5, mbgl::ScreenCoordinate { view->lastX, view->lastY }, mbgl::AnimationOptions{{mbgl::Milliseconds(500)}});
                 } else {
-                    view->map->scaleBy(2.0, mbgl::ScreenCoordinate { view->lastX, view->lastY }, mbgl::Milliseconds(500));
+                    view->map->scaleBy(2.0, mbgl::ScreenCoordinate { view->lastX, view->lastY }, mbgl::AnimationOptions{{mbgl::Milliseconds(500)}});
                 }
             }
             view->lastClick = now;
@@ -456,7 +459,8 @@ void GLFWView::run() {
         if (dirty) {
             const double started = glfwGetTime();
 
-            glfwMakeContextCurrent(window);
+            activate();
+            mbgl::BackendScope scope { *this, mbgl::BackendScope::ScopeType::Implicit };
 
             updateViewBinding();
             map->render(*this);
@@ -490,6 +494,10 @@ mbgl::Size GLFWView::getSize() const {
 
 mbgl::Size GLFWView::getFramebufferSize() const {
     return { static_cast<uint32_t>(fbWidth), static_cast<uint32_t>(fbHeight) };
+}
+
+mbgl::gl::ProcAddress GLFWView::initializeExtension(const char* name) {
+    return glfwGetProcAddress(name);
 }
 
 void GLFWView::activate() {
@@ -531,16 +539,6 @@ void GLFWView::setShouldClose() {
 
 void GLFWView::setWindowTitle(const std::string& title) {
     glfwSetWindowTitle(window, (std::string { "Mapbox GL: " } + title).c_str());
-}
-
-void GLFWView::setMapChangeCallback(std::function<void(mbgl::MapChange)> callback) {
-    this->mapChangeCallback = callback;
-}
-
-void GLFWView::notifyMapChange(mbgl::MapChange change) {
-    if (mapChangeCallback) {
-        mapChangeCallback(change);
-    }
 }
 
 namespace mbgl {

@@ -1,5 +1,6 @@
 package com.mapbox.mapboxsdk.maps;
 
+import android.graphics.PointF;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.UiThread;
@@ -84,45 +85,50 @@ final class Transform implements MapView.OnMapChangedListener {
 
   @UiThread
   final void moveCamera(MapboxMap mapboxMap, CameraUpdate update, MapboxMap.CancelableCallback callback) {
-    cameraPosition = update.getCameraPosition(mapboxMap);
-    trackingSettings.resetTrackingModesIfRequired(cameraPosition);
-    cancelTransitions();
-    mapView.jumpTo(cameraPosition.bearing, cameraPosition.target, cameraPosition.tilt, cameraPosition.zoom);
-    if (callback != null) {
-      callback.onFinish();
+    CameraPosition cameraPosition = update.getCameraPosition(mapboxMap);
+    if (!cameraPosition.equals(this.cameraPosition)) {
+      trackingSettings.resetTrackingModesIfRequired(cameraPosition);
+      cancelTransitions();
+      mapView.jumpTo(cameraPosition.bearing, cameraPosition.target, cameraPosition.tilt, cameraPosition.zoom);
+      if (callback != null) {
+        callback.onFinish();
+      }
     }
   }
 
   @UiThread
   final void easeCamera(MapboxMap mapboxMap, CameraUpdate update, int durationMs, boolean easingInterpolator,
                         final MapboxMap.CancelableCallback callback) {
-    cameraPosition = update.getCameraPosition(mapboxMap);
-    trackingSettings.resetTrackingModesIfRequired(cameraPosition);
+    CameraPosition cameraPosition = update.getCameraPosition(mapboxMap);
+    if (!cameraPosition.equals(this.cameraPosition)) {
+      trackingSettings.resetTrackingModesIfRequired(cameraPosition);
+      cancelTransitions();
+      if (callback != null) {
+        cameraCancelableCallback = callback;
+        mapView.addOnMapChangedListener(this);
+      }
 
-    cancelTransitions();
-    if (callback != null) {
-      cameraCancelableCallback = callback;
-      mapView.addOnMapChangedListener(this);
+      mapView.easeTo(cameraPosition.bearing, cameraPosition.target, getDurationNano(durationMs), cameraPosition.tilt,
+        cameraPosition.zoom, easingInterpolator);
     }
-
-    mapView.easeTo(cameraPosition.bearing, cameraPosition.target, getDurationNano(durationMs), cameraPosition.tilt,
-      cameraPosition.zoom, easingInterpolator);
   }
 
   @UiThread
   final void animateCamera(MapboxMap mapboxMap, CameraUpdate update, int durationMs,
                            final MapboxMap.CancelableCallback callback) {
-    cameraPosition = update.getCameraPosition(mapboxMap);
-    trackingSettings.resetTrackingModesIfRequired(cameraPosition);
+    CameraPosition cameraPosition = update.getCameraPosition(mapboxMap);
+    if (!cameraPosition.equals(this.cameraPosition)) {
+      trackingSettings.resetTrackingModesIfRequired(cameraPosition);
 
-    cancelTransitions();
-    if (callback != null) {
-      cameraCancelableCallback = callback;
-      mapView.addOnMapChangedListener(this);
+      cancelTransitions();
+      if (callback != null) {
+        cameraCancelableCallback = callback;
+        mapView.addOnMapChangedListener(this);
+      }
+
+      mapView.flyTo(cameraPosition.bearing, cameraPosition.target, getDurationNano(durationMs), cameraPosition.tilt,
+        cameraPosition.zoom);
     }
-
-    mapView.flyTo(cameraPosition.bearing, cameraPosition.target, getDurationNano(durationMs), cameraPosition.tilt,
-      cameraPosition.zoom);
   }
 
   @UiThread
@@ -169,23 +175,23 @@ final class Transform implements MapView.OnMapChangedListener {
     return cameraPosition.zoom;
   }
 
-  void zoom(boolean zoomIn) {
-    zoom(zoomIn, -1.0f, -1.0f);
-  }
-
-  void zoom(boolean zoomIn, float x, float y) {
+  void zoom(boolean zoomIn, @NonNull PointF focalPoint) {
     // Cancel any animation
     cancelTransitions();
 
-    if (zoomIn) {
-      mapView.scaleBy(2.0, x, y, MapboxConstants.ANIMATION_DURATION);
-    } else {
-      mapView.scaleBy(0.5, x, y, MapboxConstants.ANIMATION_DURATION);
+    CameraPosition cameraPosition = invalidateCameraPosition();
+    if (cameraPosition != null) {
+      int newZoom = (int) Math.round(cameraPosition.zoom + (zoomIn ? 1 : -1));
+      setZoom(newZoom, focalPoint, MapboxConstants.ANIMATION_DURATION);
     }
   }
 
-  void setZoom(double zoom) {
-    mapView.setZoom(zoom);
+  void setZoom(double zoom, @NonNull PointF focalPoint) {
+    setZoom(zoom, focalPoint, 0);
+  }
+
+  void setZoom(double zoom, @NonNull PointF focalPoint, long duration) {
+    mapView.setZoom(zoom, focalPoint, duration);
   }
 
   // Direction

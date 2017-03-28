@@ -4,6 +4,7 @@
 #import "MGLSource.h"
 #import "MGLMapView_Private.h"
 #import "NSPredicate+MGLAdditions.h"
+#import "NSDate+MGLAdditions.h"
 #import "MGLStyleLayer_Private.h"
 #import "MGLStyleValue_Private.h"
 #import "MGLRasterStyleLayer.h"
@@ -69,8 +70,9 @@
 
 - (void)removeFromMapView:(MGLMapView *)mapView
 {
-    _pendingLayer = nullptr;
-    self.rawLayer = nullptr;
+    if (self.rawLayer != mapView.mbglMap->getLayer(self.identifier.UTF8String)) {
+        return;
+    }
 
     auto removedLayer = mapView.mbglMap->removeLayer(self.identifier.UTF8String);
     if (!removedLayer) {
@@ -107,6 +109,24 @@
     return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(propertyValue);
 }
 
+- (void)setMaximumRasterBrightnessTransition:(MGLTransition )transition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions options { { MGLDurationFromTimeInterval(transition.duration) }, { MGLDurationFromTimeInterval(transition.delay) } };
+    self.rawLayer->setRasterBrightnessMaxTransition(options);
+}
+
+- (MGLTransition)maximumRasterBrightnessTransition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions transitionOptions = self.rawLayer->getRasterBrightnessMaxTransition();
+    MGLTransition transition;
+    transition.duration = MGLTimeIntervalFromDuration(transitionOptions.duration.value_or(mbgl::Duration::zero()));
+    transition.delay = MGLTimeIntervalFromDuration(transitionOptions.delay.value_or(mbgl::Duration::zero()));
+
+    return transition;
+}
+
 - (void)setRasterBrightnessMax:(MGLStyleValue<NSNumber *> *)rasterBrightnessMax {
 }
 
@@ -129,6 +149,24 @@
         return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(self.rawLayer->getDefaultRasterBrightnessMin());
     }
     return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(propertyValue);
+}
+
+- (void)setMinimumRasterBrightnessTransition:(MGLTransition )transition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions options { { MGLDurationFromTimeInterval(transition.duration) }, { MGLDurationFromTimeInterval(transition.delay) } };
+    self.rawLayer->setRasterBrightnessMinTransition(options);
+}
+
+- (MGLTransition)minimumRasterBrightnessTransition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions transitionOptions = self.rawLayer->getRasterBrightnessMinTransition();
+    MGLTransition transition;
+    transition.duration = MGLTimeIntervalFromDuration(transitionOptions.duration.value_or(mbgl::Duration::zero()));
+    transition.delay = MGLTimeIntervalFromDuration(transitionOptions.delay.value_or(mbgl::Duration::zero()));
+
+    return transition;
 }
 
 - (void)setRasterBrightnessMin:(MGLStyleValue<NSNumber *> *)rasterBrightnessMin {
@@ -155,6 +193,24 @@
     return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(propertyValue);
 }
 
+- (void)setRasterContrastTransition:(MGLTransition )transition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions options { { MGLDurationFromTimeInterval(transition.duration) }, { MGLDurationFromTimeInterval(transition.delay) } };
+    self.rawLayer->setRasterContrastTransition(options);
+}
+
+- (MGLTransition)rasterContrastTransition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions transitionOptions = self.rawLayer->getRasterContrastTransition();
+    MGLTransition transition;
+    transition.duration = MGLTimeIntervalFromDuration(transitionOptions.duration.value_or(mbgl::Duration::zero()));
+    transition.delay = MGLTimeIntervalFromDuration(transitionOptions.delay.value_or(mbgl::Duration::zero()));
+
+    return transition;
+}
+
 - (void)setRasterFadeDuration:(MGLStyleValue<NSNumber *> *)rasterFadeDuration {
     MGLAssertStyleLayerIsValid();
 
@@ -172,6 +228,24 @@
     return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(propertyValue);
 }
 
+- (void)setRasterFadeDurationTransition:(MGLTransition )transition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions options { { MGLDurationFromTimeInterval(transition.duration) }, { MGLDurationFromTimeInterval(transition.delay) } };
+    self.rawLayer->setRasterFadeDurationTransition(options);
+}
+
+- (MGLTransition)rasterFadeDurationTransition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions transitionOptions = self.rawLayer->getRasterFadeDurationTransition();
+    MGLTransition transition;
+    transition.duration = MGLTimeIntervalFromDuration(transitionOptions.duration.value_or(mbgl::Duration::zero()));
+    transition.delay = MGLTimeIntervalFromDuration(transitionOptions.delay.value_or(mbgl::Duration::zero()));
+
+    return transition;
+}
+
 - (void)setRasterHueRotation:(MGLStyleValue<NSNumber *> *)rasterHueRotation {
     MGLAssertStyleLayerIsValid();
 
@@ -187,6 +261,24 @@
         return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(self.rawLayer->getDefaultRasterHueRotate());
     }
     return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(propertyValue);
+}
+
+- (void)setRasterHueRotationTransition:(MGLTransition )transition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions options { { MGLDurationFromTimeInterval(transition.duration) }, { MGLDurationFromTimeInterval(transition.delay) } };
+    self.rawLayer->setRasterHueRotateTransition(options);
+}
+
+- (MGLTransition)rasterHueRotationTransition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions transitionOptions = self.rawLayer->getRasterHueRotateTransition();
+    MGLTransition transition;
+    transition.duration = MGLTimeIntervalFromDuration(transitionOptions.duration.value_or(mbgl::Duration::zero()));
+    transition.delay = MGLTimeIntervalFromDuration(transitionOptions.delay.value_or(mbgl::Duration::zero()));
+
+    return transition;
 }
 
 - (void)setRasterHueRotate:(MGLStyleValue<NSNumber *> *)rasterHueRotate {
@@ -213,6 +305,24 @@
     return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(propertyValue);
 }
 
+- (void)setRasterOpacityTransition:(MGLTransition )transition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions options { { MGLDurationFromTimeInterval(transition.duration) }, { MGLDurationFromTimeInterval(transition.delay) } };
+    self.rawLayer->setRasterOpacityTransition(options);
+}
+
+- (MGLTransition)rasterOpacityTransition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions transitionOptions = self.rawLayer->getRasterOpacityTransition();
+    MGLTransition transition;
+    transition.duration = MGLTimeIntervalFromDuration(transitionOptions.duration.value_or(mbgl::Duration::zero()));
+    transition.delay = MGLTimeIntervalFromDuration(transitionOptions.delay.value_or(mbgl::Duration::zero()));
+
+    return transition;
+}
+
 - (void)setRasterSaturation:(MGLStyleValue<NSNumber *> *)rasterSaturation {
     MGLAssertStyleLayerIsValid();
 
@@ -230,5 +340,22 @@
     return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(propertyValue);
 }
 
+- (void)setRasterSaturationTransition:(MGLTransition )transition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions options { { MGLDurationFromTimeInterval(transition.duration) }, { MGLDurationFromTimeInterval(transition.delay) } };
+    self.rawLayer->setRasterSaturationTransition(options);
+}
+
+- (MGLTransition)rasterSaturationTransition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions transitionOptions = self.rawLayer->getRasterSaturationTransition();
+    MGLTransition transition;
+    transition.duration = MGLTimeIntervalFromDuration(transitionOptions.duration.value_or(mbgl::Duration::zero()));
+    transition.delay = MGLTimeIntervalFromDuration(transitionOptions.delay.value_or(mbgl::Duration::zero()));
+
+    return transition;
+}
 
 @end

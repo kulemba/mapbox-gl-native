@@ -22,10 +22,13 @@ NS_ARRAY_OF(id <MGLAnnotation>) *MBXFlattenedShapes(NS_ARRAY_OF(id <MGLAnnotatio
     NSMutableArray *flattenedShapes = [NSMutableArray arrayWithCapacity:shapes.count];
     for (id <MGLAnnotation> shape in shapes) {
         NSArray *subshapes;
-        // Flatten multipoints but not polylines or polygons.
-        if ([shape isMemberOfClass:[MGLMultiPoint class]]) {
-            NSUInteger pointCount = [(MGLMultiPoint *)shape pointCount];
-            CLLocationCoordinate2D *coordinates = [(MGLMultiPoint *)shape coordinates];
+        if ([shape isKindOfClass:[MGLMultiPolyline class]]) {
+            subshapes = [(MGLMultiPolyline *)shape polylines];
+        } else if ([shape isKindOfClass:[MGLMultiPolygon class]]) {
+            subshapes = [(MGLMultiPolygon *)shape polygons];
+        } else if ([shape isKindOfClass:[MGLPointCollection class]]) {
+            NSUInteger pointCount = [(MGLPointCollection *)shape pointCount];
+            CLLocationCoordinate2D *coordinates = [(MGLPointCollection *)shape coordinates];
             NSMutableArray *pointAnnotations = [NSMutableArray arrayWithCapacity:pointCount];
             for (NSUInteger i = 0; i < pointCount; i++) {
                 MGLPointAnnotation *pointAnnotation = [[MGLPointAnnotation alloc] init];
@@ -33,10 +36,6 @@ NS_ARRAY_OF(id <MGLAnnotation>) *MBXFlattenedShapes(NS_ARRAY_OF(id <MGLAnnotatio
                 [pointAnnotations addObject:pointAnnotation];
             }
             subshapes = pointAnnotations;
-        } else if ([shape isKindOfClass:[MGLMultiPolyline class]]) {
-            subshapes = [(MGLMultiPolyline *)shape polylines];
-        } else if ([shape isKindOfClass:[MGLMultiPolygon class]]) {
-            subshapes = [(MGLMultiPolygon *)shape polygons];
         } else if ([shape isKindOfClass:[MGLShapeCollection class]]) {
             subshapes = MBXFlattenedShapes([(MGLShapeCollection *)shape shapes]);
         }
@@ -217,11 +216,11 @@ NS_ARRAY_OF(id <MGLAnnotation>) *MBXFlattenedShapes(NS_ARRAY_OF(id <MGLAnnotatio
 }
 
 - (IBAction)zoomIn:(id)sender {
-    [self.mapView setZoomLevel:self.mapView.zoomLevel + 1 animated:YES];
+    [self.mapView setZoomLevel:round(self.mapView.zoomLevel) + 1 animated:YES];
 }
 
 - (IBAction)zoomOut:(id)sender {
-    [self.mapView setZoomLevel:self.mapView.zoomLevel - 1 animated:YES];
+    [self.mapView setZoomLevel:round(self.mapView.zoomLevel) - 1 animated:YES];
 }
 
 - (IBAction)snapToNorth:(id)sender {
@@ -370,14 +369,14 @@ NS_ARRAY_OF(id <MGLAnnotation>) *MBXFlattenedShapes(NS_ARRAY_OF(id <MGLAnnotatio
             return localizedString;
         };
 
-        if ([layer.text isKindOfClass:[MGLStyleConstantValue class]]) {
-            NSString *textField = [(MGLStyleConstantValue<NSString *> *)layer.text rawValue];
+        if ([layer.text isKindOfClass:[MGLConstantStyleValue class]]) {
+            NSString *textField = [(MGLConstantStyleValue<NSString *> *)layer.text rawValue];
             layer.text = [MGLStyleValue<NSString *> valueWithRawValue:stringByLocalizingString(textField)];
         }
         else if ([layer.text isKindOfClass:[MGLCameraStyleFunction class]]) {
             MGLCameraStyleFunction *function = (MGLCameraStyleFunction<NSString *> *)layer.text;
             NSMutableDictionary *stops = function.stops.mutableCopy;
-            [stops enumerateKeysAndObjectsUsingBlock:^(NSNumber *zoomLevel, MGLStyleConstantValue<NSString *> *stop, BOOL *done) {
+            [stops enumerateKeysAndObjectsUsingBlock:^(NSNumber *zoomLevel, MGLConstantStyleValue<NSString *> *stop, BOOL *done) {
                 NSString *textField = stop.rawValue;
                 stops[zoomLevel] = [MGLStyleValue<NSString *> valueWithRawValue:stringByLocalizingString(textField)];
             }];
@@ -684,8 +683,8 @@ NS_ARRAY_OF(id <MGLAnnotation>) *MBXFlattenedShapes(NS_ARRAY_OF(id <MGLAnnotatio
 }
 
 - (IBAction)manipulateStyle:(id)sender {
-    self.mapView.style.transitionDuration = 5;
-    self.mapView.style.transitionDelay = 1;
+    MGLTransition transition = { .duration = 5, .delay = 1 };
+    self.mapView.style.transition = transition;
 
     MGLFillStyleLayer *fillStyleLayer = (MGLFillStyleLayer *)[self.mapView.style layerWithIdentifier:@"water"];
 

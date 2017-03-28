@@ -4,6 +4,7 @@
 #import "MGLSource.h"
 #import "MGLMapView_Private.h"
 #import "NSPredicate+MGLAdditions.h"
+#import "NSDate+MGLAdditions.h"
 #import "MGLStyleLayer_Private.h"
 #import "MGLStyleValue_Private.h"
 #import "MGLSymbolStyleLayer.h"
@@ -166,8 +167,9 @@ namespace mbgl {
 
 - (void)removeFromMapView:(MGLMapView *)mapView
 {
-    _pendingLayer = nullptr;
-    self.rawLayer = nullptr;
+    if (self.rawLayer != mapView.mbglMap->getLayer(self.identifier.UTF8String)) {
+        return;
+    }
 
     auto removedLayer = mapView.mbglMap->removeLayer(self.identifier.UTF8String);
     if (!removedLayer) {
@@ -566,7 +568,7 @@ namespace mbgl {
 - (void)setText:(MGLStyleValue<NSString *> *)text {
     MGLAssertStyleLayerIsValid();
 
-    auto mbglValue = MGLStyleValueTransformer<std::string, NSString *>().toPropertyValue(text);
+    auto mbglValue = MGLStyleValueTransformer<std::string, NSString *>().toDataDrivenPropertyValue(text);
     self.rawLayer->setTextField(mbglValue);
 }
 
@@ -575,9 +577,9 @@ namespace mbgl {
 
     auto propertyValue = self.rawLayer->getTextField();
     if (propertyValue.isUndefined()) {
-        return MGLStyleValueTransformer<std::string, NSString *>().toStyleValue(self.rawLayer->getDefaultTextField());
+        return MGLStyleValueTransformer<std::string, NSString *>().toDataDrivenStyleValue(self.rawLayer->getDefaultTextField());
     }
-    return MGLStyleValueTransformer<std::string, NSString *>().toStyleValue(propertyValue);
+    return MGLStyleValueTransformer<std::string, NSString *>().toDataDrivenStyleValue(propertyValue);
 }
 
 - (void)setTextField:(MGLStyleValue<NSString *> *)textField {
@@ -870,7 +872,7 @@ namespace mbgl {
 - (void)setTextTransform:(MGLStyleValue<NSValue *> *)textTransform {
     MGLAssertStyleLayerIsValid();
 
-    auto mbglValue = MGLStyleValueTransformer<mbgl::style::TextTransformType, NSValue *, mbgl::style::TextTransformType, MGLTextTransform>().toEnumPropertyValue(textTransform);
+    auto mbglValue = MGLStyleValueTransformer<mbgl::style::TextTransformType, NSValue *, mbgl::style::TextTransformType, MGLTextTransform>().toDataDrivenPropertyValue(textTransform);
     self.rawLayer->setTextTransform(mbglValue);
 }
 
@@ -879,9 +881,9 @@ namespace mbgl {
 
     auto propertyValue = self.rawLayer->getTextTransform();
     if (propertyValue.isUndefined()) {
-        return MGLStyleValueTransformer<mbgl::style::TextTransformType, NSValue *, mbgl::style::TextTransformType, MGLTextTransform>().toEnumStyleValue(self.rawLayer->getDefaultTextTransform());
+        return MGLStyleValueTransformer<mbgl::style::TextTransformType, NSValue *, mbgl::style::TextTransformType, MGLTextTransform>().toDataDrivenStyleValue(self.rawLayer->getDefaultTextTransform());
     }
-    return MGLStyleValueTransformer<mbgl::style::TextTransformType, NSValue *, mbgl::style::TextTransformType, MGLTextTransform>().toEnumStyleValue(propertyValue);
+    return MGLStyleValueTransformer<mbgl::style::TextTransformType, NSValue *, mbgl::style::TextTransformType, MGLTextTransform>().toDataDrivenStyleValue(propertyValue);
 }
 
 #pragma mark - Accessing the Paint Attributes
@@ -889,7 +891,7 @@ namespace mbgl {
 - (void)setIconColor:(MGLStyleValue<MGLColor *> *)iconColor {
     MGLAssertStyleLayerIsValid();
 
-    auto mbglValue = MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toInterpolatablePropertyValue(iconColor);
+    auto mbglValue = MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toDataDrivenPropertyValue(iconColor);
     self.rawLayer->setIconColor(mbglValue);
 }
 
@@ -898,15 +900,33 @@ namespace mbgl {
 
     auto propertyValue = self.rawLayer->getIconColor();
     if (propertyValue.isUndefined()) {
-        return MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toStyleValue(self.rawLayer->getDefaultIconColor());
+        return MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toDataDrivenStyleValue(self.rawLayer->getDefaultIconColor());
     }
-    return MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toStyleValue(propertyValue);
+    return MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toDataDrivenStyleValue(propertyValue);
+}
+
+- (void)setIconColorTransition:(MGLTransition )transition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions options { { MGLDurationFromTimeInterval(transition.duration) }, { MGLDurationFromTimeInterval(transition.delay) } };
+    self.rawLayer->setIconColorTransition(options);
+}
+
+- (MGLTransition)iconColorTransition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions transitionOptions = self.rawLayer->getIconColorTransition();
+    MGLTransition transition;
+    transition.duration = MGLTimeIntervalFromDuration(transitionOptions.duration.value_or(mbgl::Duration::zero()));
+    transition.delay = MGLTimeIntervalFromDuration(transitionOptions.delay.value_or(mbgl::Duration::zero()));
+
+    return transition;
 }
 
 - (void)setIconHaloBlur:(MGLStyleValue<NSNumber *> *)iconHaloBlur {
     MGLAssertStyleLayerIsValid();
 
-    auto mbglValue = MGLStyleValueTransformer<float, NSNumber *>().toInterpolatablePropertyValue(iconHaloBlur);
+    auto mbglValue = MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenPropertyValue(iconHaloBlur);
     self.rawLayer->setIconHaloBlur(mbglValue);
 }
 
@@ -915,15 +935,33 @@ namespace mbgl {
 
     auto propertyValue = self.rawLayer->getIconHaloBlur();
     if (propertyValue.isUndefined()) {
-        return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(self.rawLayer->getDefaultIconHaloBlur());
+        return MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenStyleValue(self.rawLayer->getDefaultIconHaloBlur());
     }
-    return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(propertyValue);
+    return MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenStyleValue(propertyValue);
+}
+
+- (void)setIconHaloBlurTransition:(MGLTransition )transition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions options { { MGLDurationFromTimeInterval(transition.duration) }, { MGLDurationFromTimeInterval(transition.delay) } };
+    self.rawLayer->setIconHaloBlurTransition(options);
+}
+
+- (MGLTransition)iconHaloBlurTransition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions transitionOptions = self.rawLayer->getIconHaloBlurTransition();
+    MGLTransition transition;
+    transition.duration = MGLTimeIntervalFromDuration(transitionOptions.duration.value_or(mbgl::Duration::zero()));
+    transition.delay = MGLTimeIntervalFromDuration(transitionOptions.delay.value_or(mbgl::Duration::zero()));
+
+    return transition;
 }
 
 - (void)setIconHaloColor:(MGLStyleValue<MGLColor *> *)iconHaloColor {
     MGLAssertStyleLayerIsValid();
 
-    auto mbglValue = MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toInterpolatablePropertyValue(iconHaloColor);
+    auto mbglValue = MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toDataDrivenPropertyValue(iconHaloColor);
     self.rawLayer->setIconHaloColor(mbglValue);
 }
 
@@ -932,15 +970,33 @@ namespace mbgl {
 
     auto propertyValue = self.rawLayer->getIconHaloColor();
     if (propertyValue.isUndefined()) {
-        return MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toStyleValue(self.rawLayer->getDefaultIconHaloColor());
+        return MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toDataDrivenStyleValue(self.rawLayer->getDefaultIconHaloColor());
     }
-    return MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toStyleValue(propertyValue);
+    return MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toDataDrivenStyleValue(propertyValue);
+}
+
+- (void)setIconHaloColorTransition:(MGLTransition )transition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions options { { MGLDurationFromTimeInterval(transition.duration) }, { MGLDurationFromTimeInterval(transition.delay) } };
+    self.rawLayer->setIconHaloColorTransition(options);
+}
+
+- (MGLTransition)iconHaloColorTransition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions transitionOptions = self.rawLayer->getIconHaloColorTransition();
+    MGLTransition transition;
+    transition.duration = MGLTimeIntervalFromDuration(transitionOptions.duration.value_or(mbgl::Duration::zero()));
+    transition.delay = MGLTimeIntervalFromDuration(transitionOptions.delay.value_or(mbgl::Duration::zero()));
+
+    return transition;
 }
 
 - (void)setIconHaloWidth:(MGLStyleValue<NSNumber *> *)iconHaloWidth {
     MGLAssertStyleLayerIsValid();
 
-    auto mbglValue = MGLStyleValueTransformer<float, NSNumber *>().toInterpolatablePropertyValue(iconHaloWidth);
+    auto mbglValue = MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenPropertyValue(iconHaloWidth);
     self.rawLayer->setIconHaloWidth(mbglValue);
 }
 
@@ -949,15 +1005,33 @@ namespace mbgl {
 
     auto propertyValue = self.rawLayer->getIconHaloWidth();
     if (propertyValue.isUndefined()) {
-        return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(self.rawLayer->getDefaultIconHaloWidth());
+        return MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenStyleValue(self.rawLayer->getDefaultIconHaloWidth());
     }
-    return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(propertyValue);
+    return MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenStyleValue(propertyValue);
+}
+
+- (void)setIconHaloWidthTransition:(MGLTransition )transition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions options { { MGLDurationFromTimeInterval(transition.duration) }, { MGLDurationFromTimeInterval(transition.delay) } };
+    self.rawLayer->setIconHaloWidthTransition(options);
+}
+
+- (MGLTransition)iconHaloWidthTransition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions transitionOptions = self.rawLayer->getIconHaloWidthTransition();
+    MGLTransition transition;
+    transition.duration = MGLTimeIntervalFromDuration(transitionOptions.duration.value_or(mbgl::Duration::zero()));
+    transition.delay = MGLTimeIntervalFromDuration(transitionOptions.delay.value_or(mbgl::Duration::zero()));
+
+    return transition;
 }
 
 - (void)setIconOpacity:(MGLStyleValue<NSNumber *> *)iconOpacity {
     MGLAssertStyleLayerIsValid();
 
-    auto mbglValue = MGLStyleValueTransformer<float, NSNumber *>().toInterpolatablePropertyValue(iconOpacity);
+    auto mbglValue = MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenPropertyValue(iconOpacity);
     self.rawLayer->setIconOpacity(mbglValue);
 }
 
@@ -966,9 +1040,27 @@ namespace mbgl {
 
     auto propertyValue = self.rawLayer->getIconOpacity();
     if (propertyValue.isUndefined()) {
-        return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(self.rawLayer->getDefaultIconOpacity());
+        return MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenStyleValue(self.rawLayer->getDefaultIconOpacity());
     }
-    return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(propertyValue);
+    return MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenStyleValue(propertyValue);
+}
+
+- (void)setIconOpacityTransition:(MGLTransition )transition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions options { { MGLDurationFromTimeInterval(transition.duration) }, { MGLDurationFromTimeInterval(transition.delay) } };
+    self.rawLayer->setIconOpacityTransition(options);
+}
+
+- (MGLTransition)iconOpacityTransition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions transitionOptions = self.rawLayer->getIconOpacityTransition();
+    MGLTransition transition;
+    transition.duration = MGLTimeIntervalFromDuration(transitionOptions.duration.value_or(mbgl::Duration::zero()));
+    transition.delay = MGLTimeIntervalFromDuration(transitionOptions.delay.value_or(mbgl::Duration::zero()));
+
+    return transition;
 }
 
 - (void)setIconTranslation:(MGLStyleValue<NSValue *> *)iconTranslation {
@@ -986,6 +1078,24 @@ namespace mbgl {
         return MGLStyleValueTransformer<std::array<float, 2>, NSValue *>().toStyleValue(self.rawLayer->getDefaultIconTranslate());
     }
     return MGLStyleValueTransformer<std::array<float, 2>, NSValue *>().toStyleValue(propertyValue);
+}
+
+- (void)setIconTranslationTransition:(MGLTransition )transition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions options { { MGLDurationFromTimeInterval(transition.duration) }, { MGLDurationFromTimeInterval(transition.delay) } };
+    self.rawLayer->setIconTranslateTransition(options);
+}
+
+- (MGLTransition)iconTranslationTransition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions transitionOptions = self.rawLayer->getIconTranslateTransition();
+    MGLTransition transition;
+    transition.duration = MGLTimeIntervalFromDuration(transitionOptions.duration.value_or(mbgl::Duration::zero()));
+    transition.delay = MGLTimeIntervalFromDuration(transitionOptions.delay.value_or(mbgl::Duration::zero()));
+
+    return transition;
 }
 
 - (void)setIconTranslate:(MGLStyleValue<NSValue *> *)iconTranslate {
@@ -1022,7 +1132,7 @@ namespace mbgl {
 - (void)setTextColor:(MGLStyleValue<MGLColor *> *)textColor {
     MGLAssertStyleLayerIsValid();
 
-    auto mbglValue = MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toInterpolatablePropertyValue(textColor);
+    auto mbglValue = MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toDataDrivenPropertyValue(textColor);
     self.rawLayer->setTextColor(mbglValue);
 }
 
@@ -1031,15 +1141,33 @@ namespace mbgl {
 
     auto propertyValue = self.rawLayer->getTextColor();
     if (propertyValue.isUndefined()) {
-        return MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toStyleValue(self.rawLayer->getDefaultTextColor());
+        return MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toDataDrivenStyleValue(self.rawLayer->getDefaultTextColor());
     }
-    return MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toStyleValue(propertyValue);
+    return MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toDataDrivenStyleValue(propertyValue);
+}
+
+- (void)setTextColorTransition:(MGLTransition )transition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions options { { MGLDurationFromTimeInterval(transition.duration) }, { MGLDurationFromTimeInterval(transition.delay) } };
+    self.rawLayer->setTextColorTransition(options);
+}
+
+- (MGLTransition)textColorTransition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions transitionOptions = self.rawLayer->getTextColorTransition();
+    MGLTransition transition;
+    transition.duration = MGLTimeIntervalFromDuration(transitionOptions.duration.value_or(mbgl::Duration::zero()));
+    transition.delay = MGLTimeIntervalFromDuration(transitionOptions.delay.value_or(mbgl::Duration::zero()));
+
+    return transition;
 }
 
 - (void)setTextHaloBlur:(MGLStyleValue<NSNumber *> *)textHaloBlur {
     MGLAssertStyleLayerIsValid();
 
-    auto mbglValue = MGLStyleValueTransformer<float, NSNumber *>().toInterpolatablePropertyValue(textHaloBlur);
+    auto mbglValue = MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenPropertyValue(textHaloBlur);
     self.rawLayer->setTextHaloBlur(mbglValue);
 }
 
@@ -1048,15 +1176,33 @@ namespace mbgl {
 
     auto propertyValue = self.rawLayer->getTextHaloBlur();
     if (propertyValue.isUndefined()) {
-        return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(self.rawLayer->getDefaultTextHaloBlur());
+        return MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenStyleValue(self.rawLayer->getDefaultTextHaloBlur());
     }
-    return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(propertyValue);
+    return MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenStyleValue(propertyValue);
+}
+
+- (void)setTextHaloBlurTransition:(MGLTransition )transition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions options { { MGLDurationFromTimeInterval(transition.duration) }, { MGLDurationFromTimeInterval(transition.delay) } };
+    self.rawLayer->setTextHaloBlurTransition(options);
+}
+
+- (MGLTransition)textHaloBlurTransition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions transitionOptions = self.rawLayer->getTextHaloBlurTransition();
+    MGLTransition transition;
+    transition.duration = MGLTimeIntervalFromDuration(transitionOptions.duration.value_or(mbgl::Duration::zero()));
+    transition.delay = MGLTimeIntervalFromDuration(transitionOptions.delay.value_or(mbgl::Duration::zero()));
+
+    return transition;
 }
 
 - (void)setTextHaloColor:(MGLStyleValue<MGLColor *> *)textHaloColor {
     MGLAssertStyleLayerIsValid();
 
-    auto mbglValue = MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toInterpolatablePropertyValue(textHaloColor);
+    auto mbglValue = MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toDataDrivenPropertyValue(textHaloColor);
     self.rawLayer->setTextHaloColor(mbglValue);
 }
 
@@ -1065,15 +1211,33 @@ namespace mbgl {
 
     auto propertyValue = self.rawLayer->getTextHaloColor();
     if (propertyValue.isUndefined()) {
-        return MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toStyleValue(self.rawLayer->getDefaultTextHaloColor());
+        return MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toDataDrivenStyleValue(self.rawLayer->getDefaultTextHaloColor());
     }
-    return MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toStyleValue(propertyValue);
+    return MGLStyleValueTransformer<mbgl::Color, MGLColor *>().toDataDrivenStyleValue(propertyValue);
+}
+
+- (void)setTextHaloColorTransition:(MGLTransition )transition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions options { { MGLDurationFromTimeInterval(transition.duration) }, { MGLDurationFromTimeInterval(transition.delay) } };
+    self.rawLayer->setTextHaloColorTransition(options);
+}
+
+- (MGLTransition)textHaloColorTransition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions transitionOptions = self.rawLayer->getTextHaloColorTransition();
+    MGLTransition transition;
+    transition.duration = MGLTimeIntervalFromDuration(transitionOptions.duration.value_or(mbgl::Duration::zero()));
+    transition.delay = MGLTimeIntervalFromDuration(transitionOptions.delay.value_or(mbgl::Duration::zero()));
+
+    return transition;
 }
 
 - (void)setTextHaloWidth:(MGLStyleValue<NSNumber *> *)textHaloWidth {
     MGLAssertStyleLayerIsValid();
 
-    auto mbglValue = MGLStyleValueTransformer<float, NSNumber *>().toInterpolatablePropertyValue(textHaloWidth);
+    auto mbglValue = MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenPropertyValue(textHaloWidth);
     self.rawLayer->setTextHaloWidth(mbglValue);
 }
 
@@ -1082,15 +1246,33 @@ namespace mbgl {
 
     auto propertyValue = self.rawLayer->getTextHaloWidth();
     if (propertyValue.isUndefined()) {
-        return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(self.rawLayer->getDefaultTextHaloWidth());
+        return MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenStyleValue(self.rawLayer->getDefaultTextHaloWidth());
     }
-    return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(propertyValue);
+    return MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenStyleValue(propertyValue);
+}
+
+- (void)setTextHaloWidthTransition:(MGLTransition )transition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions options { { MGLDurationFromTimeInterval(transition.duration) }, { MGLDurationFromTimeInterval(transition.delay) } };
+    self.rawLayer->setTextHaloWidthTransition(options);
+}
+
+- (MGLTransition)textHaloWidthTransition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions transitionOptions = self.rawLayer->getTextHaloWidthTransition();
+    MGLTransition transition;
+    transition.duration = MGLTimeIntervalFromDuration(transitionOptions.duration.value_or(mbgl::Duration::zero()));
+    transition.delay = MGLTimeIntervalFromDuration(transitionOptions.delay.value_or(mbgl::Duration::zero()));
+
+    return transition;
 }
 
 - (void)setTextOpacity:(MGLStyleValue<NSNumber *> *)textOpacity {
     MGLAssertStyleLayerIsValid();
 
-    auto mbglValue = MGLStyleValueTransformer<float, NSNumber *>().toInterpolatablePropertyValue(textOpacity);
+    auto mbglValue = MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenPropertyValue(textOpacity);
     self.rawLayer->setTextOpacity(mbglValue);
 }
 
@@ -1099,9 +1281,27 @@ namespace mbgl {
 
     auto propertyValue = self.rawLayer->getTextOpacity();
     if (propertyValue.isUndefined()) {
-        return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(self.rawLayer->getDefaultTextOpacity());
+        return MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenStyleValue(self.rawLayer->getDefaultTextOpacity());
     }
-    return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(propertyValue);
+    return MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenStyleValue(propertyValue);
+}
+
+- (void)setTextOpacityTransition:(MGLTransition )transition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions options { { MGLDurationFromTimeInterval(transition.duration) }, { MGLDurationFromTimeInterval(transition.delay) } };
+    self.rawLayer->setTextOpacityTransition(options);
+}
+
+- (MGLTransition)textOpacityTransition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions transitionOptions = self.rawLayer->getTextOpacityTransition();
+    MGLTransition transition;
+    transition.duration = MGLTimeIntervalFromDuration(transitionOptions.duration.value_or(mbgl::Duration::zero()));
+    transition.delay = MGLTimeIntervalFromDuration(transitionOptions.delay.value_or(mbgl::Duration::zero()));
+
+    return transition;
 }
 
 - (void)setTextTranslation:(MGLStyleValue<NSValue *> *)textTranslation {
@@ -1119,6 +1319,24 @@ namespace mbgl {
         return MGLStyleValueTransformer<std::array<float, 2>, NSValue *>().toStyleValue(self.rawLayer->getDefaultTextTranslate());
     }
     return MGLStyleValueTransformer<std::array<float, 2>, NSValue *>().toStyleValue(propertyValue);
+}
+
+- (void)setTextTranslationTransition:(MGLTransition )transition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions options { { MGLDurationFromTimeInterval(transition.duration) }, { MGLDurationFromTimeInterval(transition.delay) } };
+    self.rawLayer->setTextTranslateTransition(options);
+}
+
+- (MGLTransition)textTranslationTransition {
+    MGLAssertStyleLayerIsValid();
+
+    mbgl::style::TransitionOptions transitionOptions = self.rawLayer->getTextTranslateTransition();
+    MGLTransition transition;
+    transition.duration = MGLTimeIntervalFromDuration(transitionOptions.duration.value_or(mbgl::Duration::zero()));
+    transition.delay = MGLTimeIntervalFromDuration(transitionOptions.delay.value_or(mbgl::Duration::zero()));
+
+    return transition;
 }
 
 - (void)setTextTranslate:(MGLStyleValue<NSValue *> *)textTranslate {
@@ -1151,7 +1369,6 @@ namespace mbgl {
 - (MGLStyleValue<NSValue *> *)textTranslateAnchor {
     return self.textTranslationAnchor;
 }
-
 
 @end
 

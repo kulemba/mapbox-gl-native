@@ -8,6 +8,7 @@
 #include <mbgl/util/geometry.hpp>
 #include <mbgl/util/size.hpp>
 #include <mbgl/style/layers/symbol_layer_properties.hpp>
+#include <mbgl/style/layers/symbol_layer_impl.hpp>
 
 #include <cmath>
 #include <array>
@@ -27,14 +28,14 @@ MBGL_DEFINE_UNIFORM_SCALAR(bool, u_rotate_with_map);
 MBGL_DEFINE_UNIFORM_SCALAR(bool, u_pitch_with_map);
 MBGL_DEFINE_UNIFORM_SCALAR(gl::TextureUnit, u_texture);
 MBGL_DEFINE_UNIFORM_SCALAR(gl::TextureUnit, u_fadetexture);
-MBGL_DEFINE_UNIFORM_SCALAR(float, u_buffer);
-MBGL_DEFINE_UNIFORM_SCALAR(float, u_gamma);
 MBGL_DEFINE_UNIFORM_SCALAR(float, u_aspect_ratio);
+MBGL_DEFINE_UNIFORM_SCALAR(bool, u_is_halo);
+MBGL_DEFINE_UNIFORM_SCALAR(float, u_font_scale);
+MBGL_DEFINE_UNIFORM_SCALAR(float, u_gamma_scale);
 } // namespace uniforms
 
 struct SymbolLayoutAttributes : gl::Attributes<
-    attributes::a_pos,
-    attributes::a_offset<2>,
+    attributes::a_pos_offset,
     attributes::a_texture_pos,
     attributes::a_data<4>>
 {
@@ -47,11 +48,10 @@ struct SymbolLayoutAttributes : gl::Attributes<
                          float labelminzoom,
                          uint8_t labelangle) {
         return Vertex {
+            // combining pos and offset to reduce number of vertex attributes passed to shader (8 max for some devices)
             {{
                 static_cast<int16_t>(a.x),
-                static_cast<int16_t>(a.y)
-            }},
-            {{
+                static_cast<int16_t>(a.y),
                 static_cast<int16_t>(::round(o.x * 64)),  // use 1/64 pixels for placement
                 static_cast<int16_t>(::round(o.y * 64))
             }},
@@ -75,14 +75,13 @@ class SymbolIconProgram : public Program<
     SymbolLayoutAttributes,
     gl::Uniforms<
         uniforms::u_matrix,
-        uniforms::u_opacity,
         uniforms::u_extrude_scale,
         uniforms::u_texsize,
         uniforms::u_zoom,
         uniforms::u_rotate_with_map,
         uniforms::u_texture,
         uniforms::u_fadetexture>,
-    style::SymbolPaintProperties>
+    style::IconPaintProperties>
 {
 public:
     using Program::Program;
@@ -94,47 +93,73 @@ public:
                                        const TransformState&);
 };
 
+enum class SymbolSDFPart {
+    Fill = 1,
+    Halo = 0
+};
+
+template <class PaintProperties>
 class SymbolSDFProgram : public Program<
     shaders::symbol_sdf,
     gl::Triangle,
     SymbolLayoutAttributes,
     gl::Uniforms<
         uniforms::u_matrix,
-        uniforms::u_opacity,
         uniforms::u_extrude_scale,
         uniforms::u_texsize,
         uniforms::u_zoom,
         uniforms::u_rotate_with_map,
         uniforms::u_texture,
         uniforms::u_fadetexture,
-        uniforms::u_color,
-        uniforms::u_buffer,
-        uniforms::u_gamma,
+        uniforms::u_font_scale,
+        uniforms::u_gamma_scale,
         uniforms::u_pitch,
         uniforms::u_bearing,
         uniforms::u_aspect_ratio,
-        uniforms::u_pitch_with_map>,
-    style::SymbolPaintProperties>
+        uniforms::u_pitch_with_map,
+        uniforms::u_is_halo>,
+    PaintProperties>
 {
 public:
-    using Program::Program;
+    using BaseProgram = Program<shaders::symbol_sdf,
+        gl::Triangle,
+        SymbolLayoutAttributes,
+        gl::Uniforms<
+            uniforms::u_matrix,
+            uniforms::u_extrude_scale,
+            uniforms::u_texsize,
+            uniforms::u_zoom,
+            uniforms::u_rotate_with_map,
+            uniforms::u_texture,
+            uniforms::u_fadetexture,
+            uniforms::u_font_scale,
+            uniforms::u_gamma_scale,
+            uniforms::u_pitch,
+            uniforms::u_bearing,
+            uniforms::u_aspect_ratio,
+            uniforms::u_pitch_with_map,
+            uniforms::u_is_halo>,
+        PaintProperties>;
+    
+    using UniformValues = typename BaseProgram::UniformValues;
+    
 
-    static UniformValues haloUniformValues(const style::SymbolPropertyValues&,
-                                           const Size& texsize,
-                                           const std::array<float, 2>& pixelsToGLUnits,
-                                           const RenderTile&,
-                                           const TransformState&,
-                                           float pixelRatio);
+    
+    using BaseProgram::BaseProgram;
 
-    static UniformValues foregroundUniformValues(const style::SymbolPropertyValues&,
-                                                 const Size& texsize,
-                                                 const std::array<float, 2>& pixelsToGLUnits,
-                                                 const RenderTile&,
-                                                 const TransformState&,
-                                                 float pixelRatio);
+    static UniformValues uniformValues(const style::SymbolPropertyValues&,
+                                       const Size& texsize,
+                                       const std::array<float, 2>& pixelsToGLUnits,
+                                       const RenderTile&,
+                                       const TransformState&,
+                                       const SymbolSDFPart);
 };
 
+using SymbolSDFIconProgram = SymbolSDFProgram<style::IconPaintProperties>;
+using SymbolSDFTextProgram = SymbolSDFProgram<style::TextPaintProperties>;
+
 using SymbolLayoutVertex = SymbolLayoutAttributes::Vertex;
-using SymbolAttributes = SymbolIconProgram::Attributes;
+using SymbolIconAttributes = SymbolIconProgram::Attributes;
+using SymbolTextAttributes = SymbolSDFTextProgram::Attributes;
 
 } // namespace mbgl

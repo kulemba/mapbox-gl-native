@@ -257,9 +257,7 @@ public class MyLocationView extends View {
 
     final PointF pointF = screenLocation;
     float metersPerPixel = (float) projection.getMetersPerPixelAtLatitude(location.getLatitude());
-    float accuracyPixels = (Float) accuracyAnimator.getAnimatedValue() / metersPerPixel / 2;
-    float maxRadius = getWidth() / 2;
-    accuracyPixels = accuracyPixels <= maxRadius ? accuracyPixels : maxRadius;
+    float accuracyPixels = (Float) accuracyAnimator.getAnimatedValue() / metersPerPixel;
 
     // reset
     matrix.reset();
@@ -298,7 +296,7 @@ public class MyLocationView extends View {
     }
 
     // draw foreground
-    if (myBearingTrackingMode == MyBearingTracking.NONE) {
+    if (myBearingTrackingMode == MyBearingTracking.NONE || !compassListener.isSensorAvailable()) {
       if (foregroundDrawable != null) {
         foregroundDrawable.draw(canvas);
       }
@@ -322,7 +320,8 @@ public class MyLocationView extends View {
         if (location != null) {
           setCompass(location.getBearing() - bearing);
         }
-      } else if (myBearingTrackingMode == MyBearingTracking.COMPASS) {
+      } else if (myBearingTrackingMode == MyBearingTracking.COMPASS
+              && compassListener.isSensorAvailable()) {
         setCompass(magneticHeading - bearing);
       }
     }
@@ -336,7 +335,8 @@ public class MyLocationView extends View {
   }
 
   public void onStart() {
-    if (myBearingTrackingMode == MyBearingTracking.COMPASS) {
+    if (myBearingTrackingMode == MyBearingTracking.COMPASS
+            && compassListener.isSensorAvailable()) {
       compassListener.onResume();
     }
     if (isEnabled()) {
@@ -433,10 +433,12 @@ public class MyLocationView extends View {
       }
 
       locationEngine.addLocationEngineListener(userLocationListener);
+      locationEngine.activate();
     } else {
       // Disable location and user dot
       location = null;
       locationEngine.removeLocationEngineListener(userLocationListener);
+      locationEngine.deactivate();
     }
 
     locationEngine.setPriority(LocationEnginePriority.HIGH_ACCURACY);
@@ -458,7 +460,8 @@ public class MyLocationView extends View {
 
   public void setMyBearingTrackingMode(@MyBearingTracking.Mode int myBearingTrackingMode) {
     this.myBearingTrackingMode = myBearingTrackingMode;
-    if (myBearingTrackingMode == MyBearingTracking.COMPASS) {
+    if (myBearingTrackingMode == MyBearingTracking.COMPASS
+            && compassListener.isSensorAvailable()) {
       compassListener.onResume();
     } else {
       compassListener.onPause();
@@ -570,8 +573,10 @@ public class MyLocationView extends View {
     public void onConnected() {
       MyLocationView locationView = userLocationView.get();
       if (locationView != null) {
-        Location location = LocationSource.getLocationEngine(locationView.getContext()).getLastLocation();
+        LocationEngine locationSource = LocationSource.getLocationEngine(locationView.getContext());
+        Location location = locationSource.getLastLocation();
         locationView.setLocation(location);
+        locationSource.requestLocationUpdates();
       }
     }
 
@@ -611,6 +616,10 @@ public class MyLocationView extends View {
 
     public void onPause() {
       sensorManager.unregisterListener(this, rotationVectorSensor);
+    }
+
+    public boolean isSensorAvailable() {
+      return rotationVectorSensor != null;
     }
 
     @Override
@@ -723,7 +732,7 @@ public class MyLocationView extends View {
         accuracyAnimator.end();
       }
 
-      accuracyAnimator = ValueAnimator.ofFloat(accuracy * 10, location.getAccuracy() * 10);
+      accuracyAnimator = ValueAnimator.ofFloat(accuracy, location.getAccuracy());
       accuracyAnimator.setDuration(750);
       accuracyAnimator.start();
       accuracy = location.getAccuracy();

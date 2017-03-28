@@ -36,6 +36,8 @@ public:
     void setAccessToken(const std::string&);
     std::string getAccessToken() const;
 
+    void setResourceTransform(std::function<std::string(Resource::Kind, std::string&&)>);
+
     std::unique_ptr<AsyncRequest> request(const Resource&, Callback) override;
 
     /*
@@ -116,6 +118,22 @@ public:
     void addSupplementaryOfflineDatabase(Resource::Kind kind, optional<LatLngBounds> latLngBounds, const std::string& cachePath);
     void removeSupplementaryOfflineDatabases(const std::string& cachePath);
 
+    /*
+     * Pause file request activity.
+     *
+     * If pause is called then no revalidation or network request activity
+     * will occur.
+     */
+    void pause();
+
+    /*
+     * Resume file request activity.
+     *
+     * Calling resume will unpause the file source and process any tasks that
+     * expired while the file source was paused.
+     */
+    void resume();
+
     // For testing only.
     void put(const Resource&, const Response&);
 
@@ -125,6 +143,8 @@ private:
     const std::unique_ptr<util::Thread<Impl>> thread;
     const std::unique_ptr<FileSource> assetFileSource;
     const std::unique_ptr<FileSource> localFileSource;
+    std::string cachedBaseURL = mbgl::util::API_BASE_URL;
+    std::string cachedAccessToken;
 };
 
 } // namespace mbgl

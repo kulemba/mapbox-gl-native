@@ -38,6 +38,13 @@ import com.mapbox.mapboxsdk.testapp.model.annotations.TextMarkerViewOptions;
 
 import java.util.Random;
 
+/**
+ * Test activity showcasing multiple MarkerViews above Washington D.C.
+ * <p>
+ * Shows a couple of open InfoWindows out of current Viewport.
+ * Updates the rotation and location of a couple of MarkerViews.
+ * </p>
+ */
 public class MarkerViewActivity extends AppCompatActivity {
 
   private static final LatLng[] LAT_LNGS = new LatLng[] {
@@ -189,6 +196,13 @@ public class MarkerViewActivity extends AppCompatActivity {
         // open infowindow offscreen markers
         mapboxMap.selectMarker(markerRightOffScreen);
         mapboxMap.selectMarker(markerRightBottomOffScreen);
+
+        mapboxMap.setOnMapClickListener(new MapboxMap.OnMapClickListener() {
+          @Override
+          public void onMapClick(@NonNull LatLng point) {
+            Toast.makeText(MarkerViewActivity.this, point.toString(), Toast.LENGTH_SHORT).show();
+          }
+        });
       }
     });
   }

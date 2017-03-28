@@ -102,6 +102,7 @@ public class LocationSource extends LocationEngine implements
   public void requestLocationUpdates() {
     // Common params
     LocationRequest request = LocationRequest.create()
+      .setInterval(1000)
       .setFastestInterval(1000)
       .setSmallestDisplacement(3.0f);
 
@@ -124,7 +125,9 @@ public class LocationSource extends LocationEngine implements
 
   @Override
   public void removeLocationUpdates() {
-    LocationServices.FusedLocationApi.removeLocationUpdates(lostApiClient, this);
+    if (lostApiClient.isConnected()) {
+      LocationServices.FusedLocationApi.removeLocationUpdates(lostApiClient, this);
+    }
   }
 
   @Override

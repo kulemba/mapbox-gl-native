@@ -576,7 +576,7 @@ public class SymbolLayerTest extends BaseStyleTest {
           categorical(
             stop(1.0f, iconRotate(0.3f))
           )
-        ).withDefaultValue(0.3f)
+        ).withDefaultValue(iconRotate(0.3f))
       )
     );
 
@@ -586,7 +586,9 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(SourceFunction.class, layer.getIconRotate().getFunction().getClass());
     assertEquals("FeaturePropertyA", ((SourceFunction) layer.getIconRotate().getFunction()).getProperty());
     assertEquals(CategoricalStops.class, layer.getIconRotate().getFunction().getStops().getClass());
-    assertEquals(0.3f, ((SourceFunction) layer.getIconRotate().getFunction()).getDefaultValue());
+    assertNotNull(((SourceFunction) layer.getIconRotate().getFunction()).getDefaultValue());
+    assertNotNull(((SourceFunction) layer.getIconRotate().getFunction()).getDefaultValue().getValue());
+    assertEquals(0.3f, ((SourceFunction) layer.getIconRotate().getFunction()).getDefaultValue().getValue());
   }
 
   @Test
@@ -603,7 +605,7 @@ public class SymbolLayerTest extends BaseStyleTest {
           exponential(
             stop(0, 0.3f, iconRotate(0.9f))
           ).withBase(0.5f)
-        ).withDefaultValue(0.3f)
+        ).withDefaultValue(iconRotate(0.3f))
       )
     );
 
@@ -884,6 +886,51 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(CameraFunction.class, layer.getTextField().getFunction().getClass());
     assertEquals(IntervalStops.class, layer.getTextField().getFunction().getStops().getClass());
     assertEquals(1, ((IntervalStops) layer.getTextField().getFunction().getStops()).size());
+  }
+
+  @Test
+  public void testTextFieldAsIdentitySourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-field");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textField(property("FeaturePropertyA", Stops.<String>identity()))
+    );
+
+    // Verify
+    assertNotNull(layer.getTextField());
+    assertNotNull(layer.getTextField().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextField().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextField().getFunction()).getProperty());
+    assertEquals(IdentityStops.class, layer.getTextField().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testTextFieldAsIntervalSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-field");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textField(
+        property(
+          "FeaturePropertyA",
+          interval(
+            stop(1, textField(""))
+          )
+        )
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getTextField());
+    assertNotNull(layer.getTextField().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextField().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextField().getFunction()).getProperty());
+    assertEquals(IntervalStops.class, layer.getTextField().getFunction().getStops().getClass());
   }
 
   @Test
@@ -1326,6 +1373,51 @@ public class SymbolLayerTest extends BaseStyleTest {
   }
 
   @Test
+  public void testTextTransformAsIdentitySourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-transform");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textTransform(property("FeaturePropertyA", Stops.<String>identity()))
+    );
+
+    // Verify
+    assertNotNull(layer.getTextTransform());
+    assertNotNull(layer.getTextTransform().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextTransform().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextTransform().getFunction()).getProperty());
+    assertEquals(IdentityStops.class, layer.getTextTransform().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testTextTransformAsIntervalSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-transform");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textTransform(
+        property(
+          "FeaturePropertyA",
+          interval(
+            stop(1, textTransform(TEXT_TRANSFORM_NONE))
+          )
+        )
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getTextTransform());
+    assertNotNull(layer.getTextTransform().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextTransform().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextTransform().getFunction()).getProperty());
+    assertEquals(IntervalStops.class, layer.getTextTransform().getFunction().getStops().getClass());
+  }
+
+  @Test
   public void testTextOffsetAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
     Timber.i("text-offset");
@@ -1508,6 +1600,114 @@ public class SymbolLayerTest extends BaseStyleTest {
   }
 
   @Test
+  public void testIconOpacityAsIdentitySourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-opacity");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      iconOpacity(property("FeaturePropertyA", Stops.<Float>identity()))
+    );
+
+    // Verify
+    assertNotNull(layer.getIconOpacity());
+    assertNotNull(layer.getIconOpacity().getFunction());
+    assertEquals(SourceFunction.class, layer.getIconOpacity().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getIconOpacity().getFunction()).getProperty());
+    assertEquals(IdentityStops.class, layer.getIconOpacity().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testIconOpacityAsExponentialSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-opacity");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      iconOpacity(
+        property(
+          "FeaturePropertyA",
+          exponential(
+            stop(0.3f, iconOpacity(0.3f))
+          ).withBase(0.5f)
+        )
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getIconOpacity());
+    assertNotNull(layer.getIconOpacity().getFunction());
+    assertEquals(SourceFunction.class, layer.getIconOpacity().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getIconOpacity().getFunction()).getProperty());
+    assertEquals(ExponentialStops.class, layer.getIconOpacity().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testIconOpacityAsCategoricalSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-opacity");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      iconOpacity(
+        property(
+          "FeaturePropertyA",
+          categorical(
+            stop(1.0f, iconOpacity(0.3f))
+          )
+        ).withDefaultValue(iconOpacity(0.3f))
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getIconOpacity());
+    assertNotNull(layer.getIconOpacity().getFunction());
+    assertEquals(SourceFunction.class, layer.getIconOpacity().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getIconOpacity().getFunction()).getProperty());
+    assertEquals(CategoricalStops.class, layer.getIconOpacity().getFunction().getStops().getClass());
+    assertNotNull(((SourceFunction) layer.getIconOpacity().getFunction()).getDefaultValue());
+    assertNotNull(((SourceFunction) layer.getIconOpacity().getFunction()).getDefaultValue().getValue());
+    assertEquals(0.3f, ((SourceFunction) layer.getIconOpacity().getFunction()).getDefaultValue().getValue());
+  }
+
+  @Test
+  public void testIconOpacityAsCompositeFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-opacity");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      iconOpacity(
+        composite(
+          "FeaturePropertyA",
+          exponential(
+            stop(0, 0.3f, iconOpacity(0.9f))
+          ).withBase(0.5f)
+        ).withDefaultValue(iconOpacity(0.3f))
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getIconOpacity());
+    assertNotNull(layer.getIconOpacity().getFunction());
+    assertEquals(CompositeFunction.class, layer.getIconOpacity().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((CompositeFunction) layer.getIconOpacity().getFunction()).getProperty());
+    assertEquals(ExponentialStops.class, layer.getIconOpacity().getFunction().getStops().getClass());
+    assertEquals(1, ((ExponentialStops) layer.getIconOpacity().getFunction().getStops()).size());
+
+    ExponentialStops<Stop.CompositeValue<Float, Float>, Float> stops =
+      (ExponentialStops<Stop.CompositeValue<Float, Float>, Float>) layer.getIconOpacity().getFunction().getStops();
+    Stop<Stop.CompositeValue<Float, Float>, Float> stop = stops.iterator().next();
+    assertEquals(0f, stop.in.zoom, 0.001);
+    assertEquals(0.3f, stop.in.value, 0.001f);
+    assertEquals(0.9f, stop.out, 0.001f);
+  }
+
+  @Test
   public void testIconColorAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
     Timber.i("icon-color");
@@ -1542,6 +1742,80 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(ExponentialStops.class, layer.getIconColor().getFunction().getStops().getClass());
     assertEquals(0.5f, ((ExponentialStops) layer.getIconColor().getFunction().getStops()).getBase(), 0.001);
     assertEquals(1, ((ExponentialStops) layer.getIconColor().getFunction().getStops()).size());
+  }
+
+  @Test
+  public void testIconColorAsIdentitySourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-color");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      iconColor(property("FeaturePropertyA", Stops.<String>identity()))
+    );
+
+    // Verify
+    assertNotNull(layer.getIconColor());
+    assertNotNull(layer.getIconColor().getFunction());
+    assertEquals(SourceFunction.class, layer.getIconColor().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getIconColor().getFunction()).getProperty());
+    assertEquals(IdentityStops.class, layer.getIconColor().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testIconColorAsExponentialSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-color");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      iconColor(
+        property(
+          "FeaturePropertyA",
+          exponential(
+            stop(Color.RED, iconColor(Color.RED))
+          ).withBase(0.5f)
+        )
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getIconColor());
+    assertNotNull(layer.getIconColor().getFunction());
+    assertEquals(SourceFunction.class, layer.getIconColor().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getIconColor().getFunction()).getProperty());
+    assertEquals(ExponentialStops.class, layer.getIconColor().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testIconColorAsCategoricalSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-color");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      iconColor(
+        property(
+          "FeaturePropertyA",
+          categorical(
+            stop("valueA", iconColor(Color.RED))
+          )
+        ).withDefaultValue(iconColor(Color.GREEN))
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getIconColor());
+    assertNotNull(layer.getIconColor().getFunction());
+    assertEquals(SourceFunction.class, layer.getIconColor().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getIconColor().getFunction()).getProperty());
+    assertEquals(CategoricalStops.class, layer.getIconColor().getFunction().getStops().getClass());
+    assertNotNull(((SourceFunction) layer.getIconColor().getFunction()).getDefaultValue());
+    assertNotNull(((SourceFunction) layer.getIconColor().getFunction()).getDefaultValue().getValue());
+    assertEquals(Color.GREEN, (int) ((SourceFunction) layer.getIconColor().getFunction()).getDefaultValue().getColorInt());
   }
 
   @Test
@@ -1593,6 +1867,80 @@ public class SymbolLayerTest extends BaseStyleTest {
   }
 
   @Test
+  public void testIconHaloColorAsIdentitySourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-halo-color");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      iconHaloColor(property("FeaturePropertyA", Stops.<String>identity()))
+    );
+
+    // Verify
+    assertNotNull(layer.getIconHaloColor());
+    assertNotNull(layer.getIconHaloColor().getFunction());
+    assertEquals(SourceFunction.class, layer.getIconHaloColor().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getIconHaloColor().getFunction()).getProperty());
+    assertEquals(IdentityStops.class, layer.getIconHaloColor().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testIconHaloColorAsExponentialSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-halo-color");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      iconHaloColor(
+        property(
+          "FeaturePropertyA",
+          exponential(
+            stop(Color.RED, iconHaloColor(Color.RED))
+          ).withBase(0.5f)
+        )
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getIconHaloColor());
+    assertNotNull(layer.getIconHaloColor().getFunction());
+    assertEquals(SourceFunction.class, layer.getIconHaloColor().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getIconHaloColor().getFunction()).getProperty());
+    assertEquals(ExponentialStops.class, layer.getIconHaloColor().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testIconHaloColorAsCategoricalSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-halo-color");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      iconHaloColor(
+        property(
+          "FeaturePropertyA",
+          categorical(
+            stop("valueA", iconHaloColor(Color.RED))
+          )
+        ).withDefaultValue(iconHaloColor(Color.GREEN))
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getIconHaloColor());
+    assertNotNull(layer.getIconHaloColor().getFunction());
+    assertEquals(SourceFunction.class, layer.getIconHaloColor().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getIconHaloColor().getFunction()).getProperty());
+    assertEquals(CategoricalStops.class, layer.getIconHaloColor().getFunction().getStops().getClass());
+    assertNotNull(((SourceFunction) layer.getIconHaloColor().getFunction()).getDefaultValue());
+    assertNotNull(((SourceFunction) layer.getIconHaloColor().getFunction()).getDefaultValue().getValue());
+    assertEquals(Color.GREEN, (int) ((SourceFunction) layer.getIconHaloColor().getFunction()).getDefaultValue().getColorInt());
+  }
+
+  @Test
   public void testIconHaloColorAsIntConstant() {
     checkViewIsDisplayed(R.id.mapView);
     Timber.i("icon-halo-color");
@@ -1641,6 +1989,114 @@ public class SymbolLayerTest extends BaseStyleTest {
   }
 
   @Test
+  public void testIconHaloWidthAsIdentitySourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-halo-width");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      iconHaloWidth(property("FeaturePropertyA", Stops.<Float>identity()))
+    );
+
+    // Verify
+    assertNotNull(layer.getIconHaloWidth());
+    assertNotNull(layer.getIconHaloWidth().getFunction());
+    assertEquals(SourceFunction.class, layer.getIconHaloWidth().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getIconHaloWidth().getFunction()).getProperty());
+    assertEquals(IdentityStops.class, layer.getIconHaloWidth().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testIconHaloWidthAsExponentialSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-halo-width");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      iconHaloWidth(
+        property(
+          "FeaturePropertyA",
+          exponential(
+            stop(0.3f, iconHaloWidth(0.3f))
+          ).withBase(0.5f)
+        )
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getIconHaloWidth());
+    assertNotNull(layer.getIconHaloWidth().getFunction());
+    assertEquals(SourceFunction.class, layer.getIconHaloWidth().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getIconHaloWidth().getFunction()).getProperty());
+    assertEquals(ExponentialStops.class, layer.getIconHaloWidth().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testIconHaloWidthAsCategoricalSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-halo-width");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      iconHaloWidth(
+        property(
+          "FeaturePropertyA",
+          categorical(
+            stop(1.0f, iconHaloWidth(0.3f))
+          )
+        ).withDefaultValue(iconHaloWidth(0.3f))
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getIconHaloWidth());
+    assertNotNull(layer.getIconHaloWidth().getFunction());
+    assertEquals(SourceFunction.class, layer.getIconHaloWidth().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getIconHaloWidth().getFunction()).getProperty());
+    assertEquals(CategoricalStops.class, layer.getIconHaloWidth().getFunction().getStops().getClass());
+    assertNotNull(((SourceFunction) layer.getIconHaloWidth().getFunction()).getDefaultValue());
+    assertNotNull(((SourceFunction) layer.getIconHaloWidth().getFunction()).getDefaultValue().getValue());
+    assertEquals(0.3f, ((SourceFunction) layer.getIconHaloWidth().getFunction()).getDefaultValue().getValue());
+  }
+
+  @Test
+  public void testIconHaloWidthAsCompositeFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-halo-width");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      iconHaloWidth(
+        composite(
+          "FeaturePropertyA",
+          exponential(
+            stop(0, 0.3f, iconHaloWidth(0.9f))
+          ).withBase(0.5f)
+        ).withDefaultValue(iconHaloWidth(0.3f))
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getIconHaloWidth());
+    assertNotNull(layer.getIconHaloWidth().getFunction());
+    assertEquals(CompositeFunction.class, layer.getIconHaloWidth().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((CompositeFunction) layer.getIconHaloWidth().getFunction()).getProperty());
+    assertEquals(ExponentialStops.class, layer.getIconHaloWidth().getFunction().getStops().getClass());
+    assertEquals(1, ((ExponentialStops) layer.getIconHaloWidth().getFunction().getStops()).size());
+
+    ExponentialStops<Stop.CompositeValue<Float, Float>, Float> stops =
+      (ExponentialStops<Stop.CompositeValue<Float, Float>, Float>) layer.getIconHaloWidth().getFunction().getStops();
+    Stop<Stop.CompositeValue<Float, Float>, Float> stop = stops.iterator().next();
+    assertEquals(0f, stop.in.zoom, 0.001);
+    assertEquals(0.3f, stop.in.value, 0.001f);
+    assertEquals(0.9f, stop.out, 0.001f);
+  }
+
+  @Test
   public void testIconHaloBlurAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
     Timber.i("icon-halo-blur");
@@ -1675,6 +2131,114 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(ExponentialStops.class, layer.getIconHaloBlur().getFunction().getStops().getClass());
     assertEquals(0.5f, ((ExponentialStops) layer.getIconHaloBlur().getFunction().getStops()).getBase(), 0.001);
     assertEquals(1, ((ExponentialStops) layer.getIconHaloBlur().getFunction().getStops()).size());
+  }
+
+  @Test
+  public void testIconHaloBlurAsIdentitySourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-halo-blur");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      iconHaloBlur(property("FeaturePropertyA", Stops.<Float>identity()))
+    );
+
+    // Verify
+    assertNotNull(layer.getIconHaloBlur());
+    assertNotNull(layer.getIconHaloBlur().getFunction());
+    assertEquals(SourceFunction.class, layer.getIconHaloBlur().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getIconHaloBlur().getFunction()).getProperty());
+    assertEquals(IdentityStops.class, layer.getIconHaloBlur().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testIconHaloBlurAsExponentialSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-halo-blur");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      iconHaloBlur(
+        property(
+          "FeaturePropertyA",
+          exponential(
+            stop(0.3f, iconHaloBlur(0.3f))
+          ).withBase(0.5f)
+        )
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getIconHaloBlur());
+    assertNotNull(layer.getIconHaloBlur().getFunction());
+    assertEquals(SourceFunction.class, layer.getIconHaloBlur().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getIconHaloBlur().getFunction()).getProperty());
+    assertEquals(ExponentialStops.class, layer.getIconHaloBlur().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testIconHaloBlurAsCategoricalSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-halo-blur");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      iconHaloBlur(
+        property(
+          "FeaturePropertyA",
+          categorical(
+            stop(1.0f, iconHaloBlur(0.3f))
+          )
+        ).withDefaultValue(iconHaloBlur(0.3f))
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getIconHaloBlur());
+    assertNotNull(layer.getIconHaloBlur().getFunction());
+    assertEquals(SourceFunction.class, layer.getIconHaloBlur().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getIconHaloBlur().getFunction()).getProperty());
+    assertEquals(CategoricalStops.class, layer.getIconHaloBlur().getFunction().getStops().getClass());
+    assertNotNull(((SourceFunction) layer.getIconHaloBlur().getFunction()).getDefaultValue());
+    assertNotNull(((SourceFunction) layer.getIconHaloBlur().getFunction()).getDefaultValue().getValue());
+    assertEquals(0.3f, ((SourceFunction) layer.getIconHaloBlur().getFunction()).getDefaultValue().getValue());
+  }
+
+  @Test
+  public void testIconHaloBlurAsCompositeFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-halo-blur");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      iconHaloBlur(
+        composite(
+          "FeaturePropertyA",
+          exponential(
+            stop(0, 0.3f, iconHaloBlur(0.9f))
+          ).withBase(0.5f)
+        ).withDefaultValue(iconHaloBlur(0.3f))
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getIconHaloBlur());
+    assertNotNull(layer.getIconHaloBlur().getFunction());
+    assertEquals(CompositeFunction.class, layer.getIconHaloBlur().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((CompositeFunction) layer.getIconHaloBlur().getFunction()).getProperty());
+    assertEquals(ExponentialStops.class, layer.getIconHaloBlur().getFunction().getStops().getClass());
+    assertEquals(1, ((ExponentialStops) layer.getIconHaloBlur().getFunction().getStops()).size());
+
+    ExponentialStops<Stop.CompositeValue<Float, Float>, Float> stops =
+      (ExponentialStops<Stop.CompositeValue<Float, Float>, Float>) layer.getIconHaloBlur().getFunction().getStops();
+    Stop<Stop.CompositeValue<Float, Float>, Float> stop = stops.iterator().next();
+    assertEquals(0f, stop.in.zoom, 0.001);
+    assertEquals(0.3f, stop.in.value, 0.001f);
+    assertEquals(0.9f, stop.out, 0.001f);
   }
 
   @Test
@@ -1788,6 +2352,114 @@ public class SymbolLayerTest extends BaseStyleTest {
   }
 
   @Test
+  public void testTextOpacityAsIdentitySourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-opacity");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textOpacity(property("FeaturePropertyA", Stops.<Float>identity()))
+    );
+
+    // Verify
+    assertNotNull(layer.getTextOpacity());
+    assertNotNull(layer.getTextOpacity().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextOpacity().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextOpacity().getFunction()).getProperty());
+    assertEquals(IdentityStops.class, layer.getTextOpacity().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testTextOpacityAsExponentialSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-opacity");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textOpacity(
+        property(
+          "FeaturePropertyA",
+          exponential(
+            stop(0.3f, textOpacity(0.3f))
+          ).withBase(0.5f)
+        )
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getTextOpacity());
+    assertNotNull(layer.getTextOpacity().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextOpacity().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextOpacity().getFunction()).getProperty());
+    assertEquals(ExponentialStops.class, layer.getTextOpacity().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testTextOpacityAsCategoricalSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-opacity");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textOpacity(
+        property(
+          "FeaturePropertyA",
+          categorical(
+            stop(1.0f, textOpacity(0.3f))
+          )
+        ).withDefaultValue(textOpacity(0.3f))
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getTextOpacity());
+    assertNotNull(layer.getTextOpacity().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextOpacity().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextOpacity().getFunction()).getProperty());
+    assertEquals(CategoricalStops.class, layer.getTextOpacity().getFunction().getStops().getClass());
+    assertNotNull(((SourceFunction) layer.getTextOpacity().getFunction()).getDefaultValue());
+    assertNotNull(((SourceFunction) layer.getTextOpacity().getFunction()).getDefaultValue().getValue());
+    assertEquals(0.3f, ((SourceFunction) layer.getTextOpacity().getFunction()).getDefaultValue().getValue());
+  }
+
+  @Test
+  public void testTextOpacityAsCompositeFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-opacity");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textOpacity(
+        composite(
+          "FeaturePropertyA",
+          exponential(
+            stop(0, 0.3f, textOpacity(0.9f))
+          ).withBase(0.5f)
+        ).withDefaultValue(textOpacity(0.3f))
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getTextOpacity());
+    assertNotNull(layer.getTextOpacity().getFunction());
+    assertEquals(CompositeFunction.class, layer.getTextOpacity().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((CompositeFunction) layer.getTextOpacity().getFunction()).getProperty());
+    assertEquals(ExponentialStops.class, layer.getTextOpacity().getFunction().getStops().getClass());
+    assertEquals(1, ((ExponentialStops) layer.getTextOpacity().getFunction().getStops()).size());
+
+    ExponentialStops<Stop.CompositeValue<Float, Float>, Float> stops =
+      (ExponentialStops<Stop.CompositeValue<Float, Float>, Float>) layer.getTextOpacity().getFunction().getStops();
+    Stop<Stop.CompositeValue<Float, Float>, Float> stop = stops.iterator().next();
+    assertEquals(0f, stop.in.zoom, 0.001);
+    assertEquals(0.3f, stop.in.value, 0.001f);
+    assertEquals(0.9f, stop.out, 0.001f);
+  }
+
+  @Test
   public void testTextColorAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
     Timber.i("text-color");
@@ -1822,6 +2494,80 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(ExponentialStops.class, layer.getTextColor().getFunction().getStops().getClass());
     assertEquals(0.5f, ((ExponentialStops) layer.getTextColor().getFunction().getStops()).getBase(), 0.001);
     assertEquals(1, ((ExponentialStops) layer.getTextColor().getFunction().getStops()).size());
+  }
+
+  @Test
+  public void testTextColorAsIdentitySourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-color");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textColor(property("FeaturePropertyA", Stops.<String>identity()))
+    );
+
+    // Verify
+    assertNotNull(layer.getTextColor());
+    assertNotNull(layer.getTextColor().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextColor().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextColor().getFunction()).getProperty());
+    assertEquals(IdentityStops.class, layer.getTextColor().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testTextColorAsExponentialSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-color");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textColor(
+        property(
+          "FeaturePropertyA",
+          exponential(
+            stop(Color.RED, textColor(Color.RED))
+          ).withBase(0.5f)
+        )
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getTextColor());
+    assertNotNull(layer.getTextColor().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextColor().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextColor().getFunction()).getProperty());
+    assertEquals(ExponentialStops.class, layer.getTextColor().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testTextColorAsCategoricalSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-color");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textColor(
+        property(
+          "FeaturePropertyA",
+          categorical(
+            stop("valueA", textColor(Color.RED))
+          )
+        ).withDefaultValue(textColor(Color.GREEN))
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getTextColor());
+    assertNotNull(layer.getTextColor().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextColor().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextColor().getFunction()).getProperty());
+    assertEquals(CategoricalStops.class, layer.getTextColor().getFunction().getStops().getClass());
+    assertNotNull(((SourceFunction) layer.getTextColor().getFunction()).getDefaultValue());
+    assertNotNull(((SourceFunction) layer.getTextColor().getFunction()).getDefaultValue().getValue());
+    assertEquals(Color.GREEN, (int) ((SourceFunction) layer.getTextColor().getFunction()).getDefaultValue().getColorInt());
   }
 
   @Test
@@ -1873,6 +2619,80 @@ public class SymbolLayerTest extends BaseStyleTest {
   }
 
   @Test
+  public void testTextHaloColorAsIdentitySourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-halo-color");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textHaloColor(property("FeaturePropertyA", Stops.<String>identity()))
+    );
+
+    // Verify
+    assertNotNull(layer.getTextHaloColor());
+    assertNotNull(layer.getTextHaloColor().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextHaloColor().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextHaloColor().getFunction()).getProperty());
+    assertEquals(IdentityStops.class, layer.getTextHaloColor().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testTextHaloColorAsExponentialSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-halo-color");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textHaloColor(
+        property(
+          "FeaturePropertyA",
+          exponential(
+            stop(Color.RED, textHaloColor(Color.RED))
+          ).withBase(0.5f)
+        )
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getTextHaloColor());
+    assertNotNull(layer.getTextHaloColor().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextHaloColor().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextHaloColor().getFunction()).getProperty());
+    assertEquals(ExponentialStops.class, layer.getTextHaloColor().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testTextHaloColorAsCategoricalSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-halo-color");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textHaloColor(
+        property(
+          "FeaturePropertyA",
+          categorical(
+            stop("valueA", textHaloColor(Color.RED))
+          )
+        ).withDefaultValue(textHaloColor(Color.GREEN))
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getTextHaloColor());
+    assertNotNull(layer.getTextHaloColor().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextHaloColor().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextHaloColor().getFunction()).getProperty());
+    assertEquals(CategoricalStops.class, layer.getTextHaloColor().getFunction().getStops().getClass());
+    assertNotNull(((SourceFunction) layer.getTextHaloColor().getFunction()).getDefaultValue());
+    assertNotNull(((SourceFunction) layer.getTextHaloColor().getFunction()).getDefaultValue().getValue());
+    assertEquals(Color.GREEN, (int) ((SourceFunction) layer.getTextHaloColor().getFunction()).getDefaultValue().getColorInt());
+  }
+
+  @Test
   public void testTextHaloColorAsIntConstant() {
     checkViewIsDisplayed(R.id.mapView);
     Timber.i("text-halo-color");
@@ -1921,6 +2741,114 @@ public class SymbolLayerTest extends BaseStyleTest {
   }
 
   @Test
+  public void testTextHaloWidthAsIdentitySourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-halo-width");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textHaloWidth(property("FeaturePropertyA", Stops.<Float>identity()))
+    );
+
+    // Verify
+    assertNotNull(layer.getTextHaloWidth());
+    assertNotNull(layer.getTextHaloWidth().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextHaloWidth().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextHaloWidth().getFunction()).getProperty());
+    assertEquals(IdentityStops.class, layer.getTextHaloWidth().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testTextHaloWidthAsExponentialSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-halo-width");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textHaloWidth(
+        property(
+          "FeaturePropertyA",
+          exponential(
+            stop(0.3f, textHaloWidth(0.3f))
+          ).withBase(0.5f)
+        )
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getTextHaloWidth());
+    assertNotNull(layer.getTextHaloWidth().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextHaloWidth().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextHaloWidth().getFunction()).getProperty());
+    assertEquals(ExponentialStops.class, layer.getTextHaloWidth().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testTextHaloWidthAsCategoricalSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-halo-width");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textHaloWidth(
+        property(
+          "FeaturePropertyA",
+          categorical(
+            stop(1.0f, textHaloWidth(0.3f))
+          )
+        ).withDefaultValue(textHaloWidth(0.3f))
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getTextHaloWidth());
+    assertNotNull(layer.getTextHaloWidth().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextHaloWidth().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextHaloWidth().getFunction()).getProperty());
+    assertEquals(CategoricalStops.class, layer.getTextHaloWidth().getFunction().getStops().getClass());
+    assertNotNull(((SourceFunction) layer.getTextHaloWidth().getFunction()).getDefaultValue());
+    assertNotNull(((SourceFunction) layer.getTextHaloWidth().getFunction()).getDefaultValue().getValue());
+    assertEquals(0.3f, ((SourceFunction) layer.getTextHaloWidth().getFunction()).getDefaultValue().getValue());
+  }
+
+  @Test
+  public void testTextHaloWidthAsCompositeFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-halo-width");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textHaloWidth(
+        composite(
+          "FeaturePropertyA",
+          exponential(
+            stop(0, 0.3f, textHaloWidth(0.9f))
+          ).withBase(0.5f)
+        ).withDefaultValue(textHaloWidth(0.3f))
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getTextHaloWidth());
+    assertNotNull(layer.getTextHaloWidth().getFunction());
+    assertEquals(CompositeFunction.class, layer.getTextHaloWidth().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((CompositeFunction) layer.getTextHaloWidth().getFunction()).getProperty());
+    assertEquals(ExponentialStops.class, layer.getTextHaloWidth().getFunction().getStops().getClass());
+    assertEquals(1, ((ExponentialStops) layer.getTextHaloWidth().getFunction().getStops()).size());
+
+    ExponentialStops<Stop.CompositeValue<Float, Float>, Float> stops =
+      (ExponentialStops<Stop.CompositeValue<Float, Float>, Float>) layer.getTextHaloWidth().getFunction().getStops();
+    Stop<Stop.CompositeValue<Float, Float>, Float> stop = stops.iterator().next();
+    assertEquals(0f, stop.in.zoom, 0.001);
+    assertEquals(0.3f, stop.in.value, 0.001f);
+    assertEquals(0.9f, stop.out, 0.001f);
+  }
+
+  @Test
   public void testTextHaloBlurAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
     Timber.i("text-halo-blur");
@@ -1955,6 +2883,114 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(ExponentialStops.class, layer.getTextHaloBlur().getFunction().getStops().getClass());
     assertEquals(0.5f, ((ExponentialStops) layer.getTextHaloBlur().getFunction().getStops()).getBase(), 0.001);
     assertEquals(1, ((ExponentialStops) layer.getTextHaloBlur().getFunction().getStops()).size());
+  }
+
+  @Test
+  public void testTextHaloBlurAsIdentitySourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-halo-blur");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textHaloBlur(property("FeaturePropertyA", Stops.<Float>identity()))
+    );
+
+    // Verify
+    assertNotNull(layer.getTextHaloBlur());
+    assertNotNull(layer.getTextHaloBlur().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextHaloBlur().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextHaloBlur().getFunction()).getProperty());
+    assertEquals(IdentityStops.class, layer.getTextHaloBlur().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testTextHaloBlurAsExponentialSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-halo-blur");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textHaloBlur(
+        property(
+          "FeaturePropertyA",
+          exponential(
+            stop(0.3f, textHaloBlur(0.3f))
+          ).withBase(0.5f)
+        )
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getTextHaloBlur());
+    assertNotNull(layer.getTextHaloBlur().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextHaloBlur().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextHaloBlur().getFunction()).getProperty());
+    assertEquals(ExponentialStops.class, layer.getTextHaloBlur().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testTextHaloBlurAsCategoricalSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-halo-blur");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textHaloBlur(
+        property(
+          "FeaturePropertyA",
+          categorical(
+            stop(1.0f, textHaloBlur(0.3f))
+          )
+        ).withDefaultValue(textHaloBlur(0.3f))
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getTextHaloBlur());
+    assertNotNull(layer.getTextHaloBlur().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextHaloBlur().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextHaloBlur().getFunction()).getProperty());
+    assertEquals(CategoricalStops.class, layer.getTextHaloBlur().getFunction().getStops().getClass());
+    assertNotNull(((SourceFunction) layer.getTextHaloBlur().getFunction()).getDefaultValue());
+    assertNotNull(((SourceFunction) layer.getTextHaloBlur().getFunction()).getDefaultValue().getValue());
+    assertEquals(0.3f, ((SourceFunction) layer.getTextHaloBlur().getFunction()).getDefaultValue().getValue());
+  }
+
+  @Test
+  public void testTextHaloBlurAsCompositeFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-halo-blur");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textHaloBlur(
+        composite(
+          "FeaturePropertyA",
+          exponential(
+            stop(0, 0.3f, textHaloBlur(0.9f))
+          ).withBase(0.5f)
+        ).withDefaultValue(textHaloBlur(0.3f))
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getTextHaloBlur());
+    assertNotNull(layer.getTextHaloBlur().getFunction());
+    assertEquals(CompositeFunction.class, layer.getTextHaloBlur().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((CompositeFunction) layer.getTextHaloBlur().getFunction()).getProperty());
+    assertEquals(ExponentialStops.class, layer.getTextHaloBlur().getFunction().getStops().getClass());
+    assertEquals(1, ((ExponentialStops) layer.getTextHaloBlur().getFunction().getStops()).size());
+
+    ExponentialStops<Stop.CompositeValue<Float, Float>, Float> stops =
+      (ExponentialStops<Stop.CompositeValue<Float, Float>, Float>) layer.getTextHaloBlur().getFunction().getStops();
+    Stop<Stop.CompositeValue<Float, Float>, Float> stop = stops.iterator().next();
+    assertEquals(0f, stop.in.zoom, 0.001);
+    assertEquals(0.3f, stop.in.value, 0.001f);
+    assertEquals(0.9f, stop.out, 0.001f);
   }
 
   @Test

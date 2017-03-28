@@ -33,6 +33,12 @@ import java.util.ArrayList;
 
 import timber.log.Timber;
 
+/**
+ * Test activity showcasing the Offline API.
+ * <p>
+ * Shows a map of Manhattan and allows the user to download and name a region.
+ * </p>
+ */
 public class OfflineActivity extends AppCompatActivity
   implements OfflineDownloadRegionDialog.DownloadRegionDialogListener {
 
@@ -260,6 +266,7 @@ public class OfflineActivity extends AppCompatActivity
         if (status.isComplete()) {
           // Download complete
           endProgress("Region downloaded successfully.");
+          offlineRegion.setObserver(null);
           return;
         } else if (status.isRequiredResourceCountPrecise()) {
           // Switch to determinate state
@@ -277,6 +284,7 @@ public class OfflineActivity extends AppCompatActivity
       public void onError(OfflineRegionError error) {
         Timber.e("onError reason: " + error.getReason());
         Timber.e("onError message: " + error.getMessage());
+        offlineRegion.setObserver(null);
       }
 
       @Override

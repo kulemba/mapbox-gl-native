@@ -1,7 +1,15 @@
 #include "geojson_source.hpp"
 
+// Java -> C++ conversion
 #include "../android_conversion.hpp"
+#include "../conversion/filter.hpp"
 #include "../conversion/geojson.hpp"
+
+// C++ -> Java conversion
+#include "../../conversion/conversion.hpp"
+#include "../../conversion/collection.hpp"
+#include "../../geometry/conversion/feature.hpp"
+
 #include <mbgl/style/conversion.hpp>
 #include <mbgl/style/conversion/geojson_options.hpp>
 
@@ -10,11 +18,26 @@
 namespace mbgl {
 namespace android {
 
+    // This conversion is expected not to fail because it's used only in contexts where
+    // the value was originally a GeoJsonOptions object on the Java side. If it fails
+    // to convert, it's a bug in our serialization or Java-side static typing.
+    static style::GeoJSONOptions convertGeoJSONOptions(jni::JNIEnv& env, jni::Object<> options) {
+        using namespace mbgl::style::conversion;
+        if (!options) {
+            return style::GeoJSONOptions();
+        }
+        Error error;
+        optional<style::GeoJSONOptions> result = convert<style::GeoJSONOptions>(Value(env, options), error);
+        if (!result) {
+            throw std::logic_error(error.message);
+        }
+        return *result;
+    }
+
     GeoJSONSource::GeoJSONSource(jni::JNIEnv& env, jni::String sourceId, jni::Object<> options)
         : Source(env, std::make_unique<mbgl::style::GeoJSONSource>(
                 jni::Make<std::string>(env, sourceId),
-                options ? *style::conversion::convert<style::GeoJSONOptions>(Value(env, options)) : style::GeoJSONOptions()
-                )
+                convertGeoJSONOptions(env, options))
             ) {
     }
 
@@ -28,9 +51,10 @@ namespace android {
         using namespace mbgl::style::conversion;
 
         // Convert the jni object
-        Result<GeoJSON> converted = convert<GeoJSON>(Value(env, json));
+        Error error;
+        optional<GeoJSON> converted = convert<GeoJSON>(Value(env, json), error);
         if(!converted) {
-            mbgl::Log::Error(mbgl::Event::JNI, "Error setting geo json: " + converted.error().message);
+            mbgl::Log::Error(mbgl::Event::JNI, "Error setting geo json: " + error.message);
             return;
         }
 
@@ -41,6 +65,16 @@ namespace android {
     void GeoJSONSource::setURL(jni::JNIEnv& env, jni::String url) {
         // Update the core source
         source.as<mbgl::style::GeoJSONSource>()->GeoJSONSource::setURL(jni::Make<std::string>(env, url));
+    }
+
+    jni::Array<jni::Object<Feature>> GeoJSONSource::querySourceFeatures(jni::JNIEnv& env,
+                                                                        jni::Array<jni::Object<>> jfilter) {
+        using namespace mbgl::android::conversion;
+        using namespace mapbox::geometry;
+
+        auto filter = toFilter(env, jfilter);
+        auto features = source.querySourceFeatures({ {},  filter });
+        return *convert<jni::Array<jni::Object<Feature>>, std::vector<mbgl::Feature>>(env, features);
     }
 
     jni::Class<GeoJSONSource> GeoJSONSource::javaClass;
@@ -63,7 +97,8 @@ namespace android {
             "initialize",
             "finalize",
             METHOD(&GeoJSONSource::setGeoJSON, "nativeSetGeoJson"),
-            METHOD(&GeoJSONSource::setURL, "nativeSetUrl")
+            METHOD(&GeoJSONSource::setURL, "nativeSetUrl"),
+            METHOD(&GeoJSONSource::querySourceFeatures, "querySourceFeatures")
         );
     }
 

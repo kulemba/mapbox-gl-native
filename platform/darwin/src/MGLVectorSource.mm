@@ -1,8 +1,10 @@
 #import "MGLVectorSource_Private.h"
 
 #import "MGLMapView_Private.h"
+#import "MGLFeature_Private.h"
 #import "MGLSource_Private.h"
 #import "MGLTileSource_Private.h"
+#import "NSPredicate+MGLAdditions.h"
 #import "NSURL+MGLAdditions.h"
 
 #include <mbgl/map/map.hpp>
@@ -56,9 +58,20 @@
 }
 
 - (void)removeFromMapView:(MGLMapView *)mapView {
+    if (self.rawSource != mapView.mbglMap->getSource(self.identifier.UTF8String)) {
+        return;
+    }
+
     auto removedSource = mapView.mbglMap->removeSource(self.identifier.UTF8String);
 
-    _pendingSource = std::move(reinterpret_cast<std::unique_ptr<mbgl::style::VectorSource> &>(removedSource));
+    mbgl::style::VectorSource *source = dynamic_cast<mbgl::style::VectorSource *>(removedSource.get());
+    if (!source) {
+        return;
+    }
+
+    removedSource.release();
+
+    _pendingSource = std::unique_ptr<mbgl::style::VectorSource>(source);
     self.rawSource = _pendingSource.get();
 }
 
@@ -78,6 +91,27 @@
 - (NSString *)attributionHTMLString {
     auto attribution = self.rawSource->getAttribution();
     return attribution ? @(attribution->c_str()) : nil;
+}
+
+- (NS_ARRAY_OF(id <MGLFeature>) *)featuresInSourceLayersWithIdentifiers:(NS_SET_OF(NSString *) *)sourceLayerIdentifiers predicate:(nullable NSPredicate *)predicate {
+    
+    mbgl::optional<std::vector<std::string>> optionalSourceLayerIDs;
+    if (sourceLayerIdentifiers) {
+        __block std::vector<std::string> layerIDs;
+        layerIDs.reserve(sourceLayerIdentifiers.count);
+        [sourceLayerIdentifiers enumerateObjectsUsingBlock:^(NSString * _Nonnull identifier, BOOL * _Nonnull stop) {
+            layerIDs.push_back(identifier.UTF8String);
+        }];
+        optionalSourceLayerIDs = layerIDs;
+    }
+    
+    mbgl::optional<mbgl::style::Filter> optionalFilter;
+    if (predicate) {
+        optionalFilter = predicate.mgl_filter;
+    }
+    
+    std::vector<mbgl::Feature> features = self.rawSource->querySourceFeatures({ optionalSourceLayerIDs, optionalFilter });
+    return MGLFeaturesFromMBGLFeatures(features);
 }
 
 @end

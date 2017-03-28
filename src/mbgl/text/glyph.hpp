@@ -3,6 +3,7 @@
 #include <mbgl/text/glyph_range.hpp>
 #include <mbgl/util/rect.hpp>
 #include <mbgl/util/traits.hpp>
+#include <mbgl/util/image.hpp>
 
 #include <cstdint>
 #include <vector>
@@ -67,10 +68,9 @@ enum class WritingModeType : uint8_t;
 class Shaping {
     public:
     explicit Shaping() : top(0), bottom(0), left(0), right(0) {}
-    explicit Shaping(float x, float y, std::u16string text_, WritingModeType writingMode_)
-        : text(std::move(text_)), top(y), bottom(y), left(x), right(x), writingMode(writingMode_) {}
+    explicit Shaping(float x, float y, WritingModeType writingMode_)
+        : top(y), bottom(y), left(x), right(x), writingMode(writingMode_) {}
     std::vector<PositionedGlyph> positionedGlyphs;
-    std::u16string text;
     int32_t top;
     int32_t bottom;
     int32_t left;
@@ -89,7 +89,7 @@ public:
     uint32_t id = 0;
 
     // A signed distance field of the glyph with a border (see above).
-    std::string bitmap;
+    AlphaImage bitmap;
 
     // Glyph metrics
     GlyphMetrics metrics;

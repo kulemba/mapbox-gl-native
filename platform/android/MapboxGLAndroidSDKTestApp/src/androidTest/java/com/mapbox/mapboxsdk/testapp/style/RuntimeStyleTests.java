@@ -11,12 +11,12 @@ import android.view.View;
 
 import com.mapbox.mapboxsdk.maps.MapboxMap;
 import com.mapbox.mapboxsdk.style.layers.CannotAddLayerException;
+import com.mapbox.mapboxsdk.style.layers.CircleLayer;
 import com.mapbox.mapboxsdk.style.layers.FillLayer;
-import com.mapbox.mapboxsdk.style.layers.NoSuchLayerException;
+import com.mapbox.mapboxsdk.style.layers.Layer;
 import com.mapbox.mapboxsdk.style.layers.Property;
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory;
 import com.mapbox.mapboxsdk.style.sources.CannotAddSourceException;
-import com.mapbox.mapboxsdk.style.sources.NoSuchSourceException;
 import com.mapbox.mapboxsdk.style.sources.Source;
 import com.mapbox.mapboxsdk.style.sources.VectorSource;
 import com.mapbox.mapboxsdk.testapp.R;
@@ -33,12 +33,18 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.List;
+
+import timber.log.Timber;
+
 import static android.support.test.espresso.Espresso.onView;
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
-import static junit.framework.Assert.fail;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * Basic smoke tests for Layer and Source
@@ -58,9 +64,142 @@ public class RuntimeStyleTests {
   }
 
   @Test
+  public void testListLayers() {
+    ViewUtils.checkViewIsDisplayed(R.id.mapView);
+    onView(withId(R.id.mapView)).perform(new BaseViewAction() {
+
+      @Override
+      public void perform(UiController uiController, View view) {
+        MapboxMap mapboxMap = rule.getActivity().getMapboxMap();
+
+        List<Layer> layers = mapboxMap.getLayers();
+        assertNotNull(layers);
+        assertTrue(layers.size() > 0);
+        for (Layer layer : layers) {
+          assertNotNull(layer);
+        }
+      }
+
+    });
+  }
+
+  @Test
   public void testGetAddRemoveLayer() {
     ViewUtils.checkViewIsDisplayed(R.id.mapView);
     onView(withId(R.id.mapView)).perform(new AddRemoveLayerAction());
+  }
+
+  @Test
+  public void testAddLayerAbove() {
+    ViewUtils.checkViewIsDisplayed(R.id.mapView);
+    onView(withId(R.id.mapView)).perform(new BaseViewAction() {
+      @Override
+      public void perform(UiController uiController, View view) {
+        MapboxMap mapboxMap = rule.getActivity().getMapboxMap();
+
+        List<Layer> layers = mapboxMap.getLayers();
+        Source source = mapboxMap.getSources().get(0);
+
+        // Test inserting with invalid above-id
+        try {
+          mapboxMap.addLayerAbove(new CircleLayer("invalid-id-layer-test", source.getId()), "no-such-layer-here-man");
+          fail("Should have thrown exception");
+        } catch (CannotAddLayerException ex) {
+          // Yeah
+          assertNotNull(ex.getMessage());
+        }
+
+        // Insert as last
+        CircleLayer last = new CircleLayer("this is the last one", source.getId());
+        mapboxMap.addLayerAbove(last, layers.get(layers.size() - 1).getId());
+        layers = mapboxMap.getLayers();
+        assertEquals(last.getId(), layers.get(layers.size() - 1).getId());
+
+        // Insert
+        CircleLayer second = new CircleLayer("this is the second one", source.getId());
+        mapboxMap.addLayerAbove(second, layers.get(0).getId());
+        layers = mapboxMap.getLayers();
+        assertEquals(second.getId(), layers.get(1).getId());
+      }
+    });
+  }
+
+  @Test
+  public void testRemoveLayerAt() {
+    ViewUtils.checkViewIsDisplayed(R.id.mapView);
+    onView(withId(R.id.mapView)).perform(new BaseViewAction() {
+
+      @Override
+      public void perform(UiController uiController, View view) {
+        MapboxMap mapboxMap = rule.getActivity().getMapboxMap();
+
+        // Remove by index
+        Layer firstLayer = mapboxMap.getLayers().get(0);
+        Layer removed = mapboxMap.removeLayerAt(0);
+        assertNotNull(removed);
+        assertNotNull(removed.getId());
+        assertEquals(firstLayer.getId(), removed.getId());
+
+        // Test remove by index bounds checks
+        Timber.i("Remove layer at index > size");
+        assertNull(mapboxMap.removeLayerAt(Integer.MAX_VALUE));
+      }
+    });
+  }
+
+  public void testAddLayerAt() {
+    ViewUtils.checkViewIsDisplayed(R.id.mapView);
+    onView(withId(R.id.mapView)).perform(new BaseViewAction() {
+      @Override
+      public void perform(UiController uiController, View view) {
+        MapboxMap mapboxMap = rule.getActivity().getMapboxMap();
+
+        List<Layer> layers = mapboxMap.getLayers();
+        Source source = mapboxMap.getSources().get(0);
+
+        // Test inserting out of range
+        try {
+          mapboxMap.addLayerAt(new CircleLayer("invalid-id-layer-test", source.getId()), layers.size());
+          fail("Should have thrown exception");
+        } catch (CannotAddLayerException ex) {
+          // Yeah
+          assertNotNull(ex.getMessage());
+        }
+
+        // Insert at current last position
+        CircleLayer last = new CircleLayer("this is the last one", source.getId());
+        mapboxMap.addLayerAt(last, layers.size() - 1);
+        layers = mapboxMap.getLayers();
+        assertEquals(last.getId(), layers.get(layers.size() - 2).getId());
+
+        // Insert at start
+        CircleLayer second = new CircleLayer("this is the first one", source.getId());
+        mapboxMap.addLayerAt(second, 0);
+        layers = mapboxMap.getLayers();
+        assertEquals(second.getId(), layers.get(0).getId());
+      }
+    });
+  }
+
+
+  @Test
+  public void testListSources() {
+    ViewUtils.checkViewIsDisplayed(R.id.mapView);
+    onView(withId(R.id.mapView)).perform(new BaseViewAction() {
+
+      @Override
+      public void perform(UiController uiController, View view) {
+        MapboxMap mapboxMap = rule.getActivity().getMapboxMap();
+
+        List<Source> sources = mapboxMap.getSources();
+        assertNotNull(sources);
+        assertTrue(sources.size() > 0);
+        for (Source source : sources) {
+          assertNotNull(source);
+        }
+      }
+
+    });
   }
 
   @Test
@@ -69,11 +208,7 @@ public class RuntimeStyleTests {
 
     MapboxMap mapboxMap = rule.getActivity().getMapboxMap();
     mapboxMap.addSource(new VectorSource("my-source", "mapbox://mapbox.mapbox-terrain-v2"));
-    try {
-      mapboxMap.removeSource("my-source");
-    } catch (NoSuchSourceException noSuchSourceException) {
-      // it's ok..
-    }
+    mapboxMap.removeSource("my-source");
 
     onView(withId(R.id.mapView)).perform(new AddRemoveSourceAction());
   }
@@ -109,11 +244,8 @@ public class RuntimeStyleTests {
       assertNotNull(mapboxMap.getLayer("building"));
 
       // Remove
-      try {
-        mapboxMap.removeLayer("building");
-      } catch (NoSuchLayerException noSuchSourceException) {
-        fail("Definitively exists: " + noSuchSourceException.getMessage());
-      }
+      Layer building = mapboxMap.removeLayer("building");
+      assertNotNull(building);
       assertNull(mapboxMap.getLayer("building"));
 
       // Add
@@ -126,11 +258,7 @@ public class RuntimeStyleTests {
       layer.setProperties(PropertyFactory.visibility(Property.VISIBLE));
 
       // Remove, preserving the reference
-      try {
-        mapboxMap.removeLayer(layer);
-      } catch (NoSuchLayerException noSuchSourceException) {
-        fail("Definitively exists: " + noSuchSourceException.getMessage());
-      }
+      mapboxMap.removeLayer(layer);
 
       // Property setters should still work
       layer.setProperties(PropertyFactory.fillColor(Color.RED));
@@ -161,11 +289,8 @@ public class RuntimeStyleTests {
       mapboxMap.addSource(new VectorSource("my-source", "mapbox://mapbox.mapbox-terrain-v2"));
 
       // Remove
-      try {
-        mapboxMap.removeSource("my-source");
-      } catch (NoSuchSourceException noSuchSourceException) {
-        fail("Definitively exists: " + noSuchSourceException.getMessage());
-      }
+      Source mySource = mapboxMap.removeSource("my-source");
+      assertNotNull(mySource);
       assertNull(mapboxMap.getLayer("my-source"));
 
       // Add
@@ -173,11 +298,7 @@ public class RuntimeStyleTests {
       mapboxMap.addSource(source);
 
       // Remove, preserving the reference
-      try {
-        mapboxMap.removeSource(source);
-      } catch (NoSuchSourceException noSuchSourceException) {
-        fail("Definitively exists: " + noSuchSourceException.getMessage());
-      }
+      mapboxMap.removeSource(source);
 
       // Re-add the reference...
       mapboxMap.addSource(source);

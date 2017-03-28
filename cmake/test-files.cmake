@@ -38,6 +38,9 @@ set(MBGL_TEST_FILES
     test/math/minmax.test.cpp
     test/math/wrap.test.cpp
 
+    # programs
+    test/programs/binary_program.test.cpp
+
     # sprite
     test/sprite/sprite_atlas.test.cpp
     test/sprite/sprite_image.test.cpp
@@ -48,6 +51,8 @@ set(MBGL_TEST_FILES
     test/src/mbgl/test/fake_file_source.hpp
     test/src/mbgl/test/fixture_log_observer.cpp
     test/src/mbgl/test/fixture_log_observer.hpp
+    test/src/mbgl/test/getrss.cpp
+    test/src/mbgl/test/getrss.hpp
     test/src/mbgl/test/stub_file_source.cpp
     test/src/mbgl/test/stub_file_source.hpp
     test/src/mbgl/test/stub_geometry_tile_feature.hpp
@@ -99,6 +104,7 @@ set(MBGL_TEST_FILES
     test/text/quads.test.cpp
 
     # tile
+    test/tile/annotation_tile.test.cpp
     test/tile/geojson_tile.test.cpp
     test/tile/geometry_tile_data.test.cpp
     test/tile/raster_tile.test.cpp

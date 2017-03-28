@@ -26,7 +26,20 @@ namespace android {
         , layer(*ownedLayer) {
     }
 
+    /**
+     * Takes a non-owning reference. For lookup methods
+     */
     Layer::Layer(mbgl::Map& coreMap, mbgl::style::Layer& coreLayer) : layer(coreLayer) , map(&coreMap) {
+    }
+
+    /**
+     * Takes a owning reference. Ownership is transfered to this peer, eg after removing
+     * from the map
+     */
+    Layer::Layer(mbgl::Map& coreMap, std::unique_ptr<mbgl::style::Layer> coreLayer)
+        : ownedLayer(std::move(coreLayer))
+        , layer(*ownedLayer)
+        , map(&coreMap) {
     }
 
     Layer::~Layer() {
@@ -91,9 +104,10 @@ namespace android {
         Value wrapped(env, jfilter);
         Filter filter;
 
-        Result<Filter> converted = convert<Filter>(wrapped);
+        Error error;
+        optional<Filter> converted = convert<Filter>(wrapped, error);
         if (!converted) {
-            mbgl::Log::Error(mbgl::Event::JNI, "Error setting filter: " + converted.error().message);
+            mbgl::Log::Error(mbgl::Event::JNI, "Error setting filter: " + error.message);
             return;
         }
         filter = std::move(*converted);

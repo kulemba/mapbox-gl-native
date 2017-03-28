@@ -37,13 +37,14 @@ public final class Mapbox {
       INSTANCE = new Mapbox(appContext, accessToken);
       LocationEngine locationEngine = new LocationSource(appContext);
       locationEngine.setPriority(LocationEnginePriority.NO_POWER);
-      MapboxTelemetry.getInstance().initialize(appContext, accessToken, locationEngine);
+      MapboxTelemetry.getInstance().initialize(
+        appContext, accessToken, BuildConfig.MAPBOX_EVENTS_USER_AGENT, locationEngine);
       ConnectivityReceiver.instance(appContext);
     }
     return INSTANCE;
   }
 
-  private Mapbox(@NonNull Context context, @NonNull String accessToken) {
+  Mapbox(@NonNull Context context, @NonNull String accessToken) {
     this.context = context;
     this.accessToken = accessToken;
   }

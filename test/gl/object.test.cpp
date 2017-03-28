@@ -1,5 +1,6 @@
 #include <mbgl/test/util.hpp>
 
+#include <mbgl/map/backend_scope.hpp>
 #include <mbgl/gl/headless_backend.hpp>
 #include <mbgl/gl/offscreen_view.hpp>
 
@@ -61,6 +62,7 @@ TEST(GLObject, Value) {
 
 TEST(GLObject, Store) {
     HeadlessBackend backend { test::sharedDisplay() };
+    BackendScope scope { backend };
     OffscreenView view(backend.getContext());
 
     gl::Context context;
@@ -77,6 +79,4 @@ TEST(GLObject, Store) {
 
     context.reset();
     EXPECT_TRUE(context.empty());
-
-    backend.deactivate();
 }

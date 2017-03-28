@@ -10,10 +10,6 @@
 #include <QString>
 #include <QStringList>
 
-#if QT_VERSION >= 0x050000
-#include <QOpenGLFramebufferObject>
-#endif
-
 class QMapboxGLPrivate;
 
 // This header follows the Qt coding style: https://wiki.qt.io/Qt_Coding_Style
@@ -98,7 +94,6 @@ class Q_DECL_EXPORT QMapboxGL : public QObject
     Q_PROPERTY(QMargins margins READ margins WRITE setMargins)
 
 public:
-    // Reflects mbgl::MapChange.
     enum MapChange {
         MapChangeRegionWillChange = 0,
         MapChangeRegionWillChangeAnimated,
@@ -197,7 +192,11 @@ public:
     void rotateBy(const QPointF &first, const QPointF &second);
 
     void resize(const QSize &size, const QSize &framebufferSize);
+    void setFramebufferObject(quint32 fbo);
 
+    double metersPerPixelAtLatitude(double latitude, double zoom) const;
+    QMapbox::ProjectedMeters projectedMetersForCoordinate(const QMapbox::Coordinate &) const;
+    QMapbox::Coordinate coordinateForProjectedMeters(const QMapbox::ProjectedMeters &) const;
     QPointF pixelForCoordinate(const QMapbox::Coordinate &) const;
     QMapbox::Coordinate coordinateForPixel(const QPointF &) const;
 
@@ -228,11 +227,7 @@ public:
     void setFilter(const QString &layer, const QVariant &filter);
 
 public slots:
-#if QT_VERSION >= 0x050000
-    void render(QOpenGLFramebufferObject *fbo = NULL);
-#else
     void render();
-#endif
     void connectionEstablished();
 
 signals:

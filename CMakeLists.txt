@@ -9,7 +9,6 @@ option(WITH_CXX11ABI "Use cxx11abi mason packages" OFF)
 option(WITH_COVERAGE "Enable coverage reports" OFF)
 option(WITH_OSMESA   "Use OSMesa headless backend" OFF)
 option(WITH_EGL      "Use EGL backend" OFF)
-option(IS_CI_BUILD   "Continuous integration build" OFF)
 
 if(WITH_CXX11ABI)
     set(MASON_CXXABI_SUFFIX -cxx11abi)
@@ -23,7 +22,7 @@ if(WITH_EGL)
     add_definitions(-DMBGL_USE_GLES2=1)
 endif()
 
-if(IS_CI_BUILD)
+if($ENV{CI})
     add_compile_options(-DCI_BUILD=1)
 endif()
 
@@ -52,6 +51,7 @@ mason_use(protozero VERSION 1.4.2 HEADER_ONLY)
 mason_use(pixelmatch VERSION 0.10.0 HEADER_ONLY)
 mason_use(geojson VERSION 0.4.0 HEADER_ONLY)
 mason_use(polylabel VERSION 1.0.2 HEADER_ONLY)
+mason_use(wagyu VERSION 0.4.1 HEADER_ONLY)
 
 add_definitions(-DRAPIDJSON_HAS_STDSTRING=1)
 
@@ -67,6 +67,7 @@ if(APPLE)
     # -Wno-error=unused-command-line-argument is required due to https://llvm.org/bugs/show_bug.cgi?id=7798
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=unused-command-line-argument")
 endif()
+set(CMAKE_CXX_FLAGS_RELEASE "-Os -DNDEBUG")
 
 if(CMAKE_COMPILER_IS_GNUCXX)
     # https://svn.boost.org/trac/boost/ticket/9240

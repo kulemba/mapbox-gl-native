@@ -5,6 +5,7 @@
 #include <mbgl/layout/symbol_feature.hpp>
 #include <mbgl/layout/symbol_instance.hpp>
 #include <mbgl/text/bidi.hpp>
+#include <mbgl/style/layers/symbol_layer_impl.hpp>
 
 #include <memory>
 #include <map>
@@ -18,14 +19,13 @@ class CollisionTile;
 class SpriteAtlas;
 class GlyphAtlas;
 class SymbolBucket;
+class Anchor;
 
 namespace style {
 class BucketParameters;
 class Filter;
 class Layer;
 } // namespace style
-
-struct Anchor;
 
 class SymbolLayout {
 public:
@@ -51,10 +51,12 @@ public:
 
     State state = Pending;
 
-    std::unordered_map<std::string, style::SymbolPaintProperties::Evaluated> layerPaintProperties;
+    std::map<std::string,
+        std::pair<style::IconPaintProperties::Evaluated, style::TextPaintProperties::Evaluated>> layerPaintProperties;
 
 private:
-    void addFeature(const SymbolFeature&,
+    void addFeature(const size_t,
+                    const SymbolFeature&,
                     const std::pair<Shaping, Shaping>& shapedTextOrientations,
                     const PositionedIcon& shapedIcon,
                     const GlyphPositions& face);
@@ -66,7 +68,7 @@ private:
 
     // Adds placed items to the buffer.
     template <typename Buffer>
-    void addSymbols(Buffer&, const SymbolQuads&, float scale,
+    void addSymbol(Buffer&, const SymbolQuad&, float scale,
                     const bool keepUpright, const style::SymbolPlacementType, const float placementAngle,
                     WritingModeType writingModes);
 

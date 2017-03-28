@@ -2,10 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.mapbox.mapboxsdk.testapp">
 
-    <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
 
     <application
@@ -329,6 +326,17 @@
                 android:value=".activity.FeatureOverviewActivity"/>
         </activity>
         <activity
+            android:name=".activity.offline.DeleteRegionActivity"
+            android:description="@string/description_offline_region_delete"
+            android:label="@string/activity_offline_region_delete">
+            <meta-data
+                android:name="@string/category"
+                android:value="@string/category_offline"/>
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value=".activity.FeatureOverviewActivity"/>
+        </activity>
+        <activity
             android:name=".activity.imagegenerator.SnapshotActivity"
             android:description="@string/description_snapshot"
             android:label="@string/activity_snapshot">
@@ -541,6 +549,17 @@
                 android:value=".activity.FeatureOverviewActivity"/>
         </activity>
         <activity
+            android:name=".activity.feature.QuerySourceFeaturesActivity"
+            android:description="@string/description_query_source_features"
+            android:label="@string/activity_query_source_features">
+            <meta-data
+                android:name="@string/category"
+                android:value="@string/category_features"/>
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value=".activity.FeatureOverviewActivity"/>
+        </activity>
+        <activity
             android:name=".activity.annotation.AddRemoveMarkerActivity"
             android:description="@string/description_add_remove_markers"
             android:label="@string/activity_add_remove_markers">
@@ -595,8 +614,6 @@
         <!-- <meta-data -->
         <!-- android:name="com.mapbox.SetStorageExternal" -->
         <!-- android:value="true" /> -->
-
-        <service android:name="com.mapbox.services.android.telemetry.service.TelemetryService"/>
     </application>
 
 </manifest>

@@ -28,6 +28,8 @@ class GlyphAtlas;
 class SpriteAtlas;
 class LineAtlas;
 class RenderData;
+class TransformState;
+class RenderedQueryOptions;
 
 namespace style {
 
@@ -95,7 +97,9 @@ public:
 
     RenderData getRenderData(MapDebugOptions, float angle) const;
 
-    std::vector<Feature> queryRenderedFeatures(const QueryParameters&) const;
+    std::vector<Feature> queryRenderedFeatures(const ScreenLineString& geometry,
+                                               const TransformState& transformState,
+                                               const RenderedQueryOptions& options) const;
 
     float getQueryRadius() const;
 
@@ -138,7 +142,7 @@ private:
 
     // SourceObserver implementation.
     void onSourceLoaded(Source&) override;
-    void onSourceAttributionChanged(Source&, const std::string&) override;
+    void onSourceChanged(Source&) override;
     void onSourceError(Source&, std::exception_ptr) override;
     void onSourceDescriptionChanged(Source&) override;
     void onTileChanged(Source&, const OverscaledTileID&) override;

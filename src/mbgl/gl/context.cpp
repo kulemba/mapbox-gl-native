@@ -1,7 +1,9 @@
 #include <mbgl/map/view.hpp>
 #include <mbgl/gl/context.hpp>
 #include <mbgl/gl/gl.hpp>
-#include <mbgl/gl/vertex_array.hpp>
+#include <mbgl/gl/debugging_extension.hpp>
+#include <mbgl/gl/vertex_array_extension.hpp>
+#include <mbgl/gl/program_binary_extension.hpp>
 #include <mbgl/util/traits.hpp>
 #include <mbgl/util/std.hpp>
 #include <mbgl/util/logging.hpp>
@@ -34,8 +36,58 @@ static_assert(std::is_same<std::underlying_type_t<TextureFormat>, GLenum>::value
 static_assert(underlying_type(TextureFormat::RGBA) == GL_RGBA, "OpenGL type mismatch");
 static_assert(underlying_type(TextureFormat::Alpha) == GL_ALPHA, "OpenGL type mismatch");
 
+static_assert(std::is_same<BinaryProgramFormat, GLenum>::value, "OpenGL type mismatch");
+
+Context::Context() = default;
+
 Context::~Context() {
     reset();
+}
+
+void Context::initializeExtensions(const std::function<gl::ProcAddress(const char*)>& getProcAddress) {
+    if (const char* extensions =
+            reinterpret_cast<const char*>(MBGL_CHECK_ERROR(glGetString(GL_EXTENSIONS)))) {
+
+        auto fn = [&](
+            std::initializer_list<std::pair<const char*, const char*>> probes) -> ProcAddress {
+            for (auto probe : probes) {
+                if (strstr(extensions, probe.first) != nullptr) {
+                    if (ProcAddress ptr = getProcAddress(probe.second)) {
+                        return ptr;
+                    }
+                }
+            }
+            return nullptr;
+        };
+
+        debugging = std::make_unique<extension::Debugging>(fn);
+        if (!disableVAOExtension) {
+            vertexArray = std::make_unique<extension::VertexArray>(fn);
+        }
+#if MBGL_HAS_BINARY_PROGRAMS
+        programBinary = std::make_unique<extension::ProgramBinary>(fn);
+#endif
+
+        if (!supportsVertexArrays()) {
+            Log::Warning(Event::OpenGL, "Not using Vertex Array Objects");
+        }
+    }
+}
+
+void Context::enableDebugging() {
+    if (!debugging || !debugging->debugMessageControl || !debugging->debugMessageCallback) {
+        return;
+    }
+
+    // This will enable all messages including performance hints
+    // MBGL_CHECK_ERROR(debugging->debugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE));
+
+    // This will only enable high and medium severity messages
+    MBGL_CHECK_ERROR(debugging->debugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_HIGH, 0, nullptr, GL_TRUE));
+    MBGL_CHECK_ERROR(debugging->debugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_MEDIUM, 0, nullptr, GL_TRUE));
+    MBGL_CHECK_ERROR(debugging->debugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, GL_FALSE));
+
+    MBGL_CHECK_ERROR(debugging->debugMessageCallback(extension::Debugging::DebugCallback, nullptr));
 }
 
 UniqueShader Context::createShader(ShaderType type, const std::string& source) {
@@ -72,9 +124,29 @@ UniqueProgram Context::createProgram(ShaderID vertexShader, ShaderID fragmentSha
     return result;
 }
 
+#if MBGL_HAS_BINARY_PROGRAMS
+UniqueProgram Context::createProgram(BinaryProgramFormat binaryFormat,
+                                     const std::string& binaryProgram) {
+    assert(supportsProgramBinaries());
+    UniqueProgram result{ MBGL_CHECK_ERROR(glCreateProgram()), { this } };
+    MBGL_CHECK_ERROR(programBinary->programBinary(result, static_cast<GLenum>(binaryFormat),
+                                                  binaryProgram.data(),
+                                                  static_cast<GLint>(binaryProgram.size())));
+    verifyProgramLinkage(result);
+    return result;
+}
+#else
+UniqueProgram Context::createProgram(BinaryProgramFormat, const std::string&) {
+    throw std::runtime_error("binary programs are not supported");
+}
+#endif
+
 void Context::linkProgram(ProgramID program_) {
     MBGL_CHECK_ERROR(glLinkProgram(program_));
+    verifyProgramLinkage(program_);
+}
 
+void Context::verifyProgramLinkage(ProgramID program_) {
     GLint status;
     MBGL_CHECK_ERROR(glGetProgramiv(program_, GL_LINK_STATUS, &status));
     if (status == GL_TRUE) {
@@ -122,17 +194,45 @@ UniqueTexture Context::createTexture() {
     return UniqueTexture{ std::move(id), { this } };
 }
 
-UniqueVertexArray Context::createVertexArray() {
-    VertexArrayID id = 0;
-    if (gl::GenVertexArrays && !disableVAOExtension) {
-        MBGL_CHECK_ERROR(gl::GenVertexArrays(1, &id));
-    } else {
-        static bool reported = false;
-        if (!reported) {
-            Log::Warning(Event::OpenGL, "Not using Vertex Array Objects");
-            reported = true;
-        }
+bool Context::supportsVertexArrays() const {
+    return vertexArray &&
+           vertexArray->genVertexArrays &&
+           vertexArray->bindVertexArray &&
+           vertexArray->deleteVertexArrays;
+}
+
+#if MBGL_HAS_BINARY_PROGRAMS
+bool Context::supportsProgramBinaries() const {
+    return programBinary && programBinary->programBinary && programBinary->getProgramBinary;
+}
+
+optional<std::pair<BinaryProgramFormat, std::string>>
+Context::getBinaryProgram(ProgramID program_) const {
+    if (!supportsProgramBinaries()) {
+        return {};
     }
+    GLint binaryLength;
+    MBGL_CHECK_ERROR(glGetProgramiv(program_, GL_PROGRAM_BINARY_LENGTH, &binaryLength));
+    std::string binary;
+    binary.resize(binaryLength);
+    GLenum binaryFormat;
+    MBGL_CHECK_ERROR(programBinary->getProgramBinary(
+        program_, binaryLength, &binaryLength, &binaryFormat, const_cast<char*>(binary.data())));
+    if (size_t(binaryLength) != binary.size()) {
+        return {};
+    }
+    return { { binaryFormat, std::move(binary) } };
+}
+#else
+optional<std::pair<BinaryProgramFormat, std::string>> Context::getBinaryProgram(ProgramID) const {
+    return {};
+}
+#endif
+
+UniqueVertexArray Context::createVertexArray() {
+    assert(supportsVertexArrays());
+    VertexArrayID id = 0;
+    MBGL_CHECK_ERROR(vertexArray->genVertexArrays(1, &id));
     return UniqueVertexArray(std::move(id), { this });
 }
 
@@ -529,13 +629,14 @@ void Context::performCleanup() {
     }
 
     if (!abandonedVertexArrays.empty()) {
+        assert(supportsVertexArrays());
         for (const auto id : abandonedVertexArrays) {
             if (vertexArrayObject == id) {
                 vertexArrayObject.setDirty();
             }
         }
-        MBGL_CHECK_ERROR(gl::DeleteVertexArrays(int(abandonedVertexArrays.size()),
-                                                abandonedVertexArrays.data()));
+        MBGL_CHECK_ERROR(vertexArray->deleteVertexArrays(int(abandonedVertexArrays.size()),
+                                                         abandonedVertexArrays.data()));
         abandonedVertexArrays.clear();
     }
 

@@ -15,7 +15,6 @@
 #include <mbgl/util/indexed_tuple.hpp>
 #include <mbgl/util/ignore.hpp>
 
-#include <unordered_map>
 #include <utility>
 
 namespace mbgl {
@@ -49,6 +48,12 @@ public:
             return finalValue;
         } else if (now >= end) {
             // Transition from prior value is now complete.
+            prior = {};
+            return finalValue;
+        } else if (value.isDataDriven()) {
+            // Transitions to data-driven properties are not supported.
+            // We snap immediately to the data-driven value so that, when we perform layout,
+            // we see the data-driven function and can use it to populate vertex buffers.
             prior = {};
             return finalValue;
         } else if (now < begin) {
@@ -133,8 +138,8 @@ public:
     }
 
 private:
-    std::unordered_map<ClassID, Value> values;
-    std::unordered_map<ClassID, TransitionOptions> transitions;
+    std::map<ClassID, Value> values;
+    std::map<ClassID, TransitionOptions> transitions;
 };
 
 template <class T>
@@ -218,6 +223,11 @@ public:
     template <class P>
     void setTransition(const TransitionOptions& value, const optional<std::string>& klass) {
         cascading.template get<P>().setTransition(value, klass);
+    }
+    
+    template <class P>
+    auto getTransition(const optional<std::string>& klass) const {
+        return cascading.template get<P>().getTransition(klass);
     }
 
     void cascade(const CascadeParameters& parameters) {

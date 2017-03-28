@@ -1,11 +1,15 @@
 #pragma once
 
+#include <mbgl/util/feature.hpp>
 #include <mbgl/util/noncopyable.hpp>
 #include <mbgl/util/optional.hpp>
+#include <mbgl/util/range.hpp>
 #include <mbgl/style/types.hpp>
+#include <mbgl/style/query.hpp>
 
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace mbgl {
 namespace style {
@@ -52,6 +56,9 @@ public:
     std::unique_ptr<Source> copy(const std::string& id) const;
 
     optional<std::string> getAttribution() const;
+    optional<Range<uint8_t>> getZoomRange() const;
+
+    std::vector<Feature> querySourceFeatures(const SourceQueryOptions& options = {});
 
     // Private implementation
     class Impl;

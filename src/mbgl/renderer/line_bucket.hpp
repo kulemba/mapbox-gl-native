@@ -38,10 +38,10 @@ public:
     optional<gl::VertexBuffer<LineLayoutVertex>> vertexBuffer;
     optional<gl::IndexBuffer<gl::Triangles>> indexBuffer;
 
-    std::unordered_map<std::string, LineProgram::PaintPropertyBinders> paintPropertyBinders;
+    std::map<std::string, LineProgram::PaintPropertyBinders> paintPropertyBinders;
 
 private:
-    void addGeometry(const GeometryCoordinates& line);
+    void addGeometry(const GeometryCoordinates&, FeatureType);
 
     struct TriangleElement {
         TriangleElement(uint16_t a_, uint16_t b_, uint16_t c_) : a(a_), b(b_), c(c_) {}

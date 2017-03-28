@@ -14,7 +14,6 @@
 #include <mbgl/style/layers/raster_layer.hpp>
 #include <mbgl/style/layer_impl.hpp>
 #include <mbgl/style/parser.hpp>
-#include <mbgl/style/query_parameters.hpp>
 #include <mbgl/style/transition_options.hpp>
 #include <mbgl/style/class_dictionary.hpp>
 #include <mbgl/style/update_parameters.hpp>
@@ -26,11 +25,13 @@
 #include <mbgl/renderer/render_item.hpp>
 #include <mbgl/renderer/render_tile.hpp>
 #include <mbgl/util/constants.hpp>
+#include <mbgl/util/exception.hpp>
 #include <mbgl/util/geometry.hpp>
 #include <mbgl/util/string.hpp>
 #include <mbgl/util/logging.hpp>
 #include <mbgl/util/math.hpp>
 #include <mbgl/math/minmax.hpp>
+#include <mbgl/map/query.hpp>
 
 #include <algorithm>
 
@@ -111,8 +112,9 @@ void Style::setJSON(const std::string& json, uint8_t maxZoomLimit_) {
     auto error = parser.parse(json);
 
     if (error) {
-        Log::Error(Event::ParseStyle, "Failed to parse style: %s", util::toString(error).c_str());
-        observer->onStyleError();
+        std::string message = "Failed to parse style: " + util::toString(error);
+        Log::Error(Event::ParseStyle, message.c_str());
+        observer->onStyleError(std::make_exception_ptr(util::StyleParseException(message)));
         observer->onResourceError(error);
         return;
     }
@@ -160,13 +162,14 @@ std::unique_ptr<Source> Style::removeSource(const std::string& id) {
     });
 
     if (it == sources.end()) {
-        throw std::runtime_error("no such source");
+        return nullptr;
     }
 
     auto source = std::move(*it);
     sources.erase(it);
     updateBatch.sourceIDs.erase(id);
 
+    source->baseImpl->detach();
     return source;
 }
 
@@ -232,7 +235,7 @@ std::unique_ptr<Layer> Style::removeLayer(const std::string& id) {
     });
 
     if (it == layers.end())
-        throw std::runtime_error("no such layer");
+        return nullptr;
 
     auto layer = std::move(*it);
 
@@ -328,15 +331,13 @@ void Style::recalculate(float z, const TimePoint& timePoint, MapMode mode) {
 
     hasPendingTransitions = false;
     for (const auto& layer : layers) {
-        const bool hasTransitions = layer->baseImpl->evaluate(parameters);
+        hasPendingTransitions |= layer->baseImpl->evaluate(parameters);
 
         // Disable this layer if it doesn't need to be rendered.
         const bool needsRendering = layer->baseImpl->needsRendering(zoomHistory.lastZoom);
         if (!needsRendering) {
             continue;
         }
-
-        hasPendingTransitions |= hasTransitions;
 
         // If this layer has a source, make sure that it gets loaded.
         if (Source* source = getSource(layer->baseImpl->source)) {
@@ -503,11 +504,13 @@ RenderData Style::getRenderData(MapDebugOptions debugOptions, float angle) const
     return result;
 }
 
-std::vector<Feature> Style::queryRenderedFeatures(const QueryParameters& parameters) const {
+std::vector<Feature> Style::queryRenderedFeatures(const ScreenLineString& geometry,
+                                                  const TransformState& transformState,
+                                                  const RenderedQueryOptions& options) const {
     std::unordered_set<std::string> sourceFilter;
 
-    if (parameters.layerIDs) {
-        for (const auto& layerID : *parameters.layerIDs) {
+    if (options.layerIDs) {
+        for (const auto& layerID : *options.layerIDs) {
             auto layer = getLayer(layerID);
             if (layer) sourceFilter.emplace(layer->baseImpl->source);
         }
@@ -521,7 +524,7 @@ std::vector<Feature> Style::queryRenderedFeatures(const QueryParameters& paramet
             continue;
         }
 
-        auto sourceResults = source->baseImpl->queryRenderedFeatures(parameters);
+        auto sourceResults = source->baseImpl->queryRenderedFeatures(geometry, transformState, options);
         std::move(sourceResults.begin(), sourceResults.end(), std::inserter(resultsByLayer, resultsByLayer.begin()));
     }
 
@@ -590,8 +593,8 @@ void Style::onSourceLoaded(Source& source) {
     observer->onUpdate(Update::Repaint);
 }
 
-void Style::onSourceAttributionChanged(Source& source, const std::string& attribution) {
-    observer->onSourceAttributionChanged(source, attribution);
+void Style::onSourceChanged(Source& source) {
+    observer->onSourceChanged(source);
 }
 
 void Style::onSourceError(Source& source, std::exception_ptr error) {
