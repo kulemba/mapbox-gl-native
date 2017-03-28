@@ -291,6 +291,7 @@ public:
     BOOL _isChangingAnnotationLayers;
 
     BOOL _isWaitingForRedundantReachableNotification;
+    BOOL _isReachable;
     BOOL _isTargetingInterfaceBuilder;
 
     CLLocationDegrees _pendingLatitude;
@@ -339,6 +340,16 @@ public:
     return self;
 }
 
+- (instancetype)initWithFrame:(CGRect)frame styleURL:(nullable NSURL *)styleURL maxZoomLimit:(double)maxZoomLimit
+{
+    if (self = [super initWithFrame:frame])
+    {
+        [self commonInit];
+        [self setStyleURL:styleURL withMaxZoomLimit:maxZoomLimit];
+    }
+    return self;
+}
+
 - (instancetype)initWithCoder:(nonnull NSCoder *)decoder
 {
     if (self = [super initWithCoder:decoder])
@@ -376,6 +387,11 @@ public:
 
 - (void)setStyleURL:(nullable NSURL *)styleURL
 {
+    [self setStyleURL:styleURL withMaxZoomLimit:std::numeric_limits<uint8_t>::max()];
+}
+
+- (void)setStyleURL:(nullable NSURL *)styleURL withMaxZoomLimit:(double)maxZoomLimit
+{
     if (_isTargetingInterfaceBuilder) return;
 
     if ( ! styleURL)
@@ -385,7 +401,7 @@ public:
 
     styleURL = styleURL.mgl_URLByStandardizingScheme;
     self.style = nil;
-    _mbglMap->setStyleURL([[styleURL absoluteString] UTF8String]);
+    _mbglMap->setStyleURL([[styleURL absoluteString] UTF8String], std::floor(maxZoomLimit));
 }
 
 - (IBAction)reloadStyle:(__unused id)sender {
@@ -659,10 +675,13 @@ public:
     MGLAssertIsMainThread();
 
     MGLReachability *reachability = [notification object];
-    if ( ! _isWaitingForRedundantReachableNotification && [reachability isReachable])
+    [self willChangeValueForKey:@"reachable"];
+    _isReachable = [reachability isReachable];
+    if ( ! _isWaitingForRedundantReachableNotification && _isReachable)
     {
         mbgl::NetworkStatus::Reachable();
     }
+    [self didChangeValueForKey:@"reachable"];
     _isWaitingForRedundantReachableNotification = NO;
 }
 
@@ -1477,6 +1496,12 @@ public:
     else
     {
         [self deselectAnnotation:self.selectedAnnotation animated:YES];
+        if ([self.delegate respondsToSelector:@selector(mapViewTapDidNotSelectAnnotation:)])
+        {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self.delegate mapViewTapDidNotSelectAnnotation:self];
+            });
+        }
     }
 }
 
@@ -1806,6 +1831,12 @@ public:
       {
           id<MGLAnnotation>annotation = [self annotationForGestureRecognizer:(UITapGestureRecognizer*)gestureRecognizer persistingResults:NO];
           if(!annotation) {
+              if ([self.delegate respondsToSelector:@selector(mapViewTapDidNotSelectAnnotation:)])
+              {
+                  dispatch_async(dispatch_get_main_queue(), ^{
+                      [self.delegate mapViewTapDidNotSelectAnnotation:self];
+                  });
+              }
               return NO;
           }
       }
@@ -2134,6 +2165,23 @@ public:
 - (void)emptyMemoryCache
 {
     _mbglMap->onLowMemory();
+}
+
++ (void)setLoggingEnabled:(BOOL)loggingEnabled
+{
+    if (loggingEnabled)
+    {
+        mbgl::Log::removeObserver();
+    }
+    else
+    {
+        mbgl::Log::setObserver(std::make_unique<mbgl::Log::NullObserver>());
+    }
+}
+
+- (BOOL)isReachable
+{
+    return _isReachable;
 }
 
 #pragma mark - Accessibility -
@@ -4072,11 +4120,7 @@ public:
         self.locationManager.headingFilter = 5.0;
         self.locationManager.delegate = self;
         [self.locationManager startUpdatingLocation];
-
-        if (self.userTrackingMode == MGLUserTrackingModeFollowWithHeading)
-        {
-            [self.locationManager startUpdatingHeading];
-        }
+        [self.locationManager startUpdatingHeading];
     }
     else if ( ! shouldEnableLocationServices && self.locationManager)
     {
@@ -4200,8 +4244,6 @@ public:
         {
             self.userTrackingState = MGLUserTrackingStatePossible;
 
-            [self.locationManager stopUpdatingHeading];
-
             // Immediately update the annotation view; other cases update inside
             // the locationManager:didUpdateLocations: method.
             [self updateUserLocationAnnotationView];
@@ -4213,8 +4255,6 @@ public:
         {
             self.userTrackingState = animated ? MGLUserTrackingStatePossible : MGLUserTrackingStateChanged;
             self.showsUserLocation = YES;
-
-            [self.locationManager stopUpdatingHeading];
 
             CLLocation *location = self.userLocation.location;
             if (location && self.userLocationAnnotationView)
@@ -4244,8 +4284,6 @@ public:
             }
 
             [self updateHeadingForDeviceOrientation];
-
-            [self.locationManager startUpdatingHeading];
 
             break;
         }
@@ -4307,7 +4345,7 @@ public:
     CLLocation *oldLocation = self.userLocation.location;
     CLLocation *newLocation = locations.lastObject;
 
-    if ( ! _showsUserLocation || ! newLocation || ! CLLocationCoordinate2DIsValid(newLocation.coordinate)) return;
+    if ( ! _showsUserLocation || ! newLocation || ! CLLocationCoordinate2DIsValid(newLocation.coordinate) || ([newLocation.timestamp compare:oldLocation.timestamp] == NSOrderedAscending)) return;
 
     if (! oldLocation || ! CLLocationCoordinate2DIsValid(oldLocation.coordinate) || [newLocation distanceFromLocation:oldLocation]
         || oldLocation.course != newLocation.course)
@@ -4550,6 +4588,8 @@ public:
         && self.userTrackingState != MGLUserTrackingStateBegan)
     {
         [self _setDirection:headingDirection animated:YES];
+    } else {
+        [self updateUserLocationAnnotationView];
     }
 }
 

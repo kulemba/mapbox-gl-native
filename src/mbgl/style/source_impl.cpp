@@ -305,5 +305,8 @@ void Source::Impl::dumpDebugLogs() const {
     }
 }
 
+void Source::Impl::limitMaxZoom(uint8_t) {
+}
+    
 } // namespace style
 } // namespace mbgl

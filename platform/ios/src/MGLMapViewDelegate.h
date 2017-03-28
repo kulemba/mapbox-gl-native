@@ -553,6 +553,16 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (void)mapView:(MGLMapView *)mapView tapOnCalloutForAnnotation:(id <MGLAnnotation>)annotation;
 
+/**
+ Tells the delegate that the user tapped without selecting an annotation.
+ 
+ You can use this method to respond to taps and perform other actions.
+ This method is not called if the user tapped on an annotation.
+ 
+ @param mapView The map view where the tap occurred
+ */
+- (void)mapViewTapDidNotSelectAnnotation:(MGLMapView *)mapView;
+
 @end
 
 NS_ASSUME_NONNULL_END
