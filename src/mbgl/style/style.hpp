@@ -46,7 +46,7 @@ public:
     Style(FileSource&, float pixelRatio);
     ~Style() override;
 
-    void setJSON(const std::string&);
+    void setJSON(const std::string&, uint8_t);
 
     void setObserver(Observer*);
 
@@ -161,6 +161,8 @@ private:
     UpdateBatch updateBatch;
     ZoomHistory zoomHistory;
     bool hasPendingTransitions = false;
+                  
+    uint8_t maxZoomLimit = std::numeric_limits<uint8_t>::max();
 
 public:
     bool loaded = false;
