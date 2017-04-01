@@ -203,15 +203,15 @@ void SymbolLayer::setIconTextFitPadding(PropertyValue<std::array<float, 4>> valu
     impl->layout.unevaluated.get<IconTextFitPadding>() = value;
     impl->observer->onLayerLayoutPropertyChanged(*this, "icon-text-fit-padding");
 }
-PropertyValue<std::string> SymbolLayer::getDefaultIconImage() {
+DataDrivenPropertyValue<std::string> SymbolLayer::getDefaultIconImage() {
     return IconImage::defaultValue();
 }
 
-PropertyValue<std::string> SymbolLayer::getIconImage() const {
+DataDrivenPropertyValue<std::string> SymbolLayer::getIconImage() const {
     return impl->layout.unevaluated.get<IconImage>();
 }
 
-void SymbolLayer::setIconImage(PropertyValue<std::string> value) {
+void SymbolLayer::setIconImage(DataDrivenPropertyValue<std::string> value) {
     if (value == getIconImage())
         return;
     impl->layout.unevaluated.get<IconImage>() = value;
@@ -427,15 +427,15 @@ void SymbolLayer::setTextMaxAngle(PropertyValue<float> value) {
     impl->layout.unevaluated.get<TextMaxAngle>() = value;
     impl->observer->onLayerLayoutPropertyChanged(*this, "text-max-angle");
 }
-PropertyValue<float> SymbolLayer::getDefaultTextRotate() {
+DataDrivenPropertyValue<float> SymbolLayer::getDefaultTextRotate() {
     return TextRotate::defaultValue();
 }
 
-PropertyValue<float> SymbolLayer::getTextRotate() const {
+DataDrivenPropertyValue<float> SymbolLayer::getTextRotate() const {
     return impl->layout.unevaluated.get<TextRotate>();
 }
 
-void SymbolLayer::setTextRotate(PropertyValue<float> value) {
+void SymbolLayer::setTextRotate(DataDrivenPropertyValue<float> value) {
     if (value == getTextRotate())
         return;
     impl->layout.unevaluated.get<TextRotate>() = value;
@@ -483,15 +483,15 @@ void SymbolLayer::setTextTransform(DataDrivenPropertyValue<TextTransformType> va
     impl->layout.unevaluated.get<TextTransform>() = value;
     impl->observer->onLayerLayoutPropertyChanged(*this, "text-transform");
 }
-PropertyValue<std::array<float, 2>> SymbolLayer::getDefaultTextOffset() {
+DataDrivenPropertyValue<std::array<float, 2>> SymbolLayer::getDefaultTextOffset() {
     return TextOffset::defaultValue();
 }
 
-PropertyValue<std::array<float, 2>> SymbolLayer::getTextOffset() const {
+DataDrivenPropertyValue<std::array<float, 2>> SymbolLayer::getTextOffset() const {
     return impl->layout.unevaluated.get<TextOffset>();
 }
 
-void SymbolLayer::setTextOffset(PropertyValue<std::array<float, 2>> value) {
+void SymbolLayer::setTextOffset(DataDrivenPropertyValue<std::array<float, 2>> value) {
     if (value == getTextOffset())
         return;
     impl->layout.unevaluated.get<TextOffset>() = value;

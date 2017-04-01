@@ -60,7 +60,7 @@ struct IconTextFitPadding : LayoutProperty<std::array<float, 4>> {
     static std::array<float, 4> defaultValue() { return {{ 0, 0, 0, 0 }}; }
 };
 
-struct IconImage : LayoutProperty<std::string> {
+struct IconImage : DataDrivenLayoutProperty<std::string> {
     static constexpr const char * key = "icon-image";
     static std::string defaultValue() { return ""; }
 };
@@ -140,7 +140,7 @@ struct TextMaxAngle : LayoutProperty<float> {
     static float defaultValue() { return 45; }
 };
 
-struct TextRotate : LayoutProperty<float> {
+struct TextRotate : DataDrivenLayoutProperty<float> {
     static constexpr const char * key = "text-rotate";
     static float defaultValue() { return 0; }
 };
@@ -160,7 +160,7 @@ struct TextTransform : DataDrivenLayoutProperty<TextTransformType> {
     static TextTransformType defaultValue() { return TextTransformType::None; }
 };
 
-struct TextOffset : LayoutProperty<std::array<float, 2>> {
+struct TextOffset : DataDrivenLayoutProperty<std::array<float, 2>> {
     static constexpr const char * key = "text-offset";
     static std::array<float, 2> defaultValue() { return {{ 0, 0 }}; }
 };
