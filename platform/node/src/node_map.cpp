@@ -9,7 +9,7 @@
 #include <mbgl/style/conversion/source.hpp>
 #include <mbgl/style/conversion/layer.hpp>
 #include <mbgl/style/conversion/filter.hpp>
-#include <mbgl/sprite/sprite_image.cpp>
+#include <mbgl/sprite/sprite_image.hpp>
 #include <mbgl/map/backend_scope.hpp>
 #include <mbgl/map/query.hpp>
 
@@ -63,7 +63,7 @@ void NodeMap::Init(v8::Local<v8::Object> target) {
     Nan::SetPrototypeMethod(tpl, "addLayer", AddLayer);
     Nan::SetPrototypeMethod(tpl, "removeLayer", RemoveLayer);
     Nan::SetPrototypeMethod(tpl, "addImage", AddImage);
-    Nan::SetPrototypeMethod(tpl, "removeImage", RemoveLayer);
+    Nan::SetPrototypeMethod(tpl, "removeImage", RemoveImage);
     Nan::SetPrototypeMethod(tpl, "setLayoutProperty", SetLayoutProperty);
     Nan::SetPrototypeMethod(tpl, "setPaintProperty", SetPaintProperty);
     Nan::SetPrototypeMethod(tpl, "setFilter", SetFilter);
