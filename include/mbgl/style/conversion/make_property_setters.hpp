@@ -40,7 +40,7 @@ auto makeLayoutPropertySetters() {
     result["icon-size"] = &setLayoutProperty<V, SymbolLayer, PropertyValue<float>, &SymbolLayer::setIconSize>;
     result["icon-text-fit"] = &setLayoutProperty<V, SymbolLayer, PropertyValue<IconTextFitType>, &SymbolLayer::setIconTextFit>;
     result["icon-text-fit-padding"] = &setLayoutProperty<V, SymbolLayer, PropertyValue<std::array<float, 4>>, &SymbolLayer::setIconTextFitPadding>;
-    result["icon-image"] = &setLayoutProperty<V, SymbolLayer, PropertyValue<std::string>, &SymbolLayer::setIconImage>;
+    result["icon-image"] = &setLayoutProperty<V, SymbolLayer, DataDrivenPropertyValue<std::string>, &SymbolLayer::setIconImage>;
     result["icon-rotate"] = &setLayoutProperty<V, SymbolLayer, DataDrivenPropertyValue<float>, &SymbolLayer::setIconRotate>;
     result["icon-padding"] = &setLayoutProperty<V, SymbolLayer, PropertyValue<float>, &SymbolLayer::setIconPadding>;
     result["icon-keep-upright"] = &setLayoutProperty<V, SymbolLayer, PropertyValue<bool>, &SymbolLayer::setIconKeepUpright>;
@@ -56,11 +56,11 @@ auto makeLayoutPropertySetters() {
     result["text-justify"] = &setLayoutProperty<V, SymbolLayer, PropertyValue<TextJustifyType>, &SymbolLayer::setTextJustify>;
     result["text-anchor"] = &setLayoutProperty<V, SymbolLayer, PropertyValue<TextAnchorType>, &SymbolLayer::setTextAnchor>;
     result["text-max-angle"] = &setLayoutProperty<V, SymbolLayer, PropertyValue<float>, &SymbolLayer::setTextMaxAngle>;
-    result["text-rotate"] = &setLayoutProperty<V, SymbolLayer, PropertyValue<float>, &SymbolLayer::setTextRotate>;
+    result["text-rotate"] = &setLayoutProperty<V, SymbolLayer, DataDrivenPropertyValue<float>, &SymbolLayer::setTextRotate>;
     result["text-padding"] = &setLayoutProperty<V, SymbolLayer, PropertyValue<float>, &SymbolLayer::setTextPadding>;
     result["text-keep-upright"] = &setLayoutProperty<V, SymbolLayer, PropertyValue<bool>, &SymbolLayer::setTextKeepUpright>;
     result["text-transform"] = &setLayoutProperty<V, SymbolLayer, DataDrivenPropertyValue<TextTransformType>, &SymbolLayer::setTextTransform>;
-    result["text-offset"] = &setLayoutProperty<V, SymbolLayer, PropertyValue<std::array<float, 2>>, &SymbolLayer::setTextOffset>;
+    result["text-offset"] = &setLayoutProperty<V, SymbolLayer, DataDrivenPropertyValue<std::array<float, 2>>, &SymbolLayer::setTextOffset>;
     result["text-allow-overlap"] = &setLayoutProperty<V, SymbolLayer, PropertyValue<bool>, &SymbolLayer::setTextAllowOverlap>;
     result["text-ignore-placement"] = &setLayoutProperty<V, SymbolLayer, PropertyValue<bool>, &SymbolLayer::setTextIgnorePlacement>;
     result["text-optional"] = &setLayoutProperty<V, SymbolLayer, PropertyValue<bool>, &SymbolLayer::setTextOptional>;
