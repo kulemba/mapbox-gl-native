@@ -195,7 +195,7 @@ public final class MapboxMap {
    * </p>
    * The default value is zero, so any changes take effect without animation.
    *
-   * @return Duration in seconds
+   * @return Duration in milliseconds
    */
   @UiThread
   public long getTransitionDuration() {
@@ -205,11 +205,11 @@ public final class MapboxMap {
   /**
    * Set the animation duration for style changes.
    *
-   * @param duration Duration in seconds
+   * @param durationMs Duration in milliseconds
    */
   @UiThread
-  public void setTransitionDuration(long duration) {
-    nativeMapView.setTransitionDuration(duration);
+  public void setTransitionDuration(long durationMs) {
+    nativeMapView.setTransitionDuration(durationMs);
   }
 
   /**
@@ -218,7 +218,7 @@ public final class MapboxMap {
    * </p>
    * The default value is zero, so any changes begin to animate immediately.
    *
-   * @return Delay in seconds
+   * @return Delay in milliseconds
    */
   @UiThread
   public long getTransitionDelay() {
@@ -228,11 +228,11 @@ public final class MapboxMap {
   /**
    * Set the animation delay for style changes.
    *
-   * @param delay Delay in seconds
+   * @param delayMs Delay in milliseconds
    */
   @UiThread
-  public void setTransitionDelay(long delay) {
-    nativeMapView.setTransitionDelay(delay);
+  public void setTransitionDelay(long delayMs) {
+    nativeMapView.setTransitionDelay(delayMs);
   }
 
   /**

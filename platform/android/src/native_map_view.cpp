@@ -14,7 +14,6 @@
 
 #include <jni/jni.hpp>
 
-#include <mbgl/gl/context.hpp>
 #include <mbgl/map/backend_scope.hpp>
 #include <mbgl/util/constants.hpp>
 #include <mbgl/util/event.hpp>
@@ -36,7 +35,7 @@
 #include "conversion/conversion.hpp"
 #include "conversion/collection.hpp"
 #include "style/conversion/filter.hpp"
-#include "geometry/conversion/feature.hpp"
+#include "geojson/conversion/feature.hpp"
 
 #include "jni.hpp"
 #include "attach_env.hpp"
@@ -100,8 +99,8 @@ NativeMapView::~NativeMapView() {
  * From mbgl::View
  */
 void NativeMapView::bind() {
-    getContext().bindFramebuffer = 0;
-    getContext().viewport = { 0, 0, getFramebufferSize() };
+    setFramebufferBinding(0);
+    setViewportSize(getFramebufferSize());
 }
 
 /**
@@ -284,18 +283,17 @@ void NativeMapView::render(jni::JNIEnv& env) {
     BackendScope guard(*this);
 
     if (framebufferSizeChanged) {
-        getContext().viewport = { 0, 0, getFramebufferSize() };
+        setViewportSize(getFramebufferSize());
         framebufferSizeChanged = false;
     }
 
-    updateViewBinding();
     map->render(*this);
 
     if(snapshot){
          snapshot = false;
 
          // take snapshot
-         auto image = getContext().readFramebuffer<mbgl::PremultipliedImage>(getFramebufferSize());
+         auto image = readFramebuffer(getFramebufferSize());
          auto bitmap = Bitmap::CreateBitmap(env, std::move(image));
 
          // invoke Mapview#OnSnapshotReady
@@ -403,7 +401,7 @@ void NativeMapView::easeTo(jni::JNIEnv&, jni::jdouble angle, jni::jdouble latitu
     }
 
     mbgl::AnimationOptions animationOptions;
-    animationOptions.duration.emplace(mbgl::Duration(duration));
+    animationOptions.duration.emplace(mbgl::Milliseconds(duration));
     if (!easing) {
        // add a linear interpolator instead of easing
        animationOptions.easing.emplace(mbgl::util::UnitBezier { 0, 0, 1, 1 });
@@ -427,7 +425,7 @@ void NativeMapView::flyTo(jni::JNIEnv&, jni::jdouble angle, jni::jdouble latitud
     }
 
     mbgl::AnimationOptions animationOptions;
-    animationOptions.duration.emplace(mbgl::Duration(duration));
+    animationOptions.duration.emplace(mbgl::Milliseconds(duration));
     map->flyTo(cameraOptions, animationOptions);
 }
 
@@ -758,23 +756,23 @@ jdouble NativeMapView::getTopOffsetPixelsForAnnotationSymbol(JNIEnv& env, jni::S
 
 jlong NativeMapView::getTransitionDuration(JNIEnv&) {
     const auto transitionOptions = map->getTransitionOptions();
-    return transitionOptions.duration.value_or(mbgl::Duration::zero()).count();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(transitionOptions.duration.value_or(mbgl::Duration::zero())).count();
 }
 
 void NativeMapView::setTransitionDuration(JNIEnv&, jlong duration) {
     auto transitionOptions = map->getTransitionOptions();
-    transitionOptions.duration = std::chrono::duration_cast<mbgl::Duration>(std::chrono::duration<jlong>(duration));
+    transitionOptions.duration.emplace(mbgl::Milliseconds(duration));
     map->setTransitionOptions(transitionOptions);
 }
 
 jlong NativeMapView::getTransitionDelay(JNIEnv&) {
     const auto transitionOptions = map->getTransitionOptions();
-    return transitionOptions.delay.value_or(mbgl::Duration::zero()).count();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(transitionOptions.delay.value_or(mbgl::Duration::zero())).count();
 }
 
 void NativeMapView::setTransitionDelay(JNIEnv&, jlong delay) {
     auto transitionOptions = map->getTransitionOptions();
-    transitionOptions.delay = std::chrono::duration_cast<mbgl::Duration>(std::chrono::duration<jlong>(delay));
+    transitionOptions.delay.emplace(mbgl::Milliseconds(delay));
     map->setTransitionOptions(transitionOptions);
 }
 
@@ -799,32 +797,35 @@ jni::Array<jlong> NativeMapView::queryPointAnnotations(JNIEnv& env, jni::Object<
     return result;
 }
 
-jni::Array<jni::Object<Feature>> NativeMapView::queryRenderedFeaturesForPoint(JNIEnv& env, jni::jfloat x, jni::jfloat y,
+jni::Array<jni::Object<geojson::Feature>> NativeMapView::queryRenderedFeaturesForPoint(JNIEnv& env, jni::jfloat x, jni::jfloat y,
                                                                               jni::Array<jni::String> layerIds,
                                                                               jni::Array<jni::Object<>> jfilter) {
     using namespace mbgl::android::conversion;
-    using namespace mapbox::geometry;
+    using namespace mbgl::android::geojson;
 
     mbgl::optional<std::vector<std::string>> layers;
     if (layerIds != nullptr && layerIds.Length(env) > 0) {
         layers = android::conversion::toVector(env, layerIds);
     }
-    point<double> point = {x, y};
+    mapbox::geometry::point<double> point = {x, y};
 
     return *convert<jni::Array<jni::Object<Feature>>, std::vector<mbgl::Feature>>(env, map->queryRenderedFeatures(point, { layers, toFilter(env, jfilter) }));
 }
 
-jni::Array<jni::Object<Feature>> NativeMapView::queryRenderedFeaturesForBox(JNIEnv& env, jni::jfloat left, jni::jfloat top,
+jni::Array<jni::Object<geojson::Feature>> NativeMapView::queryRenderedFeaturesForBox(JNIEnv& env, jni::jfloat left, jni::jfloat top,
                                                                             jni::jfloat right, jni::jfloat bottom, jni::Array<jni::String> layerIds,
                                                                             jni::Array<jni::Object<>> jfilter) {
     using namespace mbgl::android::conversion;
-    using namespace mapbox::geometry;
+    using namespace mbgl::android::geojson;
 
     mbgl::optional<std::vector<std::string>> layers;
     if (layerIds != nullptr && layerIds.Length(env) > 0) {
         layers = toVector(env, layerIds);
     }
-    box<double> box = { point<double>{ left, top}, point<double>{ right, bottom } };
+    mapbox::geometry::box<double> box = {
+            mapbox::geometry::point<double>{ left, top},
+            mapbox::geometry::point<double>{ right, bottom }
+    };
 
     return *convert<jni::Array<jni::Object<Feature>>, std::vector<mbgl::Feature>>(env, map->queryRenderedFeatures(box, { layers, toFilter(env, jfilter) }));
 }
@@ -1425,11 +1426,9 @@ mbgl::Size NativeMapView::getFramebufferSize() const {
     return { static_cast<uint32_t>(fbWidth), static_cast<uint32_t>(fbHeight) };
 }
 
-void NativeMapView::updateViewBinding() {
-    getContext().bindFramebuffer.setCurrentValue(0);
-    assert(mbgl::gl::value::BindFramebuffer::Get() == getContext().bindFramebuffer.getCurrentValue());
-    getContext().viewport.setCurrentValue({ 0, 0, getFramebufferSize() });
-    assert(mbgl::gl::value::Viewport::Get() == getContext().viewport.getCurrentValue());
+void NativeMapView::updateAssumedState() {
+    assumeFramebufferBinding(0);
+    assumeViewportSize(getFramebufferSize());
 }
 
 void NativeMapView::updateFps() {
