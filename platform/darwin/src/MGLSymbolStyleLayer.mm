@@ -240,7 +240,7 @@ namespace mbgl {
 - (void)setIconImageName:(MGLStyleValue<NSString *> *)iconImageName {
     MGLAssertStyleLayerIsValid();
 
-    auto mbglValue = MGLStyleValueTransformer<std::string, NSString *>().toPropertyValue(iconImageName);
+    auto mbglValue = MGLStyleValueTransformer<std::string, NSString *>().toDataDrivenPropertyValue(iconImageName);
     self.rawLayer->setIconImage(mbglValue);
 }
 
@@ -249,9 +249,9 @@ namespace mbgl {
 
     auto propertyValue = self.rawLayer->getIconImage();
     if (propertyValue.isUndefined()) {
-        return MGLStyleValueTransformer<std::string, NSString *>().toStyleValue(self.rawLayer->getDefaultIconImage());
+        return MGLStyleValueTransformer<std::string, NSString *>().toDataDrivenStyleValue(self.rawLayer->getDefaultIconImage());
     }
-    return MGLStyleValueTransformer<std::string, NSString *>().toStyleValue(propertyValue);
+    return MGLStyleValueTransformer<std::string, NSString *>().toDataDrivenStyleValue(propertyValue);
 }
 
 - (void)setIconImage:(MGLStyleValue<NSString *> *)iconImage {
@@ -763,7 +763,7 @@ namespace mbgl {
 - (void)setTextOffset:(MGLStyleValue<NSValue *> *)textOffset {
     MGLAssertStyleLayerIsValid();
 
-    auto mbglValue = MGLStyleValueTransformer<std::array<float, 2>, NSValue *>().toInterpolatablePropertyValue(textOffset);
+    auto mbglValue = MGLStyleValueTransformer<std::array<float, 2>, NSValue *>().toDataDrivenPropertyValue(textOffset);
     self.rawLayer->setTextOffset(mbglValue);
 }
 
@@ -772,9 +772,9 @@ namespace mbgl {
 
     auto propertyValue = self.rawLayer->getTextOffset();
     if (propertyValue.isUndefined()) {
-        return MGLStyleValueTransformer<std::array<float, 2>, NSValue *>().toStyleValue(self.rawLayer->getDefaultTextOffset());
+        return MGLStyleValueTransformer<std::array<float, 2>, NSValue *>().toDataDrivenStyleValue(self.rawLayer->getDefaultTextOffset());
     }
-    return MGLStyleValueTransformer<std::array<float, 2>, NSValue *>().toStyleValue(propertyValue);
+    return MGLStyleValueTransformer<std::array<float, 2>, NSValue *>().toDataDrivenStyleValue(propertyValue);
 }
 
 - (void)setTextOptional:(MGLStyleValue<NSNumber *> *)textOptional {
@@ -831,7 +831,7 @@ namespace mbgl {
 - (void)setTextRotation:(MGLStyleValue<NSNumber *> *)textRotation {
     MGLAssertStyleLayerIsValid();
 
-    auto mbglValue = MGLStyleValueTransformer<float, NSNumber *>().toInterpolatablePropertyValue(textRotation);
+    auto mbglValue = MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenPropertyValue(textRotation);
     self.rawLayer->setTextRotate(mbglValue);
 }
 
@@ -840,9 +840,9 @@ namespace mbgl {
 
     auto propertyValue = self.rawLayer->getTextRotate();
     if (propertyValue.isUndefined()) {
-        return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(self.rawLayer->getDefaultTextRotate());
+        return MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenStyleValue(self.rawLayer->getDefaultTextRotate());
     }
-    return MGLStyleValueTransformer<float, NSNumber *>().toStyleValue(propertyValue);
+    return MGLStyleValueTransformer<float, NSNumber *>().toDataDrivenStyleValue(propertyValue);
 }
 
 - (void)setTextRotate:(MGLStyleValue<NSNumber *> *)textRotate {

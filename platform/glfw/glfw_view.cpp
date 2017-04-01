@@ -3,17 +3,12 @@
 #include <mbgl/annotation/annotation.hpp>
 #include <mbgl/sprite/sprite_image.hpp>
 #include <mbgl/style/transition_options.hpp>
-#include <mbgl/gl/gl.hpp>
-#include <mbgl/gl/context.hpp>
 #include <mbgl/util/logging.hpp>
 #include <mbgl/util/platform.hpp>
 #include <mbgl/util/string.hpp>
 #include <mbgl/util/chrono.hpp>
 #include <mbgl/map/backend_scope.hpp>
 #include <mbgl/map/camera.hpp>
-
-#include <mbgl/gl/state.hpp>
-#include <mbgl/gl/value.hpp>
 
 #include <cassert>
 #include <cstdlib>
@@ -132,16 +127,14 @@ void GLFWView::setMap(mbgl::Map *map_) {
     map->addAnnotationIcon("default_marker", makeSpriteImage(22, 22, 1));
 }
 
-void GLFWView::updateViewBinding() {
-    getContext().bindFramebuffer.setCurrentValue(0);
-    assert(mbgl::gl::value::BindFramebuffer::Get() == getContext().bindFramebuffer.getCurrentValue());
-    getContext().viewport.setCurrentValue({ 0, 0, getFramebufferSize() });
-    assert(mbgl::gl::value::Viewport::Get() == getContext().viewport.getCurrentValue());
+void GLFWView::updateAssumedState() {
+    assumeFramebufferBinding(0);
+    assumeViewportSize(getFramebufferSize());
 }
 
 void GLFWView::bind() {
-    getContext().bindFramebuffer = 0;
-    getContext().viewport = { 0, 0, getFramebufferSize() };
+    setFramebufferBinding(0);
+    setViewportSize(getFramebufferSize());
 }
 
 void GLFWView::onKey(GLFWwindow *window, int key, int /*scancode*/, int action, int mods) {
@@ -462,7 +455,6 @@ void GLFWView::run() {
             activate();
             mbgl::BackendScope scope { *this, mbgl::BackendScope::ScopeType::Implicit };
 
-            updateViewBinding();
             map->render(*this);
 
             glfwSwapBuffers(window);
@@ -567,14 +559,9 @@ void showDebugImage(std::string name, const char *data, size_t width, size_t hei
     glfwGetFramebufferSize(debugWindow, &fbWidth, &fbHeight);
     float scale = static_cast<float>(fbWidth) / static_cast<float>(width);
 
-    {
-        gl::PreserveState<gl::value::PixelZoom> pixelZoom;
-        gl::PreserveState<gl::value::RasterPos> rasterPos;
-
-        MBGL_CHECK_ERROR(glPixelZoom(scale, -scale));
-        MBGL_CHECK_ERROR(glRasterPos2f(-1.0f, 1.0f));
-        MBGL_CHECK_ERROR(glDrawPixels(width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, data));
-    }
+    glPixelZoom(scale, -scale);
+    glRasterPos2f(-1.0f, 1.0f);
+    glDrawPixels(width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
 
     glfwSwapBuffers(debugWindow);
 
@@ -604,21 +591,13 @@ void showColorDebugImage(std::string name, const char *data, size_t logicalWidth
     float xScale = static_cast<float>(fbWidth) / static_cast<float>(width);
     float yScale = static_cast<float>(fbHeight) / static_cast<float>(height);
 
-    {
-        gl::PreserveState<gl::value::ClearColor> clearColor;
-        gl::PreserveState<gl::value::Blend> blend;
-        gl::PreserveState<gl::value::BlendFunc> blendFunc;
-        gl::PreserveState<gl::value::PixelZoom> pixelZoom;
-        gl::PreserveState<gl::value::RasterPos> rasterPos;
-
-        MBGL_CHECK_ERROR(glClearColor(0.8, 0.8, 0.8, 1));
-        MBGL_CHECK_ERROR(glClear(GL_COLOR_BUFFER_BIT));
-        MBGL_CHECK_ERROR(glEnable(GL_BLEND));
-        MBGL_CHECK_ERROR(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-        MBGL_CHECK_ERROR(glPixelZoom(xScale, -yScale));
-        MBGL_CHECK_ERROR(glRasterPos2f(-1.0f, 1.0f));
-        MBGL_CHECK_ERROR(glDrawPixels(width, height, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, data));
-    }
+    glClearColor(0.8, 0.8, 0.8, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glPixelZoom(xScale, -yScale);
+    glRasterPos2f(-1.0f, 1.0f);
+    glDrawPixels(width, height, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, data);
 
     glfwSwapBuffers(debugWindow);
 
