@@ -71,9 +71,9 @@ public:
     PropertyValue<std::array<float, 4>> getIconTextFitPadding() const;
     void setIconTextFitPadding(PropertyValue<std::array<float, 4>>);
 
-    static PropertyValue<std::string> getDefaultIconImage();
-    PropertyValue<std::string> getIconImage() const;
-    void setIconImage(PropertyValue<std::string>);
+    static DataDrivenPropertyValue<std::string> getDefaultIconImage();
+    DataDrivenPropertyValue<std::string> getIconImage() const;
+    void setIconImage(DataDrivenPropertyValue<std::string>);
 
     static DataDrivenPropertyValue<float> getDefaultIconRotate();
     DataDrivenPropertyValue<float> getIconRotate() const;
@@ -135,9 +135,9 @@ public:
     PropertyValue<float> getTextMaxAngle() const;
     void setTextMaxAngle(PropertyValue<float>);
 
-    static PropertyValue<float> getDefaultTextRotate();
-    PropertyValue<float> getTextRotate() const;
-    void setTextRotate(PropertyValue<float>);
+    static DataDrivenPropertyValue<float> getDefaultTextRotate();
+    DataDrivenPropertyValue<float> getTextRotate() const;
+    void setTextRotate(DataDrivenPropertyValue<float>);
 
     static PropertyValue<float> getDefaultTextPadding();
     PropertyValue<float> getTextPadding() const;
@@ -151,9 +151,9 @@ public:
     DataDrivenPropertyValue<TextTransformType> getTextTransform() const;
     void setTextTransform(DataDrivenPropertyValue<TextTransformType>);
 
-    static PropertyValue<std::array<float, 2>> getDefaultTextOffset();
-    PropertyValue<std::array<float, 2>> getTextOffset() const;
-    void setTextOffset(PropertyValue<std::array<float, 2>>);
+    static DataDrivenPropertyValue<std::array<float, 2>> getDefaultTextOffset();
+    DataDrivenPropertyValue<std::array<float, 2>> getTextOffset() const;
+    void setTextOffset(DataDrivenPropertyValue<std::array<float, 2>>);
 
     static PropertyValue<bool> getDefaultTextAllowOverlap();
     PropertyValue<bool> getTextAllowOverlap() const;
