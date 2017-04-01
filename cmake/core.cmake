@@ -9,12 +9,12 @@ target_compile_options(mbgl-core
 
 target_include_directories(mbgl-core
     PUBLIC include
-    PUBLIC src # TODO: make private
+    PRIVATE src
 )
 
 target_add_mason_package(mbgl-core PUBLIC geometry)
 target_add_mason_package(mbgl-core PUBLIC variant)
-target_add_mason_package(mbgl-core PUBLIC unique_resource)
+target_add_mason_package(mbgl-core PRIVATE unique_resource)
 target_add_mason_package(mbgl-core PRIVATE rapidjson)
 target_add_mason_package(mbgl-core PRIVATE boost)
 target_add_mason_package(mbgl-core PRIVATE geojson)
@@ -29,4 +29,3 @@ target_add_mason_package(mbgl-core PRIVATE wagyu)
 mbgl_platform_core()
 
 create_source_groups(mbgl-core)
-target_append_xcconfig(mbgl-core)
