@@ -36,6 +36,8 @@ import static org.junit.Assert.*;
 import static com.mapbox.mapboxsdk.style.layers.Property.*;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.*;
 
+import com.mapbox.mapboxsdk.style.layers.TransitionOptions;
+
 /**
  * Basic smoke tests for SymbolLayer
  */
@@ -81,6 +83,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(layer.getVisibility().getValue(), NONE);
   }
 
+
   @Test
   public void testSymbolPlacementAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
@@ -116,6 +119,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(IntervalStops.class, layer.getSymbolPlacement().getFunction().getStops().getClass());
     assertEquals(1, ((IntervalStops) layer.getSymbolPlacement().getFunction().getStops()).size());
   }
+
 
   @Test
   public void testSymbolSpacingAsConstant() {
@@ -154,6 +158,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(1, ((ExponentialStops) layer.getSymbolSpacing().getFunction().getStops()).size());
   }
 
+
   @Test
   public void testSymbolAvoidEdgesAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
@@ -189,6 +194,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(IntervalStops.class, layer.getSymbolAvoidEdges().getFunction().getStops().getClass());
     assertEquals(1, ((IntervalStops) layer.getSymbolAvoidEdges().getFunction().getStops()).size());
   }
+
 
   @Test
   public void testIconAllowOverlapAsConstant() {
@@ -226,6 +232,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(1, ((IntervalStops) layer.getIconAllowOverlap().getFunction().getStops()).size());
   }
 
+
   @Test
   public void testIconIgnorePlacementAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
@@ -261,6 +268,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(IntervalStops.class, layer.getIconIgnorePlacement().getFunction().getStops().getClass());
     assertEquals(1, ((IntervalStops) layer.getIconIgnorePlacement().getFunction().getStops()).size());
   }
+
 
   @Test
   public void testIconOptionalAsConstant() {
@@ -298,6 +306,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(1, ((IntervalStops) layer.getIconOptional().getFunction().getStops()).size());
   }
 
+
   @Test
   public void testIconRotationAlignmentAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
@@ -333,6 +342,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(IntervalStops.class, layer.getIconRotationAlignment().getFunction().getStops().getClass());
     assertEquals(1, ((IntervalStops) layer.getIconRotationAlignment().getFunction().getStops()).size());
   }
+
 
   @Test
   public void testIconSizeAsConstant() {
@@ -371,6 +381,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(1, ((ExponentialStops) layer.getIconSize().getFunction().getStops()).size());
   }
 
+
   @Test
   public void testIconTextFitAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
@@ -406,6 +417,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(IntervalStops.class, layer.getIconTextFit().getFunction().getStops().getClass());
     assertEquals(1, ((IntervalStops) layer.getIconTextFit().getFunction().getStops()).size());
   }
+
 
   @Test
   public void testIconTextFitPaddingAsConstant() {
@@ -444,6 +456,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(1, ((ExponentialStops) layer.getIconTextFitPadding().getFunction().getStops()).size());
   }
 
+
   @Test
   public void testIconImageAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
@@ -478,6 +491,52 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(CameraFunction.class, layer.getIconImage().getFunction().getClass());
     assertEquals(IntervalStops.class, layer.getIconImage().getFunction().getStops().getClass());
     assertEquals(1, ((IntervalStops) layer.getIconImage().getFunction().getStops()).size());
+  }
+
+
+  @Test
+  public void testIconImageAsIdentitySourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-image");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      iconImage(property("FeaturePropertyA", Stops.<String>identity()))
+    );
+
+    // Verify
+    assertNotNull(layer.getIconImage());
+    assertNotNull(layer.getIconImage().getFunction());
+    assertEquals(SourceFunction.class, layer.getIconImage().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getIconImage().getFunction()).getProperty());
+    assertEquals(IdentityStops.class, layer.getIconImage().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testIconImageAsIntervalSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-image");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      iconImage(
+        property(
+          "FeaturePropertyA",
+          interval(
+            stop(1, iconImage("undefined"))
+          )
+        )
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getIconImage());
+    assertNotNull(layer.getIconImage().getFunction());
+    assertEquals(SourceFunction.class, layer.getIconImage().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getIconImage().getFunction()).getProperty());
+    assertEquals(IntervalStops.class, layer.getIconImage().getFunction().getStops().getClass());
   }
 
   @Test
@@ -625,6 +684,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(0.9f, stop.out, 0.001f);
   }
 
+
   @Test
   public void testIconPaddingAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
@@ -662,6 +722,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(1, ((ExponentialStops) layer.getIconPadding().getFunction().getStops()).size());
   }
 
+
   @Test
   public void testIconKeepUprightAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
@@ -697,6 +758,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(IntervalStops.class, layer.getIconKeepUpright().getFunction().getStops().getClass());
     assertEquals(1, ((IntervalStops) layer.getIconKeepUpright().getFunction().getStops()).size());
   }
+
 
   @Test
   public void testIconOffsetAsConstant() {
@@ -780,6 +842,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(IntervalStops.class, layer.getIconOffset().getFunction().getStops().getClass());
   }
 
+
   @Test
   public void testTextPitchAlignmentAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
@@ -816,6 +879,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(1, ((IntervalStops) layer.getTextPitchAlignment().getFunction().getStops()).size());
   }
 
+
   @Test
   public void testTextRotationAlignmentAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
@@ -851,6 +915,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(IntervalStops.class, layer.getTextRotationAlignment().getFunction().getStops().getClass());
     assertEquals(1, ((IntervalStops) layer.getTextRotationAlignment().getFunction().getStops()).size());
   }
+
 
   @Test
   public void testTextFieldAsConstant() {
@@ -933,6 +998,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(IntervalStops.class, layer.getTextField().getFunction().getStops().getClass());
   }
 
+
   @Test
   public void testTextFontAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
@@ -968,6 +1034,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(IntervalStops.class, layer.getTextFont().getFunction().getStops().getClass());
     assertEquals(1, ((IntervalStops) layer.getTextFont().getFunction().getStops()).size());
   }
+
 
   @Test
   public void testTextSizeAsConstant() {
@@ -1006,6 +1073,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(1, ((ExponentialStops) layer.getTextSize().getFunction().getStops()).size());
   }
 
+
   @Test
   public void testTextMaxWidthAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
@@ -1042,6 +1110,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(0.5f, ((ExponentialStops) layer.getTextMaxWidth().getFunction().getStops()).getBase(), 0.001);
     assertEquals(1, ((ExponentialStops) layer.getTextMaxWidth().getFunction().getStops()).size());
   }
+
 
   @Test
   public void testTextLineHeightAsConstant() {
@@ -1080,6 +1149,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(1, ((ExponentialStops) layer.getTextLineHeight().getFunction().getStops()).size());
   }
 
+
   @Test
   public void testTextLetterSpacingAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
@@ -1117,6 +1187,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(1, ((ExponentialStops) layer.getTextLetterSpacing().getFunction().getStops()).size());
   }
 
+
   @Test
   public void testTextJustifyAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
@@ -1153,6 +1224,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(1, ((IntervalStops) layer.getTextJustify().getFunction().getStops()).size());
   }
 
+
   @Test
   public void testTextAnchorAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
@@ -1188,6 +1260,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(IntervalStops.class, layer.getTextAnchor().getFunction().getStops().getClass());
     assertEquals(1, ((IntervalStops) layer.getTextAnchor().getFunction().getStops()).size());
   }
+
 
   @Test
   public void testTextMaxAngleAsConstant() {
@@ -1226,6 +1299,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(1, ((ExponentialStops) layer.getTextMaxAngle().getFunction().getStops()).size());
   }
 
+
   @Test
   public void testTextRotateAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
@@ -1261,6 +1335,115 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(ExponentialStops.class, layer.getTextRotate().getFunction().getStops().getClass());
     assertEquals(0.5f, ((ExponentialStops) layer.getTextRotate().getFunction().getStops()).getBase(), 0.001);
     assertEquals(1, ((ExponentialStops) layer.getTextRotate().getFunction().getStops()).size());
+  }
+
+
+  @Test
+  public void testTextRotateAsIdentitySourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-rotate");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textRotate(property("FeaturePropertyA", Stops.<Float>identity()))
+    );
+
+    // Verify
+    assertNotNull(layer.getTextRotate());
+    assertNotNull(layer.getTextRotate().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextRotate().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextRotate().getFunction()).getProperty());
+    assertEquals(IdentityStops.class, layer.getTextRotate().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testTextRotateAsExponentialSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-rotate");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textRotate(
+        property(
+          "FeaturePropertyA",
+          exponential(
+            stop(0.3f, textRotate(0.3f))
+          ).withBase(0.5f)
+        )
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getTextRotate());
+    assertNotNull(layer.getTextRotate().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextRotate().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextRotate().getFunction()).getProperty());
+    assertEquals(ExponentialStops.class, layer.getTextRotate().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testTextRotateAsCategoricalSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-rotate");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textRotate(
+        property(
+          "FeaturePropertyA",
+          categorical(
+            stop(1.0f, textRotate(0.3f))
+          )
+        ).withDefaultValue(textRotate(0.3f))
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getTextRotate());
+    assertNotNull(layer.getTextRotate().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextRotate().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextRotate().getFunction()).getProperty());
+    assertEquals(CategoricalStops.class, layer.getTextRotate().getFunction().getStops().getClass());
+    assertNotNull(((SourceFunction) layer.getTextRotate().getFunction()).getDefaultValue());
+    assertNotNull(((SourceFunction) layer.getTextRotate().getFunction()).getDefaultValue().getValue());
+    assertEquals(0.3f, ((SourceFunction) layer.getTextRotate().getFunction()).getDefaultValue().getValue());
+  }
+
+  @Test
+  public void testTextRotateAsCompositeFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-rotate");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textRotate(
+        composite(
+          "FeaturePropertyA",
+          exponential(
+            stop(0, 0.3f, textRotate(0.9f))
+          ).withBase(0.5f)
+        ).withDefaultValue(textRotate(0.3f))
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getTextRotate());
+    assertNotNull(layer.getTextRotate().getFunction());
+    assertEquals(CompositeFunction.class, layer.getTextRotate().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((CompositeFunction) layer.getTextRotate().getFunction()).getProperty());
+    assertEquals(ExponentialStops.class, layer.getTextRotate().getFunction().getStops().getClass());
+    assertEquals(1, ((ExponentialStops) layer.getTextRotate().getFunction().getStops()).size());
+
+    ExponentialStops<Stop.CompositeValue<Float, Float>, Float> stops =
+      (ExponentialStops<Stop.CompositeValue<Float, Float>, Float>) layer.getTextRotate().getFunction().getStops();
+    Stop<Stop.CompositeValue<Float, Float>, Float> stop = stops.iterator().next();
+    assertEquals(0f, stop.in.zoom, 0.001);
+    assertEquals(0.3f, stop.in.value, 0.001f);
+    assertEquals(0.9f, stop.out, 0.001f);
   }
 
   @Test
@@ -1300,6 +1483,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(1, ((ExponentialStops) layer.getTextPadding().getFunction().getStops()).size());
   }
 
+
   @Test
   public void testTextKeepUprightAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
@@ -1335,6 +1519,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(IntervalStops.class, layer.getTextKeepUpright().getFunction().getStops().getClass());
     assertEquals(1, ((IntervalStops) layer.getTextKeepUpright().getFunction().getStops()).size());
   }
+
 
   @Test
   public void testTextTransformAsConstant() {
@@ -1417,6 +1602,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(IntervalStops.class, layer.getTextTransform().getFunction().getStops().getClass());
   }
 
+
   @Test
   public void testTextOffsetAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
@@ -1455,6 +1641,52 @@ public class SymbolLayerTest extends BaseStyleTest {
   }
 
   @Test
+  public void testTextOffsetAsIdentitySourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-offset");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textOffset(property("FeaturePropertyA", Stops.<Float[]>identity()))
+    );
+
+    // Verify
+    assertNotNull(layer.getTextOffset());
+    assertNotNull(layer.getTextOffset().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextOffset().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextOffset().getFunction()).getProperty());
+    assertEquals(IdentityStops.class, layer.getTextOffset().getFunction().getStops().getClass());
+  }
+
+  @Test
+  public void testTextOffsetAsIntervalSourceFunction() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-offset");
+    assertNotNull(layer);
+
+    // Set
+    layer.setProperties(
+      textOffset(
+        property(
+          "FeaturePropertyA",
+          interval(
+            stop(1, textOffset(new Float[]{0f,0f}))
+          )
+        )
+      )
+    );
+
+    // Verify
+    assertNotNull(layer.getTextOffset());
+    assertNotNull(layer.getTextOffset().getFunction());
+    assertEquals(SourceFunction.class, layer.getTextOffset().getFunction().getClass());
+    assertEquals("FeaturePropertyA", ((SourceFunction) layer.getTextOffset().getFunction()).getProperty());
+    assertEquals(IntervalStops.class, layer.getTextOffset().getFunction().getStops().getClass());
+  }
+
+
+  @Test
   public void testTextAllowOverlapAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
     Timber.i("text-allow-overlap");
@@ -1489,6 +1721,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(IntervalStops.class, layer.getTextAllowOverlap().getFunction().getStops().getClass());
     assertEquals(1, ((IntervalStops) layer.getTextAllowOverlap().getFunction().getStops()).size());
   }
+
 
   @Test
   public void testTextIgnorePlacementAsConstant() {
@@ -1526,6 +1759,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(1, ((IntervalStops) layer.getTextIgnorePlacement().getFunction().getStops()).size());
   }
 
+
   @Test
   public void testTextOptionalAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
@@ -1560,6 +1794,18 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(CameraFunction.class, layer.getTextOptional().getFunction().getClass());
     assertEquals(IntervalStops.class, layer.getTextOptional().getFunction().getStops().getClass());
     assertEquals(1, ((IntervalStops) layer.getTextOptional().getFunction().getStops()).size());
+  }
+
+  @Test
+  public void testIconOpacityTransition() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-opacityTransitionOptions");
+    assertNotNull(layer);
+
+    // Set and Get
+    TransitionOptions options = new TransitionOptions(300, 100);
+    layer.setIconOpacityTransition(options);
+    assertEquals(layer.getIconOpacityTransition(), options);
   }
 
   @Test
@@ -1708,6 +1954,18 @@ public class SymbolLayerTest extends BaseStyleTest {
   }
 
   @Test
+  public void testIconColorTransition() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-colorTransitionOptions");
+    assertNotNull(layer);
+
+    // Set and Get
+    TransitionOptions options = new TransitionOptions(300, 100);
+    layer.setIconColorTransition(options);
+    assertEquals(layer.getIconColorTransition(), options);
+  }
+
+  @Test
   public void testIconColorAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
     Timber.i("icon-color");
@@ -1830,6 +2088,18 @@ public class SymbolLayerTest extends BaseStyleTest {
   }
 
   @Test
+  public void testIconHaloColorTransition() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-halo-colorTransitionOptions");
+    assertNotNull(layer);
+
+    // Set and Get
+    TransitionOptions options = new TransitionOptions(300, 100);
+    layer.setIconHaloColorTransition(options);
+    assertEquals(layer.getIconHaloColorTransition(), options);
+  }
+
+  @Test
   public void testIconHaloColorAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
     Timber.i("icon-halo-color");
@@ -1949,6 +2219,18 @@ public class SymbolLayerTest extends BaseStyleTest {
     // Set and Get
     layer.setProperties(iconHaloColor(Color.RED));
     assertEquals(layer.getIconHaloColorAsInt(), Color.RED);
+  }
+
+  @Test
+  public void testIconHaloWidthTransition() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-halo-widthTransitionOptions");
+    assertNotNull(layer);
+
+    // Set and Get
+    TransitionOptions options = new TransitionOptions(300, 100);
+    layer.setIconHaloWidthTransition(options);
+    assertEquals(layer.getIconHaloWidthTransition(), options);
   }
 
   @Test
@@ -2097,6 +2379,18 @@ public class SymbolLayerTest extends BaseStyleTest {
   }
 
   @Test
+  public void testIconHaloBlurTransition() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-halo-blurTransitionOptions");
+    assertNotNull(layer);
+
+    // Set and Get
+    TransitionOptions options = new TransitionOptions(300, 100);
+    layer.setIconHaloBlurTransition(options);
+    assertEquals(layer.getIconHaloBlurTransition(), options);
+  }
+
+  @Test
   public void testIconHaloBlurAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
     Timber.i("icon-halo-blur");
@@ -2242,6 +2536,18 @@ public class SymbolLayerTest extends BaseStyleTest {
   }
 
   @Test
+  public void testIconTranslateTransition() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("icon-translateTransitionOptions");
+    assertNotNull(layer);
+
+    // Set and Get
+    TransitionOptions options = new TransitionOptions(300, 100);
+    layer.setIconTranslateTransition(options);
+    assertEquals(layer.getIconTranslateTransition(), options);
+  }
+
+  @Test
   public void testIconTranslateAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
     Timber.i("icon-translate");
@@ -2278,6 +2584,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(1, ((ExponentialStops) layer.getIconTranslate().getFunction().getStops()).size());
   }
 
+
   @Test
   public void testIconTranslateAnchorAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
@@ -2312,6 +2619,18 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(CameraFunction.class, layer.getIconTranslateAnchor().getFunction().getClass());
     assertEquals(IntervalStops.class, layer.getIconTranslateAnchor().getFunction().getStops().getClass());
     assertEquals(1, ((IntervalStops) layer.getIconTranslateAnchor().getFunction().getStops()).size());
+  }
+
+  @Test
+  public void testTextOpacityTransition() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-opacityTransitionOptions");
+    assertNotNull(layer);
+
+    // Set and Get
+    TransitionOptions options = new TransitionOptions(300, 100);
+    layer.setTextOpacityTransition(options);
+    assertEquals(layer.getTextOpacityTransition(), options);
   }
 
   @Test
@@ -2460,6 +2779,18 @@ public class SymbolLayerTest extends BaseStyleTest {
   }
 
   @Test
+  public void testTextColorTransition() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-colorTransitionOptions");
+    assertNotNull(layer);
+
+    // Set and Get
+    TransitionOptions options = new TransitionOptions(300, 100);
+    layer.setTextColorTransition(options);
+    assertEquals(layer.getTextColorTransition(), options);
+  }
+
+  @Test
   public void testTextColorAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
     Timber.i("text-color");
@@ -2582,6 +2913,18 @@ public class SymbolLayerTest extends BaseStyleTest {
   }
 
   @Test
+  public void testTextHaloColorTransition() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-halo-colorTransitionOptions");
+    assertNotNull(layer);
+
+    // Set and Get
+    TransitionOptions options = new TransitionOptions(300, 100);
+    layer.setTextHaloColorTransition(options);
+    assertEquals(layer.getTextHaloColorTransition(), options);
+  }
+
+  @Test
   public void testTextHaloColorAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
     Timber.i("text-halo-color");
@@ -2701,6 +3044,18 @@ public class SymbolLayerTest extends BaseStyleTest {
     // Set and Get
     layer.setProperties(textHaloColor(Color.RED));
     assertEquals(layer.getTextHaloColorAsInt(), Color.RED);
+  }
+
+  @Test
+  public void testTextHaloWidthTransition() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-halo-widthTransitionOptions");
+    assertNotNull(layer);
+
+    // Set and Get
+    TransitionOptions options = new TransitionOptions(300, 100);
+    layer.setTextHaloWidthTransition(options);
+    assertEquals(layer.getTextHaloWidthTransition(), options);
   }
 
   @Test
@@ -2849,6 +3204,18 @@ public class SymbolLayerTest extends BaseStyleTest {
   }
 
   @Test
+  public void testTextHaloBlurTransition() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-halo-blurTransitionOptions");
+    assertNotNull(layer);
+
+    // Set and Get
+    TransitionOptions options = new TransitionOptions(300, 100);
+    layer.setTextHaloBlurTransition(options);
+    assertEquals(layer.getTextHaloBlurTransition(), options);
+  }
+
+  @Test
   public void testTextHaloBlurAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
     Timber.i("text-halo-blur");
@@ -2994,6 +3361,18 @@ public class SymbolLayerTest extends BaseStyleTest {
   }
 
   @Test
+  public void testTextTranslateTransition() {
+    checkViewIsDisplayed(R.id.mapView);
+    Timber.i("text-translateTransitionOptions");
+    assertNotNull(layer);
+
+    // Set and Get
+    TransitionOptions options = new TransitionOptions(300, 100);
+    layer.setTextTranslateTransition(options);
+    assertEquals(layer.getTextTranslateTransition(), options);
+  }
+
+  @Test
   public void testTextTranslateAsConstant() {
     checkViewIsDisplayed(R.id.mapView);
     Timber.i("text-translate");
@@ -3029,6 +3408,7 @@ public class SymbolLayerTest extends BaseStyleTest {
     assertEquals(0.5f, ((ExponentialStops) layer.getTextTranslate().getFunction().getStops()).getBase(), 0.001);
     assertEquals(1, ((ExponentialStops) layer.getTextTranslate().getFunction().getStops()).size());
   }
+
 
   @Test
   public void testTextTranslateAnchorAsConstant() {
