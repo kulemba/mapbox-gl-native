@@ -60,7 +60,7 @@ TEST(VectorTile, Issue7615) {
 
     style::SymbolLayer symbolLayer("symbol", "source");
     auto symbolBucket = std::make_shared<SymbolBucket>(
-        style::SymbolLayoutProperties::Evaluated(),
+        style::SymbolLayoutProperties::PossiblyEvaluated(),
         std::map<
             std::string,
             std::pair<style::IconPaintProperties::Evaluated, style::TextPaintProperties::Evaluated>>(),
@@ -85,4 +85,13 @@ TEST(VectorTile, Issue7615) {
     });
 
     EXPECT_EQ(symbolBucket.get(), tile.getBucket(symbolLayer));
+}
+
+TEST(VectorTile, Issue8542) {
+    VectorTileTest test;
+    VectorTile tile(OverscaledTileID(0, 0, 0), "source", test.updateParameters, test.tileset);
+
+    // Query before data is set
+    std::vector<Feature> result;
+    tile.querySourceFeatures(result, { { {"layer"} }, {} });
 }

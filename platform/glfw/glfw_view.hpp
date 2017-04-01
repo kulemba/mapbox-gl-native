@@ -1,6 +1,5 @@
 #pragma once
 
-#include <mbgl/gl/gl.hpp>
 #include <mbgl/map/map.hpp>
 #include <mbgl/map/view.hpp>
 #include <mbgl/map/backend.hpp>
@@ -38,13 +37,13 @@ public:
     void run();
 
     // mbgl::View implementation
-    void updateViewBinding();
     void bind() override;
     mbgl::Size getSize() const;
     mbgl::Size getFramebufferSize() const;
 
     // mbgl::Backend implementation
     void invalidate() override;
+    void updateAssumedState() override;
 
 protected:
     // mbgl::Backend implementation
