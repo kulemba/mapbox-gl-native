@@ -48,12 +48,11 @@ public:
     // trigger re-placement of existing complete tiles.
     void updateTiles(const UpdateParameters&);
 
-    // Called when icons or glyphs are loaded. Triggers further processing of tiles which
-    // were waiting on such dependencies.
-    void updateSymbolDependentTiles();
-
     // Removes all tiles (by putting them into the cache).
     void removeTiles();
+
+    // Remove all tiles and clear the cache.
+    void invalidateTiles();
 
     // Request that all loaded tiles re-run the layout operation on the existing source
     // data with fresh style information.
@@ -98,15 +97,14 @@ public:
     void detach();
 
 protected:
-    void invalidateTiles();
-    void removeStaleTiles(const std::set<OverscaledTileID>&);
-
     Source& base;
     SourceObserver* observer = nullptr;
     std::map<OverscaledTileID, std::unique_ptr<Tile>> tiles;
     TileCache cache;
 
 private:
+    void removeStaleTiles(const std::set<OverscaledTileID>&);
+
     // TileObserver implementation.
     void onTileChanged(Tile&) override;
     void onTileError(Tile&, std::exception_ptr) override;
