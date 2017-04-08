@@ -26,16 +26,12 @@ inline std::array<float, 1> attributeValue(float v) {
     uses 8-bit precision for each color component, for each float we use the upper 8
     bits for one component (e.g. (color.r * 255) * 256), and the lower 8 for another.
     
-    Also note:
-     - Colors come in as floats 0..1, so we scale by 255.
-     - Casting the scaled values to ints is important: without doing this, e.g., the
-       fractional part of the `r` component would corrupt the lower-8 bits of the encoded
-       value, which must be reserved for the `g` component.
+    Also note that colors come in as floats 0..1, so we scale by 255.
 */
 inline std::array<float, 2> attributeValue(const Color& color) {
     return {{
-        static_cast<float>(static_cast<uint16_t>(color.r * 255) * 256 + static_cast<uint16_t>(color.g * 255)),
-        static_cast<float>(static_cast<uint16_t>(color.b * 255) * 256 + static_cast<uint16_t>(color.a * 255))
+        static_cast<float>(mbgl::attributes::packUint8Pair(255 * color.r, 255 * color.g)),
+        static_cast<float>(mbgl::attributes::packUint8Pair(255 * color.b, 255 * color.a))
     }};
 }
 
@@ -49,6 +45,37 @@ std::array<float, N*2> zoomInterpolatedAttributeValue(const std::array<float, N>
     return result;
 }
 
+/*
+   PaintPropertyBinder is an abstract class serving as the interface definition for
+   the strategy used for constructing, uploading, and binding paint property data as
+   GLSL attributes.
+
+   It has three concrete subclasses, one for each of the three strategies we use:
+
+   * For _constant_ properties -- those whose value is a constant, or the constant
+     result of evaluating a camera function at a particular camera position -- we
+     don't need a vertex buffer, and can instead use a constant attribute binding
+     via the `glVertexAttrib*` family of functions.
+   * For source functions, we use a vertex buffer with a single attribute value,
+     the evaluated result of the source function for the given feature.
+   * For composite functions, we use a vertex buffer with two attributes: min and
+     max values covering the range of zooms at which we expect the tile to be
+     displayed. These values are calculated by evaluating the composite function for
+     the given feature at strategically chosen zoom levels. In addition to this
+     attribute data, we also use a uniform value which the shader uses to interpolate
+     between the min and max value at the final displayed zoom level. The use of a
+     uniform allows us to cheaply update the value on every frame.
+
+   Note that the shader source is the same regardless of the strategy used to bind
+   the attribute -- in all cases the attribute is declared as a vec2, in order to
+   support composite min and max values (color attributes use a vec4 with special
+   packing). When the constant or source function strategies are used, the
+   interpolation uniform value is set to zero, and the second attribute element is
+   unused. This differs from the GL JS implementation, which dynamically generates
+   shader source based on the strategy used. We found that in WebGL, using
+   `glVertexAttrib*` was unnacceptably slow. Additionally, in GL Native we have
+   implemented binary shader caching, which works better if the shaders are constant.
+*/
 template <class T, class A>
 class PaintPropertyBinder {
 public:
