@@ -2618,6 +2618,9 @@ public:
 #pragma mark Geometric methods
 
 - (NSPoint)convertCoordinate:(CLLocationCoordinate2D)coordinate toPointToView:(nullable NSView *)view {
+    if (!CLLocationCoordinate2DIsValid(coordinate)) {
+        return NSMakePoint(NAN, NAN);
+    }
     return [self convertLatLng:MGLLatLngFromLocationCoordinate2D(coordinate) toPointToView:view];
 }
 
@@ -2644,6 +2647,9 @@ public:
 }
 
 - (NSRect)convertCoordinateBounds:(MGLCoordinateBounds)bounds toRectToView:(nullable NSView *)view {
+    if (!CLLocationCoordinate2DIsValid(bounds.sw) || !CLLocationCoordinate2DIsValid(bounds.ne)) {
+        return CGRectNull;
+    }
     return [self convertLatLngBounds:MGLLatLngBoundsFromCoordinateBounds(bounds) toRectToView:view];
 }
 
@@ -2676,7 +2682,7 @@ public:
             (bounds.south() + bounds.north()) / 2,
             bounds.west() - 1,
         };
-    } else if (bounds.northeast().longitude < 180) {
+    } else if (bounds.northeast().longitude() < 180) {
         outsideLatLng = {
             (bounds.south() + bounds.north()) / 2,
             bounds.east() + 1,
