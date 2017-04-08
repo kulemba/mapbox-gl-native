@@ -12,16 +12,14 @@
 /// the given point.
 CGRect MGLExtendRect(CGRect rect, CGPoint point);
 
-NS_INLINE mbgl::LatLng MGLLatLngFromLocationCoordinate2D(CLLocationCoordinate2D coordinate) {
-    return mbgl::LatLng(coordinate.latitude, coordinate.longitude);
-}
+mbgl::LatLng MGLLatLngFromLocationCoordinate2D(CLLocationCoordinate2D coordinate);
 
 NS_INLINE mbgl::Point<double> MGLPointFromLocationCoordinate2D(CLLocationCoordinate2D coordinate) {
     return mbgl::Point<double>(coordinate.longitude, coordinate.latitude);
 }
 
 NS_INLINE CLLocationCoordinate2D MGLLocationCoordinate2DFromLatLng(mbgl::LatLng latLng) {
-    return CLLocationCoordinate2DMake(latLng.latitude, latLng.longitude);
+    return CLLocationCoordinate2DMake(latLng.latitude(), latLng.longitude());
 }
 
 NS_INLINE MGLCoordinateBounds MGLCoordinateBoundsFromLatLngBounds(mbgl::LatLngBounds latLngBounds) {
