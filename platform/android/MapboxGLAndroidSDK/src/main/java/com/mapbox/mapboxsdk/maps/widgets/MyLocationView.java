@@ -112,7 +112,7 @@ public class MyLocationView extends View {
   private float magneticHeading;
 
   // Controls the compass update rate in milliseconds
-  private static final int COMPASS_UPDATE_RATE_MS = 500;
+  private static final int COMPASS_UPDATE_RATE_MS = 50;
 
   @MyLocationTracking.Mode
   private int myLocationTrackingMode;
@@ -324,7 +324,7 @@ public class MyLocationView extends View {
     camera.rotate((float) tilt, 0, 0);
     camera.getMatrix(matrix);
 
-    if (myBearingTrackingMode != MyBearingTracking.NONE && directionAnimator != null) {
+    if (directionAnimator != null) {
       matrix.preRotate((Float) directionAnimator.getAnimatedValue());
     }
 
@@ -351,7 +351,7 @@ public class MyLocationView extends View {
     }
 
     // draw foreground
-    if (myBearingTrackingMode == MyBearingTracking.NONE) {
+    if (!compassListener.isSensorAvailable()) {
       if (foregroundDrawable != null) {
         foregroundDrawable.draw(canvas);
       }
@@ -390,7 +390,7 @@ public class MyLocationView extends View {
         if (location != null) {
           setCompass(location.getBearing() - bearing);
         }
-      } else if (myBearingTrackingMode == MyBearingTracking.COMPASS && compassListener.isSensorAvailable()) {
+      } else if (compassListener.isSensorAvailable()) {
         setCompass(magneticHeading - bearing);
       }
     }
@@ -412,7 +412,7 @@ public class MyLocationView extends View {
    * Called when the hosting activity is starting, for internal use only.
    */
   public void onStart() {
-    if (myBearingTrackingMode == MyBearingTracking.COMPASS && compassListener.isSensorAvailable()) {
+    if (compassListener.isSensorAvailable()) {
       compassListener.onResume();
     }
     if (isEnabled()) {
@@ -617,7 +617,7 @@ public class MyLocationView extends View {
    */
   public void setMyBearingTrackingMode(@MyBearingTracking.Mode int myBearingTrackingMode) {
     this.myBearingTrackingMode = myBearingTrackingMode;
-    if (myBearingTrackingMode == MyBearingTracking.COMPASS && compassListener.isSensorAvailable()) {
+    if (compassListener.isSensorAvailable()) {
       compassListener.onResume();
     } else {
       compassListener.onPause();
@@ -866,7 +866,7 @@ public class MyLocationView extends View {
         SensorManager.getOrientation(matrix, orientation);
 
         magneticHeading = (float) Math.toDegrees(SensorManager.getOrientation(matrix, orientation)[0]);
-        if (myLocationTrackingMode == MyLocationTracking.TRACKING_FOLLOW) {
+        if (myLocationTrackingMode == MyLocationTracking.TRACKING_FOLLOW && myBearingTrackingMode != MyBearingTracking.NONE) {
           // Change the user location view orientation to reflect the device orientation
           rotateCamera(magneticHeading);
           setCompass(0, COMPASS_UPDATE_RATE_MS);
@@ -1020,7 +1020,7 @@ public class MyLocationView extends View {
         if (location.hasBearing()) {
           builder.bearing(location.getBearing());
         }
-        setCompass(0, COMPASS_UPDATE_RATE_MS);
+        setCompass(0 - bearing, COMPASS_UPDATE_RATE_MS);
       }
 
       if (myBearingTrackingMode == MyBearingTracking.GPS_NORTH_FACING) {
