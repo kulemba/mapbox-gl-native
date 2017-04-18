@@ -15,6 +15,7 @@
 #include <jni/jni.hpp>
 
 #include <mbgl/map/backend_scope.hpp>
+#include <mbgl/math/minmax.hpp>
 #include <mbgl/util/constants.hpp>
 #include <mbgl/util/event.hpp>
 #include <mbgl/util/exception.hpp>
@@ -42,6 +43,7 @@
 #include "bitmap.hpp"
 #include "run_loop_impl.hpp"
 #include "java/util.hpp"
+#include "geometry/lat_lng_bounds.hpp"
 
 namespace mbgl {
 namespace android {
@@ -72,6 +74,10 @@ NativeMapView::NativeMapView(jni::JNIEnv& _env,
         MapMode::Continuous, GLContextMode::Unique, ConstrainMode::HeightOnly,
         ViewportMode::Default, jni::Make<std::string>(_env, _programCacheDir));
 
+    recalculateSourceTileCacheSize();
+}
+
+void NativeMapView::recalculateSourceTileCacheSize() {
     //Calculate a fitting cache size based on device parameters
     float zoomFactor   = map->getMaxZoom() - map->getMinZoom() + 1;
     float cpuFactor    = availableProcessors;
@@ -320,9 +326,10 @@ void NativeMapView::update(jni::JNIEnv&) {
 }
 
 void NativeMapView::resizeView(jni::JNIEnv&, int w, int h) {
-    width = w;
-    height = h;
+    width = util::max(64, w);
+    height = util::max(64, h);
     map->setSize({ static_cast<uint32_t>(width), static_cast<uint32_t>(height) });
+    recalculateSourceTileCacheSize();
 }
 
 void NativeMapView::resizeFramebuffer(jni::JNIEnv&, int w, int h) {
@@ -346,6 +353,14 @@ jni::String NativeMapView::getStyleJson(jni::JNIEnv& env) {
 
 void NativeMapView::setStyleJson(jni::JNIEnv& env, jni::String json) {
     map->setStyleJSON(jni::Make<std::string>(env, json));
+}
+
+void NativeMapView::setLatLngBounds(jni::JNIEnv& env, jni::Object<mbgl::android::LatLngBounds> jBounds) {
+    if (jBounds) {
+        map->setLatLngBounds(mbgl::android::LatLngBounds::getLatLngBounds(env, jBounds));
+    } else {
+        map->setLatLngBounds(mbgl::LatLngBounds::world());
+    }
 }
 
 void NativeMapView::cancelTransitions(jni::JNIEnv&) {
@@ -451,20 +466,6 @@ void NativeMapView::setPitch(jni::JNIEnv&, jni::jdouble pitch, jni::jlong durati
     map->setPitch(pitch, mbgl::AnimationOptions{mbgl::Milliseconds(duration)});
 }
 
-void NativeMapView::scaleBy(jni::JNIEnv&, jni::jdouble ds, jni::jdouble cx, jni::jdouble cy, jni::jlong duration) {
-    mbgl::ScreenCoordinate center(cx, cy);
-    map->scaleBy(ds, center, mbgl::AnimationOptions{mbgl::Milliseconds(duration)});
-}
-
-void NativeMapView::setScale(jni::JNIEnv&, jni::jdouble scale, jni::jdouble cx, jni::jdouble cy, jni::jlong duration) {
-    mbgl::ScreenCoordinate center(cx, cy);
-    map->setScale(scale, center, mbgl::AnimationOptions{mbgl::Milliseconds(duration)});
-}
-
-jni::jdouble NativeMapView::getScale(jni::JNIEnv&) {
-    return map->getScale();
-}
-
 void NativeMapView::setZoom(jni::JNIEnv&, jni::jdouble zoom, jni::jdouble x, jni::jdouble y, jni::jlong duration) {
     map->setZoom(zoom, mbgl::ScreenCoordinate{x,y}, mbgl::AnimationOptions{mbgl::Milliseconds(duration)});
 }
@@ -479,6 +480,7 @@ void NativeMapView::resetZoom(jni::JNIEnv&) {
 
 void NativeMapView::setMinZoom(jni::JNIEnv&, jni::jdouble zoom) {
     map->setMinZoom(zoom);
+    recalculateSourceTileCacheSize();
 }
 
 jni::jdouble NativeMapView::getMinZoom(jni::JNIEnv&) {
@@ -487,6 +489,7 @@ jni::jdouble NativeMapView::getMinZoom(jni::JNIEnv&) {
 
 void NativeMapView::setMaxZoom(jni::JNIEnv&, jni::jdouble zoom) {
     map->setMaxZoom(zoom);
+    recalculateSourceTileCacheSize();
 }
 
 jni::jdouble NativeMapView::getMaxZoom(jni::JNIEnv&) {
@@ -640,7 +643,7 @@ jni::jdouble NativeMapView::getMetersPerPixelAtLatitude(JNIEnv&, jni::jdouble la
 
 jni::Object<ProjectedMeters> NativeMapView::projectedMetersForLatLng(JNIEnv& env, jni::jdouble latitude, jni::jdouble longitude) {
     mbgl::ProjectedMeters projectedMeters = map->projectedMetersForLatLng(mbgl::LatLng(latitude, longitude));
-    return ProjectedMeters::New(env, projectedMeters.northing, projectedMeters.easting);
+    return ProjectedMeters::New(env, projectedMeters.northing(), projectedMeters.easting());
 }
 
 jni::Object<PointF> NativeMapView::pixelForLatLng(JNIEnv& env, jdouble latitude, jdouble longitude) {
@@ -1492,9 +1495,6 @@ void NativeMapView::registerNative(jni::JNIEnv& env) {
             METHOD(&NativeMapView::resetPosition, "nativeResetPosition"),
             METHOD(&NativeMapView::getPitch, "nativeGetPitch"),
             METHOD(&NativeMapView::setPitch, "nativeSetPitch"),
-            METHOD(&NativeMapView::scaleBy, "nativeScaleBy"),
-            METHOD(&NativeMapView::getScale, "nativeGetScale"),
-            METHOD(&NativeMapView::setScale, "nativeSetScale"),
             METHOD(&NativeMapView::getZoom, "nativeGetZoom"),
             METHOD(&NativeMapView::setZoom, "nativeSetZoom"),
             METHOD(&NativeMapView::resetZoom, "nativeResetZoom"),
@@ -1552,7 +1552,8 @@ void NativeMapView::registerNative(jni::JNIEnv& env) {
             METHOD(&NativeMapView::removeSourceById, "nativeRemoveSourceById"),
             METHOD(&NativeMapView::removeSource, "nativeRemoveSource"),
             METHOD(&NativeMapView::addImage, "nativeAddImage"),
-            METHOD(&NativeMapView::removeImage, "nativeRemoveImage")
+            METHOD(&NativeMapView::removeImage, "nativeRemoveImage"),
+            METHOD(&NativeMapView::setLatLngBounds, "nativeSetLatLngBounds")
     );
 }
 

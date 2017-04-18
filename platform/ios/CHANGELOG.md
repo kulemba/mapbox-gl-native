@@ -4,9 +4,34 @@ Mapbox welcomes participation and contributions from everyone. Please read [CONT
 
 ## master
 
-* The error passed into `-[MGLMapViewDelegate mapViewDidFailLoadingMap:withError:]` now includes a more specific description and failure reason. ([#8418](https://github.com/mapbox/mapbox-gl-native/pull/8418))
+* Added a scale bar to MGLMapView that indicates the scale of the map. ([#7631](https://github.com/mapbox/mapbox-gl-native/pull/7631))
 
-## 3.5.0
+### Styles
+
+* MGLSymbolStyleLayer’s `iconImageName`, `iconScale`, `textFontSize`, `textOffset`, and `textRotation` properties can now be set to a source or composite function. ([#8544](https://github.com/mapbox/mapbox-gl-native/pull/8544), [#8590](https://github.com/mapbox/mapbox-gl-native/pull/8590), [#8592](https://github.com/mapbox/mapbox-gl-native/pull/8592), [#8593](https://github.com/mapbox/mapbox-gl-native/pull/8593))
+* Fixed an issue where setting the `MGLVectorStyleLayer.predicate` property failed to take effect if the relevant source was not in use by a visible layer at the time. ([#8653](https://github.com/mapbox/mapbox-gl-native/pull/8653))
+* Fixed an issue causing a composite function’s highest zoom level stop to be misinterpreted. ([#8613](https://github.com/mapbox/mapbox-gl-native/pull/8613))
+
+### Other changes
+
+* Fixed a crash or console spew when MGLMapView is initialized with a frame smaller than 64 points wide by 64 points tall. ([#8562](https://github.com/mapbox/mapbox-gl-native/pull/8562))
+* The error passed into `-[MGLMapViewDelegate mapViewDidFailLoadingMap:withError:]` now includes a more specific description and failure reason. ([#8418](https://github.com/mapbox/mapbox-gl-native/pull/8418))
+* Fixed an issue where gesture recognizers associated with map view interactivity were not disabled when their related interactions were disabled. ([#8304](https://github.com/mapbox/mapbox-gl-native/pull/8304))
+* Fixed an issue where re-adding a layer that had been previously removed from a style would reset its paint properties. Moved initializers for `MGLTileSource`, `MGLStyleLayer`, and `MGLForegroundStyleLayer` to their concrete subclasses; because these classes were already intended for initialization only via concrete subclasses, this should have no developer impact. ([#8626](https://github.com/mapbox/mapbox-gl-native/pull/8626))
+
+## 3.5.2 - April 7, 2017
+
+* Fixed an issue that caused a crash when the user location annotation was presenting a callout view and the map was moved. ([#8686](https://github.com/mapbox/mapbox-gl-native/pull/8686))
+* This release was built with Xcode 8.3.1, which fixed [a significant bitcode issue](http://www.openradar.me/31302382) introduced in Xcode 8.3 that caused Mapbox iOS SDK 3.5.1 to be 2× larger than 3.5.0.
+
+## 3.5.1 - April 5, 2017
+
+* Fixed an issue that caused the return type of a map view delegate method to bridge incorrectly to applications written in Swift. ([#8541](https://github.com/mapbox/mapbox-gl-native/pull/8541))
+* Fixed a crash that could occur when calling `-[MGLShapeSource featuresMatchingPredicate:]` or `-[MGLVectorSource featuresInSourceLayersWithIdentifiers:predicate:]`. ([#8553](https://github.com/mapbox/mapbox-gl-native/pull/8553))
+* Fixed a crash that could occur after adding view-backed annotations to the map. ([#8513](https://github.com/mapbox/mapbox-gl-native/pull/8513))
+* Renamed the “Data-Driven Styling” guide to “Using Style Functions at Runtime” and clarified the meaning of data-driven styling in the guide’s discussion of runtime style functions. ([#8627](https://github.com/mapbox/mapbox-gl-native/pull/8627))
+
+## 3.5.0 - March 21, 2017
 
 ### Packaging
 
@@ -19,8 +44,7 @@ Mapbox welcomes participation and contributions from everyone. Please read [CONT
 * Added support for right-to-left text and Arabic ligatures in labels. ([#6984](https://github.com/mapbox/mapbox-gl-native/pull/6984), [#7123](https://github.com/mapbox/mapbox-gl-native/pull/7123))
 * Improved the line wrapping behavior of point-placed labels, especially labels written in Chinese and Japanese. ([#6828](https://github.com/mapbox/mapbox-gl-native/pull/6828), [#7446](https://github.com/mapbox/mapbox-gl-native/pull/7446))
 * CJK characters now remain upright in vertically oriented labels that have line placement, such as road labels. ([#7114](https://github.com/mapbox/mapbox-gl-native/issues/7114))
-* Added Catalan, Chinese (Simplified and Traditional), Dutch, Finnish, French, German, Japanese, Lithuanian, Polish, Portuguese (Brazilian), Russian, Spanish, Swedish, Ukrainian, and Vietnamese localizations. ([#7316](https://github.com/mapbox/mapbox-gl-native/pull/7316), [#7899](https://github.com/mapbox/mapbox-gl-native/pull/7899), [#7999](https://github.com/mapbox/mapbox-gl-native/pull/7999),
-[#8113](https://github.com/mapbox/mapbox-gl-native/pull/8113), [#8256](https://github.com/mapbox/mapbox-gl-native/pull/8256))
+* Added Catalan, Chinese (Simplified and Traditional), Dutch, Finnish, French, German, Japanese, Lithuanian, Polish, Portuguese (Brazilian), Russian, Spanish, Swedish, Ukrainian, and Vietnamese localizations. ([#7316](https://github.com/mapbox/mapbox-gl-native/pull/7316), [#7899](https://github.com/mapbox/mapbox-gl-native/pull/7899), [#7999](https://github.com/mapbox/mapbox-gl-native/pull/7999), [#8113](https://github.com/mapbox/mapbox-gl-native/pull/8113), [#8256](https://github.com/mapbox/mapbox-gl-native/pull/8256))
 
 ### Styles
 
