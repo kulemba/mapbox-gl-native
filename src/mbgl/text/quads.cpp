@@ -22,12 +22,12 @@ SymbolQuad getIconQuad(const Anchor& anchor,
                        const float layoutTextSize,
                        const style::SymbolPlacementType placement, 
                        const Shaping& shapedText) {
-    auto image = *(shapedIcon.image);
+    auto image = *shapedIcon.image();
 
     const float border = 1.0;
-    auto left = shapedIcon.left - border;
+    auto left = shapedIcon.left() - border;
     auto right = left + image.pos.w / image.relativePixelRatio;
-    auto top = shapedIcon.top - border;
+    auto top = shapedIcon.top() - border;
     auto bottom = top + image.pos.h / image.relativePixelRatio;
     Point<float> tl;
     Point<float> tr;
@@ -67,7 +67,7 @@ SymbolQuad getIconQuad(const Anchor& anchor,
         bl = {left, bottom};
     }
 
-    float angle = shapedIcon.angle;
+    float angle = shapedIcon.angle();
     if (placement == style::SymbolPlacementType::Line) {
         assert(static_cast<unsigned int>(anchor.segment) < line.size());
         const GeometryCoordinate &prev= line[anchor.segment];
@@ -303,17 +303,11 @@ SymbolQuads getGlyphQuads(Anchor& anchor,
 
     for (const PositionedGlyph &positionedGlyph: shapedText.positionedGlyphs) {
         auto face_it = face.find(positionedGlyph.glyph);
-        if (face_it == face.end())
-            continue;
-        const Glyph &glyph = face_it->second;
-        const Rect<uint16_t> &rect = glyph.rect;
-
-        if (!glyph)
+        if (face_it == face.end() || !face_it->second || !(*face_it->second).rect.hasArea())
             continue;
 
-        if (!rect.hasArea())
-            continue;
-
+        const Glyph& glyph = *face_it->second;
+        const Rect<uint16_t>& rect = glyph.rect;
         const float centerX = (positionedGlyph.x + glyph.metrics.advance / 2.0f) * boxScale;
 
         GlyphInstances glyphInstances;

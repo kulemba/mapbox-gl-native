@@ -5,6 +5,7 @@
 #import "MBXOfflinePacksTableViewController.h"
 #import "MBXAnnotationView.h"
 #import "MBXUserLocationAnnotationView.h"
+#import "MBXEmbeddedMapViewController.h"
 
 #import <Mapbox/Mapbox.h>
 
@@ -43,6 +44,7 @@ typedef NS_ENUM(NSInteger, MBXSettingsAnnotationsRows) {
     MBXSettingsAnnotations100Sprites,
     MBXSettingsAnnotations1000Sprites,
     MBXSettingsAnnotations10000Sprites,
+    MBXSettingsAnnotationAnimation,
     MBXSettingsAnnotationsTestShapes,
     MBXSettingsAnnotationsCustomCallout,
     MBXSettingsAnnotationsQueryAnnotations,
@@ -79,6 +81,7 @@ typedef NS_ENUM(NSInteger, MBXSettingsMiscellaneousRows) {
     MBXSettingsMiscellaneousWorldTour,
     MBXSettingsMiscellaneousCustomUserDot,
     MBXSettingsMiscellaneousShowZoomLevel,
+    MBXSettingsMiscellaneousScrollView,
     MBXSettingsMiscellaneousPrintLogFile,
     MBXSettingsMiscellaneousDeleteLogFile,
 };
@@ -156,7 +159,7 @@ typedef NS_ENUM(NSInteger, MBXSettingsMiscellaneousRows) {
     [self restoreState:nil];
 
     self.debugLoggingEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:@"MGLMapboxMetricsDebugLoggingEnabled"];
-
+    self.mapView.scaleBar.hidden = NO;
     self.hudLabel.hidden = YES;
 
     if ([MGLAccountManager accessToken].length)
@@ -312,6 +315,7 @@ typedef NS_ENUM(NSInteger, MBXSettingsMiscellaneousRows) {
                 @"Add 100 Sprites",
                 @"Add 1,000 Sprites",
                 @"Add 10,000 Sprites",
+                @"Animate an Annotation View",
                 @"Add Test Shapes",
                 @"Add Point With Custom Callout",
                 @"Query Annotations",
@@ -350,6 +354,7 @@ typedef NS_ENUM(NSInteger, MBXSettingsMiscellaneousRows) {
                 @"Start World Tour",
                 [NSString stringWithFormat:@"%@ Custom User Dot", (_customUserLocationAnnnotationEnabled ? @"Disable" : @"Enable")],
                 [NSString stringWithFormat:@"%@ Zoom Level", (_showZoomLevelEnabled ? @"Hide" :@"Show")],
+                @"Embedded Map View",
             ]];
 
             if (self.debugLoggingEnabled)
@@ -495,6 +500,9 @@ typedef NS_ENUM(NSInteger, MBXSettingsMiscellaneousRows) {
                 case MBXSettingsAnnotations10000Sprites:
                     [self parseFeaturesAddingCount:10000 usingViews:NO];
                     break;
+                case MBXSettingsAnnotationAnimation:
+                    [self animateAnnotationView];
+                    break;
                 case MBXSettingsAnnotationsTestShapes:
                     [self addTestShapes];
                     break;
@@ -615,6 +623,13 @@ typedef NS_ENUM(NSInteger, MBXSettingsMiscellaneousRows) {
                     self.reuseQueueStatsEnabled = NO;
                     break;
                 }
+                case MBXSettingsMiscellaneousScrollView:
+                {
+                    UIStoryboard *storyboard = [UIStoryboard storyboardWithName:@"Main" bundle:nil];
+                    MBXEmbeddedMapViewController *embeddedMapViewController = (MBXEmbeddedMapViewController *)[storyboard instantiateViewControllerWithIdentifier:@"MBXEmbeddedMapViewController"];
+                    [self.navigationController pushViewController:embeddedMapViewController animated:YES];
+                    break;
+                }
                 default:
                     NSAssert(NO, @"All miscellaneous setting rows should be implemented");
                     break;
@@ -702,6 +717,23 @@ typedef NS_ENUM(NSInteger, MBXSettingsMiscellaneousRows) {
         }
     });
 }
+
+- (void)animateAnnotationView
+    {
+        MGLPointAnnotation *annot = [[MGLPointAnnotation alloc] init];
+        annot.coordinate = self.mapView.centerCoordinate;
+        [self.mapView addAnnotation:annot];
+        
+        // Move the annotation to a point that is offscreen.
+        CGPoint point = CGPointMake(self.view.frame.origin.x - 200, CGRectGetMidY(self.view.frame));
+        
+        CLLocationCoordinate2D coord = [self.mapView convertPoint:point toCoordinateFromView:self.view];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [UIView animateWithDuration:10 animations:^{
+                annot.coordinate = coord;
+            }];
+        });
+    };
 
 - (void)addTestShapes
 {
@@ -1739,7 +1771,7 @@ typedef NS_ENUM(NSInteger, MBXSettingsMiscellaneousRows) {
     }];
 }
 
-- (UIView<MGLCalloutView> *)mapView:(__unused MGLMapView *)mapView calloutViewForAnnotation:(id<MGLAnnotation>)annotation
+- (nullable id <MGLCalloutView>)mapView:(__unused MGLMapView *)mapView calloutViewForAnnotation:(id<MGLAnnotation>)annotation
 {
     if ([annotation respondsToSelector:@selector(title)]
         && [annotation isKindOfClass:[MBXCustomCalloutAnnotation class]])
