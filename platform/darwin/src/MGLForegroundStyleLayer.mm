@@ -1,13 +1,11 @@
 #import "MGLForegroundStyleLayer.h"
-#import "MGLSource.h"
 
 @implementation MGLForegroundStyleLayer
 
-- (instancetype)initWithIdentifier:(NSString *)identifier source:(MGLSource *)source {
-    if (self = [super initWithIdentifier:identifier]) {
-        _sourceIdentifier = source.identifier;
-    }
-    return self;
+- (NSString *)sourceIdentifier {
+    [NSException raise:@"MGLAbstractClassException"
+                format:@"MGLForegroundStyleLayer is an abstract class"];
+    return nil;
 }
 
 - (NSString *)description {

@@ -3,7 +3,6 @@
 #include <mbgl/text/glyph.hpp>
 #include <mbgl/text/glyph_atlas_observer.hpp>
 #include <mbgl/text/glyph_range.hpp>
-#include <mbgl/text/glyph_set.hpp>
 #include <mbgl/geometry/binpack.hpp>
 #include <mbgl/util/noncopyable.hpp>
 #include <mbgl/util/optional.hpp>
@@ -23,6 +22,7 @@ namespace mbgl {
 
 class FileSource;
 class AsyncRequest;
+class Response;
 
 namespace gl {
 class Context;
@@ -30,15 +30,13 @@ class Context;
 
 class GlyphRequestor {
 public:
-    virtual void onGlyphsAvailable(GlyphPositionMap, GlyphRangeSet) = 0;
+    virtual void onGlyphsAvailable(GlyphPositionMap) = 0;
 };
     
 class GlyphAtlas : public util::noncopyable {
 public:
     GlyphAtlas(Size, FileSource&);
     ~GlyphAtlas();
-
-    GlyphSet& getGlyphSet(const FontStack&);
 
     // Workers send a `getGlyphs` message to the main thread once they have determined
     // which glyphs they will need. Invoking this method will increment reference
@@ -72,9 +70,9 @@ private:
     std::string glyphURL;
 
     struct GlyphValue {
-        GlyphValue(Rect<uint16_t> rect_, GlyphRequestor* id)
-            : rect(std::move(rect_)), ids({ id }) {}
-        Rect<uint16_t> rect;
+        AlphaImage bitmap;
+        GlyphMetrics metrics;
+        optional<Rect<uint16_t>> rect;
         std::unordered_set<GlyphRequestor*> ids;
     };
 
@@ -86,24 +84,18 @@ private:
 
     struct Entry {
         std::map<GlyphRange, GlyphRequest> ranges;
-        GlyphSet glyphSet;
-        std::map<uint32_t, GlyphValue> glyphValues;
+        std::map<GlyphID, GlyphValue> glyphs;
     };
 
     std::unordered_map<FontStack, Entry, FontStackHash> entries;
 
-    // Only used by GlyphAtlasTest
-    friend class ::GlyphAtlasTest;
-    bool hasGlyphRanges(const FontStack&, const GlyphRangeSet&) const;
-    bool hasGlyphRange(const FontStack&, const GlyphRange&) const;
-    bool rangeIsParsed(const std::map<GlyphRange, GlyphRequest>&, const GlyphRange&) const;
-
     GlyphRequest& requestRange(Entry&, const FontStack&, const GlyphRange&);
+    void processResponse(const Response&, const FontStack&, const GlyphRange&);
 
     void addGlyphs(GlyphRequestor&, const GlyphDependencies&);
-    void addGlyph(GlyphRequestor&, const FontStack&, const SDFGlyph&);
+    Rect<uint16_t> addGlyph(GlyphValue&);
 
-    void removeGlyphValues(GlyphRequestor&, std::map<uint32_t, GlyphValue>&);
+    void removeGlyphValues(GlyphRequestor&, std::map<GlyphID, GlyphValue>&);
     void removePendingRanges(GlyphRequestor&, std::map<GlyphRange, GlyphRequest>&);
 
     GlyphAtlasObserver* observer = nullptr;
