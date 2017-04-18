@@ -8,6 +8,7 @@
 #include <mbgl/map/camera.hpp>
 #include <mbgl/map/map.hpp>
 #include <mbgl/map/backend_scope.hpp>
+#include <mbgl/math/minmax.hpp>
 #include <mbgl/style/conversion.hpp>
 #include <mbgl/style/conversion/layer.hpp>
 #include <mbgl/style/conversion/source.hpp>
@@ -78,6 +79,13 @@ auto fromQStringList(const QStringList &list)
     }
     return strings;
 }
+
+mbgl::Size sanitizedSize(const QSize& size) {
+    return mbgl::Size {
+        mbgl::util::max(0u, static_cast<uint32_t>(size.width())),
+        mbgl::util::max(0u, static_cast<uint32_t>(size.height())),
+    };
+};
 
 std::unique_ptr<const mbgl::SpriteImage> toSpriteImage(const QImage &sprite) {
     const QImage swapped = sprite
@@ -433,6 +441,8 @@ void QMapboxGLSettings::setApiBaseUrl(const QString& url)
 QMapboxGL::QMapboxGL(QObject *parent, const QMapboxGLSettings &settings, const QSize& size, qreal pixelRatio)
     : QObject(parent)
 {
+    assert(!size.isEmpty());
+
     // Multiple QMapboxGL running on the same thread
     // will share the same mbgl::util::RunLoop
     if (!loop.hasLocalData()) {
@@ -555,12 +565,12 @@ void QMapboxGL::setLongitude(double longitude_)
 */
 double QMapboxGL::scale() const
 {
-    return d_ptr->mapObj->getScale();
+    return std::pow(2.0, d_ptr->mapObj->getZoom());
 }
 
 void QMapboxGL::setScale(double scale_, const QPointF &center)
 {
-    d_ptr->mapObj->setScale(scale_, mbgl::ScreenCoordinate { center.x(), center.y() });
+    d_ptr->mapObj->setZoom(std::log2(scale_), mbgl::ScreenCoordinate { center.x(), center.y() });
 }
 
 /*!
@@ -1045,7 +1055,7 @@ void QMapboxGL::moveBy(const QPointF &offset)
     can be used for implementing a pinch gesture.
 */
 void QMapboxGL::scaleBy(double scale_, const QPointF &center) {
-    d_ptr->mapObj->scaleBy(scale_, mbgl::ScreenCoordinate { center.x(), center.y() });
+    d_ptr->mapObj->setZoom(d_ptr->mapObj->getZoom() + std::log2(scale_), mbgl::ScreenCoordinate { center.x(), center.y() });
 }
 
 /*!
@@ -1079,8 +1089,7 @@ void QMapboxGL::resize(const QSize& size, const QSize& framebufferSize)
     d_ptr->size = size;
     d_ptr->fbSize = framebufferSize;
 
-    d_ptr->mapObj->setSize(
-        { static_cast<uint32_t>(size.width()), static_cast<uint32_t>(size.height()) });
+    d_ptr->mapObj->setSize(sanitizedSize(size));
 }
 
 /*!
@@ -1121,7 +1130,7 @@ double QMapboxGL::metersPerPixelAtLatitude(double latitude, double zoom) const
 QMapbox::ProjectedMeters QMapboxGL::projectedMetersForCoordinate(const QMapbox::Coordinate &coordinate_) const
 {
     auto projectedMeters = d_ptr->mapObj->projectedMetersForLatLng(mbgl::LatLng { coordinate_.first, coordinate_.second });
-    return QMapbox::ProjectedMeters(projectedMeters.northing, projectedMeters.easting);
+    return QMapbox::ProjectedMeters(projectedMeters.northing(), projectedMeters.easting());
 }
 
 /*!
@@ -1220,10 +1229,10 @@ void QMapboxGL::setMargins(const QMargins &margins_)
 QMargins QMapboxGL::margins() const
 {
     return QMargins(
-        d_ptr->margins.left,
-        d_ptr->margins.top,
-        d_ptr->margins.right,
-        d_ptr->margins.bottom
+        d_ptr->margins.left(),
+        d_ptr->margins.top(),
+        d_ptr->margins.right(),
+        d_ptr->margins.bottom()
     );
 }
 
@@ -1547,14 +1556,15 @@ QMapboxGLPrivate::QMapboxGLPrivate(QMapboxGL *q, const QMapboxGLSettings &settin
         settings.assetPath().toStdString(),
         settings.cacheDatabaseMaximumSize()))
     , threadPool(mbgl::sharedThreadPool())
-    , mapObj(std::make_unique<mbgl::Map>(
-        *this, mbgl::Size{ static_cast<uint32_t>(size.width()), static_cast<uint32_t>(size.height()) },
-        pixelRatio, *fileSourceObj, *threadPool,
-        mbgl::MapMode::Continuous,
-        static_cast<mbgl::GLContextMode>(settings.contextMode()),
-        static_cast<mbgl::ConstrainMode>(settings.constrainMode()),
-        static_cast<mbgl::ViewportMode>(settings.viewportMode())))
 {
+    mapObj = std::make_unique<mbgl::Map>(
+            *this, sanitizedSize(size),
+            pixelRatio, *fileSourceObj, *threadPool,
+            mbgl::MapMode::Continuous,
+            static_cast<mbgl::GLContextMode>(settings.contextMode()),
+            static_cast<mbgl::ConstrainMode>(settings.constrainMode()),
+            static_cast<mbgl::ViewportMode>(settings.viewportMode()));
+
     qRegisterMetaType<QMapboxGL::MapChange>("QMapboxGL::MapChange");
 
     fileSourceObj->setAccessToken(settings.accessToken().toStdString());
@@ -1570,7 +1580,7 @@ QMapboxGLPrivate::~QMapboxGLPrivate()
 }
 
 mbgl::Size QMapboxGLPrivate::framebufferSize() const {
-    return { static_cast<uint32_t>(fbSize.width()), static_cast<uint32_t>(fbSize.height()) };
+    return sanitizedSize(fbSize);
 }
 
 void QMapboxGLPrivate::updateAssumedState() {
