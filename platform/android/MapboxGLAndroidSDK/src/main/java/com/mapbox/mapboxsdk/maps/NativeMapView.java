@@ -19,6 +19,7 @@ import com.mapbox.mapboxsdk.annotations.Polygon;
 import com.mapbox.mapboxsdk.annotations.Polyline;
 import com.mapbox.mapboxsdk.constants.MapboxConstants;
 import com.mapbox.mapboxsdk.geometry.LatLng;
+import com.mapbox.mapboxsdk.geometry.LatLngBounds;
 import com.mapbox.mapboxsdk.geometry.ProjectedMeters;
 import com.mapbox.mapboxsdk.storage.FileSource;
 import com.mapbox.mapboxsdk.style.layers.CannotAddLayerException;
@@ -274,6 +275,13 @@ final class NativeMapView {
     return nativeGetMaxZoomLimit();
   }
 
+  public void setLatLngBounds(LatLngBounds latLngBounds) {
+    if (isDestroyedOn("setLatLngBounds")) {
+      return;
+    }
+    nativeSetLatLngBounds(latLngBounds);
+  }
+
   public void cancelTransitions() {
     if (isDestroyedOn("cancelTransitions")) {
       return;
@@ -343,55 +351,6 @@ final class NativeMapView {
       return;
     }
     nativeSetPitch(pitch, duration);
-  }
-
-  public void scaleBy(double ds) {
-    if (isDestroyedOn("scaleBy")) {
-      return;
-    }
-    scaleBy(ds, Double.NaN, Double.NaN);
-  }
-
-  public void scaleBy(double ds, double cx, double cy) {
-    if (isDestroyedOn("scaleBy")) {
-      return;
-    }
-    scaleBy(ds, cx, cy, 0);
-  }
-
-  public void scaleBy(double ds, double cx, double cy, long duration) {
-    if (isDestroyedOn("scaleBy")) {
-      return;
-    }
-    nativeScaleBy(ds, cx / pixelRatio, cy / pixelRatio, duration);
-  }
-
-  public void setScale(double scale) {
-    if (isDestroyedOn("setScale")) {
-      return;
-    }
-    setScale(scale, Double.NaN, Double.NaN);
-  }
-
-  public void setScale(double scale, double cx, double cy) {
-    if (isDestroyedOn("setScale")) {
-      return;
-    }
-    setScale(scale, cx, cy, 0);
-  }
-
-  public void setScale(double scale, double cx, double cy, long duration) {
-    if (isDestroyedOn("setScale")) {
-      return;
-    }
-    nativeSetScale(scale, cx / pixelRatio, cy / pixelRatio, duration);
-  }
-
-  public double getScale() {
-    if (isDestroyedOn("getScale")) {
-      return 0;
-    }
-    return nativeGetScale();
   }
 
   public void setZoom(double zoom, PointF focalPoint, long duration) {
@@ -1016,6 +975,8 @@ final class NativeMapView {
 
   private native byte nativeGetMaxZoomLimit();
 
+  private native void nativeSetLatLngBounds(LatLngBounds latLngBounds);
+
   private native void nativeCancelTransitions();
 
   private native void nativeSetGestureInProgress(boolean inProgress);
@@ -1031,12 +992,6 @@ final class NativeMapView {
   private native double nativeGetPitch();
 
   private native void nativeSetPitch(double pitch, long duration);
-
-  private native void nativeScaleBy(double ds, double cx, double cy, long duration);
-
-  private native void nativeSetScale(double scale, double cx, double cy, long duration);
-
-  private native double nativeGetScale();
 
   private native void nativeSetZoom(double zoom, double cx, double cy, long duration);
 
