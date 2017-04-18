@@ -157,7 +157,7 @@ public:
     NSMagnificationGestureRecognizer *_magnificationGestureRecognizer;
     NSRotationGestureRecognizer *_rotationGestureRecognizer;
     NSClickGestureRecognizer *_singleClickRecognizer;
-    double _scaleAtBeginningOfGesture;
+    double _zoomAtBeginningOfGesture;
     CLLocationDirection _directionAtBeginningOfGesture;
     CGFloat _pitchAtBeginningOfGesture;
     BOOL _didHideCursorDuringGesture;
@@ -307,8 +307,11 @@ public:
 }
 
 - (mbgl::Size)size {
-    return { static_cast<uint32_t>(self.bounds.size.width),
-             static_cast<uint32_t>(self.bounds.size.height) };
+    // check for minimum texture size supported by OpenGL ES 2.0
+    //
+    CGSize size = CGSizeMake(MAX(self.bounds.size.width, 64), MAX(self.bounds.size.height, 64));
+    return { static_cast<uint32_t>(size.width),
+             static_cast<uint32_t>(size.height) };
 }
 
 - (mbgl::Size)framebufferSize {
@@ -1034,31 +1037,12 @@ public:
     [self didChangeValueForKey:@"zoomLevel"];
 }
 
-- (void)zoomBy:(double)zoomDelta animated:(BOOL)animated {
-    [self setZoomLevel:round(self.zoomLevel) + zoomDelta animated:animated];
-}
-
-- (void)zoomBy:(double)zoomDelta atPoint:(NSPoint)point animated:(BOOL)animated {
-    [self willChangeValueForKey:@"centerCoordinate"];
-    [self willChangeValueForKey:@"zoomLevel"];
-    double newZoom = round(self.zoomLevel) + zoomDelta;
-    MGLMapCamera *oldCamera = self.camera;
-    mbgl::ScreenCoordinate center(point.x, self.bounds.size.height - point.y);
-    _mbglMap->setZoom(newZoom, center, MGLDurationFromTimeInterval(animated ? MGLAnimationDuration : 0));
-    if ([self.delegate respondsToSelector:@selector(mapView:shouldChangeFromCamera:toCamera:)]
-        && ![self.delegate mapView:self shouldChangeFromCamera:oldCamera toCamera:self.camera]) {
-        self.camera = oldCamera;
-    }
-    [self didChangeValueForKey:@"zoomLevel"];
-    [self didChangeValueForKey:@"centerCoordinate"];
-}
-
-- (void)scaleBy:(double)scaleFactor atPoint:(NSPoint)point animated:(BOOL)animated {
+- (void)setZoomLevel:(double)zoomLevel atPoint:(NSPoint)point animated:(BOOL)animated {
     [self willChangeValueForKey:@"centerCoordinate"];
     [self willChangeValueForKey:@"zoomLevel"];
     MGLMapCamera *oldCamera = self.camera;
     mbgl::ScreenCoordinate center(point.x, self.bounds.size.height - point.y);
-    _mbglMap->scaleBy(scaleFactor, center, MGLDurationFromTimeInterval(animated ? MGLAnimationDuration : 0));
+    _mbglMap->setZoom(zoomLevel, center, MGLDurationFromTimeInterval(animated ? MGLAnimationDuration : 0));
     if ([self.delegate respondsToSelector:@selector(mapView:shouldChangeFromCamera:toCamera:)]
         && ![self.delegate mapView:self shouldChangeFromCamera:oldCamera toCamera:self.camera]) {
         self.camera = oldCamera;
@@ -1399,10 +1383,10 @@ public:
         _mbglMap->cancelTransitions();
 
         if (gestureRecognizer.state == NSGestureRecognizerStateBegan) {
-            _scaleAtBeginningOfGesture = _mbglMap->getScale();
+            _zoomAtBeginningOfGesture = _mbglMap->getZoom();
         } else if (gestureRecognizer.state == NSGestureRecognizerStateChanged) {
-            CGFloat newZoomLevel = log2f(_scaleAtBeginningOfGesture) - delta.y / 75;
-            [self scaleBy:powf(2, newZoomLevel) / _mbglMap->getScale() atPoint:startPoint animated:NO];
+            CGFloat newZoomLevel = _zoomAtBeginningOfGesture - delta.y / 75;
+            [self setZoomLevel:newZoomLevel atPoint:startPoint animated:NO];
         }
     } else if (flags & NSAlternateKeyMask) {
         // Option-drag to rotate and/or tilt.
@@ -1463,7 +1447,7 @@ public:
 
     if (gestureRecognizer.state == NSGestureRecognizerStateBegan) {
         _mbglMap->setGestureInProgress(true);
-        _scaleAtBeginningOfGesture = _mbglMap->getScale();
+        _zoomAtBeginningOfGesture = _mbglMap->getZoom();
     } else if (gestureRecognizer.state == NSGestureRecognizerStateChanged) {
         NSPoint zoomInPoint = [gestureRecognizer locationInView:self];
         mbgl::ScreenCoordinate center(zoomInPoint.x, self.bounds.size.height - zoomInPoint.y);
@@ -1471,7 +1455,7 @@ public:
             [self willChangeValueForKey:@"zoomLevel"];
             [self willChangeValueForKey:@"centerCoordinate"];
             MGLMapCamera *oldCamera = self.camera;
-            _mbglMap->setScale(_scaleAtBeginningOfGesture * (1 + gestureRecognizer.magnification), center);
+            _mbglMap->setZoom(_zoomAtBeginningOfGesture * (1 + gestureRecognizer.magnification), center);
             if ([self.delegate respondsToSelector:@selector(mapView:shouldChangeFromCamera:toCamera:)]
                 && ![self.delegate mapView:self shouldChangeFromCamera:oldCamera toCamera:self.camera]) {
                 self.camera = oldCamera;
@@ -1523,7 +1507,7 @@ public:
     _mbglMap->cancelTransitions();
 
     NSPoint gesturePoint = [gestureRecognizer locationInView:self];
-    [self zoomBy:1 atPoint:gesturePoint animated:YES];
+    [self setZoomLevel:round(self.zoomLevel) + 1 atPoint:gesturePoint animated:YES];
 }
 
 - (void)smartMagnifyWithEvent:(NSEvent *)event {
@@ -1535,7 +1519,7 @@ public:
 
     // Tap with two fingers (“right-click”) to zoom out on mice but not trackpads.
     NSPoint gesturePoint = [self convertPoint:event.locationInWindow fromView:nil];
-    [self zoomBy:-1 atPoint:gesturePoint animated:YES];
+    [self setZoomLevel:round(self.zoomLevel) - 1 atPoint:gesturePoint animated:YES];
 }
 
 /// Rotate fingers to rotate.
@@ -1588,7 +1572,7 @@ public:
                 }
 
                 NSPoint gesturePoint = [self convertPoint:event.locationInWindow fromView:nil];
-                [self scaleBy:scale atPoint:gesturePoint animated:NO];
+                [self setZoomLevel:self.zoomLevel + log2(scale) atPoint:gesturePoint animated:NO];
             }
         }
     } else if (self.scrollEnabled
@@ -1696,13 +1680,13 @@ public:
 
 - (IBAction)moveToBeginningOfParagraph:(__unused id)sender {
     if (self.zoomEnabled) {
-        [self zoomBy:1 animated:YES];
+        [self setZoomLevel:round(self.zoomLevel) + 1 animated:YES];
     }
 }
 
 - (IBAction)moveToEndOfParagraph:(__unused id)sender {
     if (self.zoomEnabled) {
-        [self zoomBy:-1 animated:YES];
+        [self setZoomLevel:round(self.zoomLevel) - 1 animated:YES];
     }
 }
 
@@ -1803,12 +1787,18 @@ public:
 
         for (auto const& annotationTag: annotationTags)
         {
-            if (!_annotationContextsByAnnotationTag.count(annotationTag))
+            if (!_annotationContextsByAnnotationTag.count(annotationTag) ||
+                annotationTag == MGLAnnotationTagNotFound)
             {
                 continue;
             }
+
             MGLAnnotationContext annotationContext = _annotationContextsByAnnotationTag.at(annotationTag);
-            [annotations addObject:annotationContext.annotation];
+            NSAssert(annotationContext.annotation, @"Missing annotation for tag %u.", annotationTag);
+            if (annotationContext.annotation)
+            {
+                [annotations addObject:annotationContext.annotation];
+            }
         }
 
         return [annotations copy];
@@ -1819,11 +1809,12 @@ public:
 
 /// Returns the annotation assigned the given tag. Cheap.
 - (id <MGLAnnotation>)annotationWithTag:(MGLAnnotationTag)tag {
-    if (!_annotationContextsByAnnotationTag.count(tag)) {
+    if ( ! _annotationContextsByAnnotationTag.count(tag) ||
+        tag == MGLAnnotationTagNotFound) {
         return nil;
     }
 
-    MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag[tag];
+    MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag.at(tag);
     return annotationContext.annotation;
 }
 
@@ -2060,8 +2051,8 @@ public:
         // Filter out any annotation whose image is unselectable or for which
         // hit testing fails.
         auto end = std::remove_if(nearbyAnnotations.begin(), nearbyAnnotations.end(), [&](const MGLAnnotationTag annotationTag) {
-            NSAssert(_annotationContextsByAnnotationTag.count(annotationTag) != 0, @"Unknown annotation found nearby click");
             id <MGLAnnotation> annotation = [self annotationWithTag:annotationTag];
+            NSAssert(annotation, @"Unknown annotation found nearby click");
             if (!annotation) {
                 return true;
             }
@@ -2150,9 +2141,11 @@ public:
 }
 
 - (id <MGLAnnotation>)selectedAnnotation {
-    if (!_annotationContextsByAnnotationTag.count(_selectedAnnotationTag)) {
+    if ( ! _annotationContextsByAnnotationTag.count(_selectedAnnotationTag) ||
+        _selectedAnnotationTag == MGLAnnotationTagNotFound) {
         return nil;
     }
+    
     MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag.at(_selectedAnnotationTag);
     return annotationContext.annotation;
 }

@@ -22,6 +22,7 @@
 #include "geometry/projected_meters.hpp"
 #include "style/layers/layers.hpp"
 #include "style/sources/sources.hpp"
+#include "geometry/lat_lng_bounds.hpp"
 
 #include <exception>
 #include <string>
@@ -112,6 +113,8 @@ public:
 
     jni::jbyte getMaxZoomLimit(jni::JNIEnv&);
 
+    void setLatLngBounds(jni::JNIEnv&, jni::Object<mbgl::android::LatLngBounds>);
+
     void cancelTransitions(jni::JNIEnv&);
 
     void setGestureInProgress(jni::JNIEnv&, jni::jboolean);
@@ -135,12 +138,6 @@ public:
     jni::jdouble getPitch(jni::JNIEnv&);
 
     void setPitch(jni::JNIEnv&, jni::jdouble, jni::jlong);
-
-    void scaleBy(jni::JNIEnv&, jni::jdouble, jni::jdouble, jni::jdouble, jni::jlong);
-
-    void setScale(jni::JNIEnv&, jni::jdouble, jni::jdouble, jni::jdouble, jni::jlong);
-
-    jni::jdouble getScale(jni::JNIEnv&);
 
     void setZoom(jni::JNIEnv&, jni::jdouble, jni::jdouble, jni::jdouble, jni::jlong);
 
@@ -289,6 +286,7 @@ private:
     void updateFps();
 
 private:
+    void recalculateSourceTileCacheSize();
 
     JavaVM *vm = nullptr;
     jni::UniqueWeakObject<NativeMapView> javaPeer;
@@ -317,10 +315,12 @@ private:
     bool firstRender = true;
     double fps = 0.0;
 
-    int width = 0;
-    int height = 0;
-    int fbWidth = 0;
-    int fbHeight = 0;
+    // Minimum texture size according to OpenGL ES 2.0 specification.
+    int width = 64;
+    int height = 64;
+    int fbWidth = 64;
+    int fbHeight = 64;
+
     bool framebufferSizeChanged = true;
 
     int availableProcessors = 0;
