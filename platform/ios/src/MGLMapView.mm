@@ -54,6 +54,7 @@
 #import "MGLUserLocation_Private.h"
 #import "MGLAnnotationImage_Private.h"
 #import "MGLAnnotationView_Private.h"
+#import "MGLScaleBar.h"
 #import "MGLStyle_Private.h"
 #import "MGLStyleLayer_Private.h"
 #import "MGLMapboxEvents.h"
@@ -221,25 +222,26 @@ public:
 @interface MGLMapView () <UIGestureRecognizerDelegate,
                           GLKViewDelegate,
                           CLLocationManagerDelegate,
-                          UIActionSheetDelegate,
                           SMCalloutViewDelegate,
                           MGLCalloutViewDelegate,
-                          UIAlertViewDelegate,
                           MGLMultiPointDelegate,
                           MGLAnnotationImageDelegate>
 
 @property (nonatomic) EAGLContext *context;
 @property (nonatomic) GLKView *glView;
 @property (nonatomic) UIImageView *glSnapshotView;
+@property (nonatomic, readwrite) MGLScaleBar *scaleBar;
+@property (nonatomic) NS_MUTABLE_ARRAY_OF(NSLayoutConstraint *) *scaleBarConstraints;
 @property (nonatomic, readwrite) UIImageView *compassView;
 @property (nonatomic) NS_MUTABLE_ARRAY_OF(NSLayoutConstraint *) *compassViewConstraints;
 @property (nonatomic, readwrite) UIImageView *logoView;
 @property (nonatomic) NS_MUTABLE_ARRAY_OF(NSLayoutConstraint *) *logoViewConstraints;
 @property (nonatomic, readwrite) UIButton *attributionButton;
 @property (nonatomic) NS_MUTABLE_ARRAY_OF(NSLayoutConstraint *) *attributionButtonConstraints;
-@property (nonatomic) UIActionSheet *attributionSheet;
 @property (nonatomic, readwrite) MGLStyle *style;
 @property (nonatomic) UITapGestureRecognizer *singleTapGestureRecognizer;
+@property (nonatomic) UITapGestureRecognizer *doubleTap;
+@property (nonatomic) UITapGestureRecognizer *twoFingerTap;
 @property (nonatomic) UIPanGestureRecognizer *pan;
 @property (nonatomic) UIPinchGestureRecognizer *pinch;
 @property (nonatomic) UIRotationGestureRecognizer *rotate;
@@ -312,8 +314,6 @@ public:
     BOOL _delegateHasLineWidthsForShapeAnnotations;
 
     MGLCompassDirectionFormatter *_accessibilityCompassFormatter;
-
-    NS_ARRAY_OF(MGLAttributionInfo *) *_attributionInfos;
 
     MGLReachability *_reachability;
 }
@@ -496,7 +496,14 @@ public:
     _compassView.translatesAutoresizingMaskIntoConstraints = NO;
     [self addSubview:_compassView];
     _compassViewConstraints = [NSMutableArray array];
-
+    
+    // setup scale control
+    //
+    _scaleBar = [[MGLScaleBar alloc] init];
+    _scaleBar.translatesAutoresizingMaskIntoConstraints = NO;
+    [self addSubview:_scaleBar];
+    _scaleBarConstraints = [NSMutableArray array];
+    
     // setup interaction
     //
     _pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePanGesture:)];
@@ -515,26 +522,26 @@ public:
     [self addGestureRecognizer:_rotate];
     _rotateEnabled = YES;
 
-    UITapGestureRecognizer *doubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleDoubleTapGesture:)];
-    doubleTap.numberOfTapsRequired = 2;
-    [self addGestureRecognizer:doubleTap];
+    _doubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleDoubleTapGesture:)];
+    _doubleTap.numberOfTapsRequired = 2;
+    [self addGestureRecognizer:_doubleTap];
 
     _singleTapGestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleSingleTapGesture:)];
-    [_singleTapGestureRecognizer requireGestureRecognizerToFail:doubleTap];
+    [_singleTapGestureRecognizer requireGestureRecognizerToFail:_doubleTap];
     _singleTapGestureRecognizer.delegate = self;
     [self addGestureRecognizer:_singleTapGestureRecognizer];
 
-    UITapGestureRecognizer *twoFingerTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTwoFingerTapGesture:)];
-    twoFingerTap.numberOfTouchesRequired = 2;
-    [twoFingerTap requireGestureRecognizerToFail:_pinch];
-    [twoFingerTap requireGestureRecognizerToFail:_rotate];
-    [self addGestureRecognizer:twoFingerTap];
+    _twoFingerTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTwoFingerTapGesture:)];
+    _twoFingerTap.numberOfTouchesRequired = 2;
+    [_twoFingerTap requireGestureRecognizerToFail:_pinch];
+    [_twoFingerTap requireGestureRecognizerToFail:_rotate];
+    [self addGestureRecognizer:_twoFingerTap];
 
     _twoFingerDrag = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handleTwoFingerDragGesture:)];
     _twoFingerDrag.minimumNumberOfTouches = 2;
     _twoFingerDrag.maximumNumberOfTouches = 2;
     _twoFingerDrag.delegate = self;
-    [_twoFingerDrag requireGestureRecognizerToFail:twoFingerTap];
+    [_twoFingerDrag requireGestureRecognizerToFail:_twoFingerTap];
     [_twoFingerDrag requireGestureRecognizerToFail:_pan];
     [self addGestureRecognizer:_twoFingerDrag];
     _pitchEnabled = YES;
@@ -544,7 +551,7 @@ public:
     _quickZoom = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleQuickZoomGesture:)];
     _quickZoom.numberOfTapsRequired = 1;
     _quickZoom.minimumPressDuration = 0;
-    [_quickZoom requireGestureRecognizerToFail:doubleTap];
+    [_quickZoom requireGestureRecognizerToFail:_doubleTap];
     [self addGestureRecognizer:_quickZoom];
 
     // observe app activity
@@ -576,8 +583,11 @@ public:
 
 - (mbgl::Size)size
 {
-    return { static_cast<uint32_t>(self.bounds.size.width),
-             static_cast<uint32_t>(self.bounds.size.height) };
+    // check for minimum texture size supported by OpenGL ES 2.0
+    //
+    CGSize size = CGSizeMake(MAX(self.bounds.size.width, 64), MAX(self.bounds.size.height, 64));
+    return { static_cast<uint32_t>(size.width),
+             static_cast<uint32_t>(size.height) };
 }
 
 - (mbgl::Size)framebufferSize
@@ -774,6 +784,31 @@ public:
 
 - (void)updateConstraints
 {
+    // scale control
+    //
+    [self removeConstraints:self.scaleBarConstraints];
+    [self.scaleBarConstraints removeAllObjects];
+    
+    [self.scaleBarConstraints addObject:
+     [NSLayoutConstraint constraintWithItem:self.scaleBar
+                                  attribute:NSLayoutAttributeTop
+                                  relatedBy:NSLayoutRelationEqual
+                                     toItem:self
+                                  attribute:NSLayoutAttributeTop
+                                 multiplier:1
+                                   constant:5+self.contentInset.top]];
+    
+    [self.scaleBarConstraints addObject:
+     [NSLayoutConstraint constraintWithItem:self.scaleBar
+                                  attribute:NSLayoutAttributeLeading
+                                  relatedBy:NSLayoutRelationEqual
+                                     toItem:self
+                                  attribute:NSLayoutAttributeLeading
+                                 multiplier:1
+                                   constant:8 + self.contentInset.left]];
+    
+    [self addConstraints:self.scaleBarConstraints];
+    
     // compass
     //
     [self removeConstraints:self.compassViewConstraints];
@@ -883,11 +918,6 @@ public:
 
     if (!_isTargetingInterfaceBuilder) {
         _mbglMap->setSize([self size]);
-    }
-
-    if (self.attributionSheet.visible)
-    {
-        [self.attributionSheet dismissWithClickedButtonIndex:self.attributionSheet.cancelButtonIndex animated:YES];
     }
 
     if (self.compassView.alpha)
@@ -1269,7 +1299,7 @@ public:
     {
         [self trackGestureEvent:MGLEventGesturePinchStart forRecognizer:pinch];
 
-        self.scale = _mbglMap->getScale();
+        self.scale = powf(2, _mbglMap->getZoom());
 
         [self notifyGestureDidBegin];
     }
@@ -1285,7 +1315,7 @@ public:
         if (![self.delegate respondsToSelector:@selector(mapView:shouldChangeFromCamera:toCamera:)] ||
             [self.delegate mapView:self shouldChangeFromCamera:oldCamera toCamera:toCamera])
         {
-            _mbglMap->setScale(newScale, mbgl::ScreenCoordinate { centerPoint.x, centerPoint.y });
+            _mbglMap->setZoom(zoom, mbgl::ScreenCoordinate { centerPoint.x, centerPoint.y });
         }
         // The gesture recognizer only reports the gesture’s current center
         // point, so use the previous center point to anchor the transition.
@@ -1343,7 +1373,7 @@ public:
         } else {
             if (drift)
             {
-                _mbglMap->setScale(newScale, mbgl::ScreenCoordinate { centerPoint.x, centerPoint.y }, MGLDurationFromTimeInterval(duration));
+                _mbglMap->setZoom(zoom, mbgl::ScreenCoordinate { centerPoint.x, centerPoint.y }, MGLDurationFromTimeInterval(duration));
             }
         }
 
@@ -1451,7 +1481,9 @@ public:
         }
         else
         {
-            nextElement = _annotationContextsByAnnotationTag[_selectedAnnotationTag].accessibilityElement;
+            if (_selectedAnnotationTag != MGLAnnotationTagNotFound) {
+                nextElement = _annotationContextsByAnnotationTag.at(_selectedAnnotationTag).accessibilityElement;
+            }
         }
         [self deselectAnnotation:self.selectedAnnotation animated:YES];
         UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification, nextElement);
@@ -1567,6 +1599,8 @@ public:
              {
                  [weakSelf unrotateIfNeededForGesture];
              }];
+        } else {
+            [self unrotateIfNeededForGesture];
         }
     }
 }
@@ -1619,7 +1653,7 @@ public:
     {
         [self trackGestureEvent:MGLEventGestureQuickZoom forRecognizer:quickZoom];
 
-        self.scale = _mbglMap->getScale();
+        self.scale = powf(2, _mbglMap->getZoom());
 
         self.quickZoomStart = [quickZoom locationInView:quickZoom.view].y;
 
@@ -1636,18 +1670,12 @@ public:
         CGPoint centerPoint = [self anchorPointForGesture:quickZoom];
         
         MGLMapCamera *oldCamera = self.camera;
-        
-        double zoom = self.zoomLevel;
-        double scale = powf(2, newZoom) / _mbglMap->getScale();
-        
-        double estimatedZoom = zoom * scale;
-        
-        MGLMapCamera *toCamera = [self cameraByZoomingToZoomLevel:estimatedZoom aroundAnchorPoint:centerPoint];
+        MGLMapCamera *toCamera = [self cameraByZoomingToZoomLevel:newZoom aroundAnchorPoint:centerPoint];
         
         if (![self.delegate respondsToSelector:@selector(mapView:shouldChangeFromCamera:toCamera:)] ||
             [self.delegate mapView:self shouldChangeFromCamera:oldCamera toCamera:toCamera])
         {
-            _mbglMap->scaleBy(scale, mbgl::ScreenCoordinate { centerPoint.x, centerPoint.y });
+            _mbglMap->setZoom(newZoom, mbgl::ScreenCoordinate { centerPoint.x, centerPoint.y });
         }
 
         [self cameraIsChanging];
@@ -1870,82 +1898,108 @@ public:
 
 - (void)showAttribution
 {
-    self.attributionSheet = [[UIActionSheet alloc] initWithTitle:NSLocalizedStringWithDefaultValue(@"SDK_NAME", nil, nil, @"Mapbox iOS SDK", @"Action sheet title")
-                                                        delegate:self
-                                               cancelButtonTitle:NSLocalizedStringWithDefaultValue(@"CANCEL", nil, nil, @"Cancel", @"")
-                                          destructiveButtonTitle:nil
-                                               otherButtonTitles:nil];
-
-    _attributionInfos = [self.style attributionInfosWithFontSize:[UIFont buttonFontSize] linkColor:nil];
-    for (MGLAttributionInfo *info in _attributionInfos)
+    NSString *title = NSLocalizedStringWithDefaultValue(@"SDK_NAME", nil, nil, @"Mapbox iOS SDK", @"Action sheet title");
+    UIAlertController *attributionController = [UIAlertController alertControllerWithTitle:title
+                                                                                   message:nil
+                                                                            preferredStyle:UIAlertControllerStyleActionSheet];
+    
+    NSArray *attributionInfos = [self.style attributionInfosWithFontSize:[UIFont buttonFontSize]
+                                                               linkColor:nil];
+    for (MGLAttributionInfo *info in attributionInfos)
     {
         NSString *title = [info.title.string mgl_titleCasedStringWithLocale:[NSLocale currentLocale]];
-        [self.attributionSheet addButtonWithTitle:title];
-    }
-
-    [self.attributionSheet addButtonWithTitle:NSLocalizedStringWithDefaultValue(@"TELEMETRY_NAME", nil, nil, @"Mapbox Telemetry", @"Action in attribution sheet")];
-
-    [self.attributionSheet showFromRect:self.attributionButton.frame inView:self animated:YES];
-}
-
-- (void)actionSheet:(UIActionSheet *)actionSheet didDismissWithButtonIndex:(NSInteger)buttonIndex
-{
-    if (buttonIndex == actionSheet.numberOfButtons - 1)
-    {
-        NSString *message;
-        NSString *participate;
-        NSString *optOut;
-
-        if ([[NSUserDefaults standardUserDefaults] boolForKey:@"MGLMapboxMetricsEnabled"])
-        {
-            message = NSLocalizedStringWithDefaultValue(@"TELEMETRY_ENABLED_MSG", nil, nil, @"You are helping to make OpenStreetMap and Mapbox maps better by contributing anonymous usage data.", @"Telemetry prompt message");
-            participate = NSLocalizedStringWithDefaultValue(@"TELEMETRY_ENABLED_ON", nil, nil, @"Keep Participating", @"Telemetry prompt button");
-            optOut = NSLocalizedStringWithDefaultValue(@"TELEMETRY_ENABLED_OFF", nil, nil, @"Stop Participating", @"Telemetry prompt button");
-        }
-        else
-        {
-            message = NSLocalizedStringWithDefaultValue(@"TELEMETRY_DISABLED_MSG", nil, nil, @"You can help make OpenStreetMap and Mapbox maps better by contributing anonymous usage data.", @"Telemetry prompt message");
-            participate = NSLocalizedStringWithDefaultValue(@"TELEMETRY_DISABLED_ON", nil, nil, @"Participate", @"Telemetry prompt button");
-            optOut = NSLocalizedStringWithDefaultValue(@"TELEMETRY_DISABLED_OFF", nil, nil, @"Don’t Participate", @"Telemetry prompt button");
-        }
-
-        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringWithDefaultValue(@"TELEMETRY_TITLE", nil, nil, @"Make Mapbox Maps Better", @"Telemetry prompt title")
-                                                        message:message
-                                                       delegate:self
-                                              cancelButtonTitle:participate
-                                              otherButtonTitles:NSLocalizedStringWithDefaultValue(@"TELEMETRY_MORE", nil, nil, @"Tell Me More", @"Telemetry prompt button"), optOut, nil];
-        [alert show];
-    }
-    else if (buttonIndex > 0)
-    {
-        MGLAttributionInfo *info = _attributionInfos[buttonIndex + actionSheet.firstOtherButtonIndex];
-        NSURL *url = info.URL;
-        if (url)
-        {
-            if (info.feedbackLink)
+        UIAlertAction *action = [UIAlertAction actionWithTitle:title
+                                                         style:UIAlertActionStyleDefault
+                                                       handler:^(UIAlertAction * _Nonnull action) {
+            NSURL *url = info.URL;
+            if (url)
             {
-                url = [info feedbackURLAtCenterCoordinate:self.centerCoordinate zoomLevel:self.zoomLevel];
+                if (info.feedbackLink)
+                {
+                    url = [info feedbackURLAtCenterCoordinate:self.centerCoordinate
+                                                    zoomLevel:self.zoomLevel];
+                }
+                [[UIApplication sharedApplication] openURL:url];
             }
-            [[UIApplication sharedApplication] openURL:url];
-        }
+        }];
+        [attributionController addAction:action];
     }
+    
+    NSString *telemetryTitle = NSLocalizedStringWithDefaultValue(@"TELEMETRY_NAME", nil, nil, @"Mapbox Telemetry", @"Action in attribution sheet");
+    UIAlertAction *telemetryAction = [UIAlertAction actionWithTitle:telemetryTitle
+                                                              style:UIAlertActionStyleDefault
+                                                            handler:^(UIAlertAction * _Nonnull action) {
+        [self presentTelemetryAlertController];
+    }];
+    [attributionController addAction:telemetryAction];
+    
+    NSString *cancelTitle = NSLocalizedStringWithDefaultValue(@"CANCEL", nil, nil, @"Cancel", @"");
+    UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:cancelTitle
+                                                           style:UIAlertActionStyleCancel
+                                                         handler:NULL];
+    [attributionController addAction:cancelAction];
+    
+    attributionController.popoverPresentationController.sourceView = self;
+    attributionController.popoverPresentationController.sourceRect = self.attributionButton.frame;
+    
+    UIViewController *viewController = self.window.rootViewController;
+    if ([viewController isKindOfClass:[UINavigationController class]]) {
+        viewController = [(UINavigationController *)viewController viewControllers].firstObject;
+    }
+    [viewController presentViewController:attributionController
+                                 animated:YES
+                               completion:NULL];
 }
 
-- (void)alertView:(UIAlertView *)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex
+- (void)presentTelemetryAlertController
 {
-    if (buttonIndex == alertView.cancelButtonIndex)
+    NSString *title = NSLocalizedStringWithDefaultValue(@"TELEMETRY_TITLE", nil, nil, @"Make Mapbox Maps Better", @"Telemetry prompt title");
+    NSString *message;
+    NSString *participateTitle;
+    NSString *declineTitle;
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"MGLMapboxMetricsEnabled"])
     {
-        [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"MGLMapboxMetricsEnabled"];
+        message = NSLocalizedStringWithDefaultValue(@"TELEMETRY_ENABLED_MSG", nil, nil, @"You are helping to make OpenStreetMap and Mapbox maps better by contributing anonymous usage data.", @"Telemetry prompt message");
+        participateTitle = NSLocalizedStringWithDefaultValue(@"TELEMETRY_ENABLED_ON", nil, nil, @"Keep Participating", @"Telemetry prompt button");
+        declineTitle = NSLocalizedStringWithDefaultValue(@"TELEMETRY_ENABLED_OFF", nil, nil, @"Stop Participating", @"Telemetry prompt button");
     }
-    else if (buttonIndex == alertView.firstOtherButtonIndex)
+    else
     {
+        message = NSLocalizedStringWithDefaultValue(@"TELEMETRY_DISABLED_MSG", nil, nil, @"You can help make OpenStreetMap and Mapbox maps better by contributing anonymous usage data.", @"Telemetry prompt message");
+        participateTitle = NSLocalizedStringWithDefaultValue(@"TELEMETRY_DISABLED_ON", nil, nil, @"Participate", @"Telemetry prompt button");
+        declineTitle = NSLocalizedStringWithDefaultValue(@"TELEMETRY_DISABLED_OFF", nil, nil, @"Don’t Participate", @"Telemetry prompt button");
+    }
+    
+    UIAlertController *alertController = [UIAlertController alertControllerWithTitle:title
+                                                                             message:message
+                                                                      preferredStyle:UIAlertControllerStyleAlert];
+    
+    NSString *moreTitle = NSLocalizedStringWithDefaultValue(@"TELEMETRY_MORE", nil, nil, @"Tell Me More", @"Telemetry prompt button");
+    UIAlertAction *moreAction = [UIAlertAction actionWithTitle:moreTitle
+                                                         style:UIAlertActionStyleDefault
+                                                       handler:^(UIAlertAction * _Nonnull action) {
         [[UIApplication sharedApplication] openURL:
          [NSURL URLWithString:@"https://www.mapbox.com/telemetry/"]];
-    }
-    else if (buttonIndex == alertView.firstOtherButtonIndex + 1)
-    {
+    }];
+    [alertController addAction:moreAction];
+    
+    UIAlertAction *declineAction = [UIAlertAction actionWithTitle:declineTitle
+                                                            style:UIAlertActionStyleDefault
+                                                          handler:^(UIAlertAction * _Nonnull action) {
         [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"MGLMapboxMetricsEnabled"];
-    }
+    }];
+    [alertController addAction:declineAction];
+    
+    UIAlertAction *participateAction = [UIAlertAction actionWithTitle:participateTitle
+                                                                style:UIAlertActionStyleCancel
+                                                              handler:^(UIAlertAction * _Nonnull action) {
+        [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"MGLMapboxMetricsEnabled"];
+    }];
+    [alertController addAction:participateAction];
+    
+    [self.window.rootViewController presentViewController:alertController
+                                                 animated:YES
+                                               completion:NULL];
 }
 
 #pragma mark - Properties -
@@ -1975,19 +2029,21 @@ public:
         {
             const mbgl::Point<double> point = MGLPointFromLocationCoordinate2D(annotation.coordinate);
 
-            MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag.at(annotationTag);
-            if (annotationContext.annotationView)
-            {
-                // Redundantly move the associated annotation view outside the scope of the animation-less transaction block in -updateAnnotationViews.
-                annotationContext.annotationView.center = [self convertCoordinate:annotationContext.annotation.coordinate toPointToView:self];
+            if (annotationTag != MGLAnnotationTagNotFound) {
+                MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag.at(annotationTag);
+                if (annotationContext.annotationView)
+                {
+                    // Redundantly move the associated annotation view outside the scope of the animation-less transaction block in -updateAnnotationViews.
+                    annotationContext.annotationView.center = [self convertCoordinate:annotationContext.annotation.coordinate toPointToView:self];
+                }
+
+                MGLAnnotationImage *annotationImage = [self imageOfAnnotationWithTag:annotationTag];
+                NSString *symbolName = annotationImage.styleIconIdentifier;
+
+                // Update the annotation’s backing geometry to match the annotation model object. Any associated annotation view is also moved by side effect. However, -updateAnnotationViews disables the view’s animation actions, because it can’t distinguish between moves due to the viewport changing and moves due to the annotation’s coordinate changing.
+                _mbglMap->updateAnnotation(annotationTag, mbgl::SymbolAnnotation { point, symbolName.UTF8String });
+                [self updateCalloutView];
             }
-
-            MGLAnnotationImage *annotationImage = [self imageOfAnnotationWithTag:annotationTag];
-            NSString *symbolName = annotationImage.styleIconIdentifier;
-
-            // Update the annotation’s backing geometry to match the annotation model object. Any associated annotation view is also moved by side effect. However, -updateAnnotationViews disables the view’s animation actions, because it can’t distinguish between moves due to the viewport changing and moves due to the annotation’s coordinate changing.
-            _mbglMap->updateAnnotation(annotationTag, mbgl::SymbolAnnotation { point, symbolName.UTF8String });
-            [self updateCalloutView];
         }
     }
     else if ([keyPath isEqualToString:@"coordinates"] && [object isKindOfClass:[MGLMultiPoint class]])
@@ -2123,6 +2179,33 @@ public:
 - (void)emptyMemoryCache
 {
     _mbglMap->onLowMemory();
+}
+
+- (void)setZoomEnabled:(BOOL)zoomEnabled
+{
+    _zoomEnabled = zoomEnabled;
+    self.pinch.enabled = zoomEnabled;
+    self.doubleTap.enabled = zoomEnabled;
+    self.quickZoom.enabled = zoomEnabled;
+    self.twoFingerTap.enabled = zoomEnabled;
+}
+
+- (void)setScrollEnabled:(BOOL)scrollEnabled
+{
+    _scrollEnabled = scrollEnabled;
+    self.pan.enabled = scrollEnabled;
+}
+
+- (void)setRotateEnabled:(BOOL)rotateEnabled
+{
+    _rotateEnabled = rotateEnabled;
+    self.rotate.enabled = rotateEnabled;
+}
+
+- (void)setPitchEnabled:(BOOL)pitchEnabled
+{
+    _pitchEnabled = pitchEnabled;
+    self.twoFingerDrag.enabled = pitchEnabled;
 }
 
 #pragma mark - Accessibility -
@@ -2355,7 +2438,7 @@ public:
     {
         centerPoint = self.userLocationAnnotationViewCenter;
     }
-    _mbglMap->scaleBy(scaleFactor, mbgl::ScreenCoordinate { centerPoint.x, centerPoint.y });
+    _mbglMap->setZoom(_mbglMap->getZoom() + log2(scaleFactor), mbgl::ScreenCoordinate { centerPoint.x, centerPoint.y });
     [self unrotateIfNeededForGesture];
 
     UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, self.accessibilityValue);
@@ -3036,12 +3119,18 @@ public:
 
         for (auto const& annotationTag: annotationTags)
         {
-            if (!_annotationContextsByAnnotationTag.count(annotationTag))
+            if (!_annotationContextsByAnnotationTag.count(annotationTag) ||
+                annotationTag == MGLAnnotationTagNotFound)
             {
                 continue;
             }
+
             MGLAnnotationContext annotationContext = _annotationContextsByAnnotationTag.at(annotationTag);
-            [annotations addObject:annotationContext.annotation];
+            NSAssert(annotationContext.annotation, @"Missing annotation for tag %u.", annotationTag);
+            if (annotationContext.annotation)
+            {
+                [annotations addObject:annotationContext.annotation];
+            }
         }
 
         return [annotations copy];
@@ -3053,12 +3142,12 @@ public:
 /// Returns the annotation assigned the given tag. Cheap.
 - (id <MGLAnnotation>)annotationWithTag:(MGLAnnotationTag)tag
 {
-    if ( ! _annotationContextsByAnnotationTag.count(tag))
-    {
+    if ( ! _annotationContextsByAnnotationTag.count(tag) ||
+        tag == MGLAnnotationTagNotFound) {
         return nil;
     }
 
-    MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag[tag];
+    MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag.at(tag);
     return annotationContext.annotation;
 }
 
@@ -3528,8 +3617,12 @@ public:
         {
             id <MGLAnnotation> annotation = [self annotationWithTag:annotationTag];
             NSAssert(annotation, @"Unknown annotation found nearby tap");
+            if ( ! annotation)
+            {
+                return true;
+            }
 
-            MGLAnnotationContext annotationContext = _annotationContextsByAnnotationTag[annotationTag];
+            MGLAnnotationContext annotationContext = _annotationContextsByAnnotationTag.at(annotationTag);
             CGRect annotationRect;
 
             MGLAnnotationView *annotationView = annotationContext.annotationView;
@@ -3652,10 +3745,12 @@ public:
     {
         return self.userLocation;
     }
-    if ( ! _annotationContextsByAnnotationTag.count(_selectedAnnotationTag))
-    {
+
+    if ( ! _annotationContextsByAnnotationTag.count(_selectedAnnotationTag) ||
+        _selectedAnnotationTag == MGLAnnotationTagNotFound) {
         return nil;
     }
+
     MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag.at(_selectedAnnotationTag);
     return annotationContext.annotation;
 }
@@ -3721,19 +3816,16 @@ public:
     MGLAnnotationView *annotationView = nil;
 
     if (annotation != self.userLocation)
-    {
-        MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag.at(annotationTag);
-
-        annotationView = annotationContext.annotationView;
-
-        if (annotationView && annotationView.enabled)
-        {
-            // Annotations represented by views use the view frame as the positioning rect.
-            positioningRect = annotationView.frame;
-
-            [annotationView.superview bringSubviewToFront:annotationView];
-
-            [annotationView setSelected:YES animated:animated];
+        if (annotationTag != MGLAnnotationTagNotFound) {
+            MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag.at(annotationTag);
+            annotationView = annotationContext.annotationView;
+            if (annotationView && annotationView.enabled) {
+            {
+                // Annotations represented by views use the view frame as the positioning rect.
+                positioningRect = annotationView.frame;
+                [annotationView.superview bringSubviewToFront:annotationView];
+                [annotationView setSelected:YES animated:animated];
+            }
         }
     }
 
@@ -3755,7 +3847,14 @@ public:
         UIView <MGLCalloutView> *calloutView;
         if ([self.delegate respondsToSelector:@selector(mapView:calloutViewForAnnotation:)])
         {
-            calloutView = [self.delegate mapView:self calloutViewForAnnotation:annotation];
+            id providedCalloutView = [self.delegate mapView:self calloutViewForAnnotation:annotation];
+            if (providedCalloutView) {
+                if (![providedCalloutView isKindOfClass:[UIView class]]) {
+                    [NSException raise:NSInvalidArgumentException format:@"Callout view must be a kind of UIView"];
+                }
+                NSAssert([providedCalloutView conformsToProtocol:@protocol(MGLCalloutView)], @"callout view must conform to MGLCalloutView");
+                calloutView = providedCalloutView;
+            }
         }
         if (!calloutView)
         {
@@ -3836,8 +3935,6 @@ public:
 /// and is appropriate for positioning a popover.
 - (CGRect)positioningRectForCalloutForAnnotationWithTag:(MGLAnnotationTag)annotationTag
 {
-    MGLAnnotationContext annotationContext = _annotationContextsByAnnotationTag[annotationTag];
-
     id <MGLAnnotation> annotation = [self annotationWithTag:annotationTag];
     if ( ! annotation)
     {
@@ -4490,8 +4587,8 @@ public:
             mbgl::LatLng targetLatLng = MGLLatLngFromLocationCoordinate2D(self.targetCoordinate);
             mbgl::ProjectedMeters userMeters = mbgl::Projection::projectedMetersForLatLng(userLatLng);
             mbgl::ProjectedMeters targetMeters = mbgl::Projection::projectedMetersForLatLng(targetLatLng);
-            double angle = atan2(targetMeters.easting - userMeters.easting,
-                                 targetMeters.northing - userMeters.northing);
+            double angle = atan2(targetMeters.easting() - userMeters.easting(),
+                                 targetMeters.northing() - userMeters.northing());
             direction = mbgl::util::wrap(MGLDegreesFromRadians(angle), 0., 360.);
         }
         else
@@ -4760,7 +4857,11 @@ public:
     }
 
     [self updateCompass];
-
+    
+    if (!self.scaleBar.hidden) {
+        [(MGLScaleBar *)self.scaleBar setMetersPerPoint:[self metersPerPointAtLatitude:self.centerCoordinate.latitude]];
+    }
+    
     if ([self.delegate respondsToSelector:@selector(mapViewRegionIsChanging:)])
     {
         [self.delegate mapViewRegionIsChanging:self];
@@ -4980,6 +5081,9 @@ public:
             }
             else
             {
+                if (annotationView.layer.animationKeys.count > 0) {
+                    continue;
+                }
                 CGRect adjustedFrame = annotationView.frame;
                 if (annotationView.layer.presentationLayer) {
                     adjustedFrame.origin.x = -CGRectGetWidth(annotationView.layer.presentationLayer.frame) * 10.0;
@@ -5009,8 +5113,12 @@ public:
     if (isAnchoredToAnnotation)
     {
         MGLAnnotationTag tag = [self annotationTagForAnnotation:annotation];
-        MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag.at(tag);
-        MGLAnnotationView *annotationView = annotationContext.annotationView;
+        MGLAnnotationView *annotationView = nil;
+
+        if (tag != MGLAnnotationTagNotFound) {
+            MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationTag.at(tag);
+            annotationView = annotationContext.annotationView;
+        }
 
         CGRect rect = [self positioningRectForCalloutForAnnotationWithTag:tag];
 
