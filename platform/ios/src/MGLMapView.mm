@@ -31,6 +31,7 @@
 #include <mbgl/util/run_loop.hpp>
 #include <mbgl/util/shared_thread_pool.hpp>
 #include <mbgl/util/string.hpp>
+#include <mbgl/util/projection.hpp>
 
 #import "Mapbox.h"
 #import "MGLFeature_Private.h"
@@ -1163,6 +1164,9 @@ public:
 
 - (void)updateTintColorForView:(UIView *)view
 {
+    // stop at recursing container & annotation views (#8522)
+    if ([view isEqual:self.annotationContainerView]) return;
+
     if ([view respondsToSelector:@selector(setTintColor:)]) view.tintColor = self.tintColor;
 
     for (UIView *subview in view.subviews) [self updateTintColorForView:subview];
@@ -3009,7 +3013,7 @@ public:
 
 - (CLLocationDistance)metersPerPointAtLatitude:(CLLocationDegrees)latitude
 {
-    return _mbglMap->getMetersPerPixelAtLatitude(latitude, self.zoomLevel);
+    return mbgl::Projection::getMetersPerPixelAtLatitude(latitude, self.zoomLevel);
 }
 
 - (CLLocationDistance)metersPerPixelAtLatitude:(CLLocationDegrees)latitude
