@@ -458,8 +458,7 @@ public class MyLocationView extends View {
 
   public void setMyBearingTrackingMode(@MyBearingTracking.Mode int myBearingTrackingMode) {
     this.myBearingTrackingMode = myBearingTrackingMode;
-    if (myBearingTrackingMode == MyBearingTracking.COMPASS
-            && compassListener.isSensorAvailable()) {
+    if (compassListener.isSensorAvailable()) {
       compassListener.onResume();
     } else {
       compassListener.onPause();
