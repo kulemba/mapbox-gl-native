@@ -36,7 +36,6 @@ import com.mapbox.mapboxsdk.maps.widgets.CompassView;
 import com.mapbox.mapboxsdk.maps.widgets.MyLocationView;
 import com.mapbox.mapboxsdk.maps.widgets.MyLocationViewSettings;
 import com.mapbox.mapboxsdk.net.ConnectivityReceiver;
-import com.mapbox.services.android.telemetry.MapboxEvent;
 import com.mapbox.services.android.telemetry.MapboxTelemetry;
 
 import java.lang.annotation.Retention;
@@ -62,6 +61,7 @@ import java.util.List;
 public class MapView extends FrameLayout {
 
   private NativeMapView nativeMapView;
+  private boolean textureMode;
   private boolean destroyed;
   private boolean hasSurface;
 
@@ -105,12 +105,14 @@ public class MapView extends FrameLayout {
       return;
     }
 
+    // determine render surface
+    textureMode = options.getTextureMode();
+
     // inflate view
     View view = LayoutInflater.from(context).inflate(R.layout.mapbox_mapview_internal, this);
     CompassView compassView = (CompassView) view.findViewById(R.id.compassView);
     MyLocationView myLocationView = (MyLocationView) view.findViewById(R.id.userLocationView);
     ImageView attrView = (ImageView) view.findViewById(R.id.attributionView);
-    initalizeDrawingSurface(context, options);
 
     // add accessibility support
     setContentDescription(context.getString(R.string.mapbox_mapActionDescription));
@@ -167,18 +169,6 @@ public class MapView extends FrameLayout {
     mapboxMap.initialise(context, options);
   }
 
-  private void initalizeDrawingSurface(Context context, MapboxMapOptions options) {
-    if (options.getTextureMode()) {
-      TextureView textureView = new TextureView(context);
-      textureView.setSurfaceTextureListener(new SurfaceTextureListener());
-      addView(textureView, 0);
-    } else {
-      SurfaceView surfaceView = (SurfaceView) findViewById(R.id.surfaceView);
-      surfaceView.getHolder().addCallback(new SurfaceCallback());
-      surfaceView.setVisibility(View.VISIBLE);
-    }
-  }
-
   //
   // Lifecycle events
   //
@@ -197,16 +187,27 @@ public class MapView extends FrameLayout {
   @UiThread
   public void onCreate(@Nullable Bundle savedInstanceState) {
     if (savedInstanceState == null) {
-      MapboxTelemetry.getInstance().pushEvent(MapboxEvent.buildMapLoadEvent());
+      MapboxTelemetry.getInstance().pushEvent(MapboxEventWrapper.buildMapLoadEvent());
     } else if (savedInstanceState.getBoolean(MapboxConstants.STATE_HAS_SAVED_STATE)) {
       mapboxMap.onRestoreInstanceState(savedInstanceState);
     }
 
-    // Initialize EGL
+    initialiseDrawingSurface(textureMode);
+    addOnMapChangedListener(mapCallback = new MapCallback(mapboxMap));
+  }
+
+  private void initialiseDrawingSurface(boolean textureMode) {
     nativeMapView.initializeDisplay();
     nativeMapView.initializeContext();
-
-    addOnMapChangedListener(mapCallback = new MapCallback(mapboxMap));
+    if (textureMode) {
+      TextureView textureView = new TextureView(getContext());
+      textureView.setSurfaceTextureListener(new SurfaceTextureListener());
+      addView(textureView, 0);
+    } else {
+      SurfaceView surfaceView = (SurfaceView) findViewById(R.id.surfaceView);
+      surfaceView.getHolder().addCallback(new SurfaceCallback());
+      surfaceView.setVisibility(View.VISIBLE);
+    }
   }
 
   /**
