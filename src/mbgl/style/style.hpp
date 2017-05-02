@@ -5,6 +5,8 @@
 #include <mbgl/style/source_observer.hpp>
 #include <mbgl/style/layer_observer.hpp>
 #include <mbgl/style/update_batch.hpp>
+#include <mbgl/renderer/render_layer.hpp>
+#include <mbgl/style/light_impl.hpp>
 #include <mbgl/text/glyph_atlas_observer.hpp>
 #include <mbgl/sprite/sprite_atlas_observer.hpp>
 #include <mbgl/map/mode.hpp>
@@ -30,6 +32,8 @@ class LineAtlas;
 class RenderData;
 class TransformState;
 class RenderedQueryOptions;
+class Scheduler;
+class RenderLayer;
 
 namespace style {
 
@@ -43,7 +47,7 @@ class Style : public GlyphAtlasObserver,
               public LayerObserver,
               public util::noncopyable {
 public:
-    Style(FileSource&, float pixelRatio);
+    Style(Scheduler&, FileSource&, float pixelRatio);
     ~Style() override;
 
     void setJSON(const std::string&, uint8_t);
@@ -79,6 +83,11 @@ public:
                     optional<std::string> beforeLayerID = {});
     std::unique_ptr<Layer> removeLayer(const std::string& layerID);
 
+    // Should be moved to Impl eventually
+    std::vector<const RenderLayer*> getRenderLayers() const;
+    std::vector<RenderLayer*> getRenderLayers();
+    RenderLayer* getRenderLayer(const std::string& id) const;
+
     std::string getName() const;
     LatLng getDefaultLatLng() const;
     double getDefaultZoom() const;
@@ -106,14 +115,20 @@ public:
 
     void dumpDebugLogs() const;
 
+    Scheduler& scheduler;
     FileSource& fileSource;
     std::unique_ptr<GlyphAtlas> glyphAtlas;
     std::unique_ptr<SpriteAtlas> spriteAtlas;
     std::unique_ptr<LineAtlas> lineAtlas;
 
+    std::unique_ptr<Light> light;
+    TransitioningLight transitioningLight;
+    EvaluatedLight evaluatedLight;
+
 private:
     std::vector<std::unique_ptr<Source>> sources;
     std::vector<std::unique_ptr<Layer>> layers;
+    std::vector<std::unique_ptr<RenderLayer>> renderLayers;
     std::vector<std::string> classes;
     TransitionOptions transitionOptions;
 
@@ -125,6 +140,7 @@ private:
     double defaultPitch = 0;
 
     std::vector<std::unique_ptr<Layer>>::const_iterator findLayer(const std::string& layerID) const;
+    std::vector<std::unique_ptr<RenderLayer>>::const_iterator findRenderLayer(const std::string&) const;
     void reloadLayerSource(Layer&);
 
     // GlyphStoreObserver implementation.
@@ -161,6 +177,7 @@ private:
                   
     uint8_t maxZoomLimit = std::numeric_limits<uint8_t>::max();
 
+    void removeRenderLayer(const std::string& layerID);
 public:
     bool loaded = false;
 };

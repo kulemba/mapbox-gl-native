@@ -41,9 +41,11 @@ set(MBGL_TEST_FILES
     # programs
     test/programs/binary_program.test.cpp
 
+    # renderer
+    test/renderer/group_by_layout.test.cpp
+
     # sprite
     test/sprite/sprite_atlas.test.cpp
-    test/sprite/sprite_image.test.cpp
     test/sprite/sprite_parser.test.cpp
 
     # src/mbgl/test
@@ -80,6 +82,7 @@ set(MBGL_TEST_FILES
     test/style/conversion/function.test.cpp
     test/style/conversion/geojson_options.test.cpp
     test/style/conversion/layer.test.cpp
+    test/style/conversion/light.test.cpp
     test/style/conversion/stringify.test.cpp
 
     # style
@@ -91,10 +94,10 @@ set(MBGL_TEST_FILES
     test/style/function/source_function.test.cpp
 
     # style
-    test/style/group_by_layout.test.cpp
     test/style/paint_property.test.cpp
     test/style/source.test.cpp
     test/style/style.test.cpp
+    test/style/style_image.test.cpp
     test/style/style_layer.test.cpp
     test/style/style_parser.test.cpp
     test/style/tile_source.test.cpp
@@ -123,6 +126,7 @@ set(MBGL_TEST_FILES
     test/util/merge_lines.test.cpp
     test/util/number_conversions.test.cpp
     test/util/offscreen_texture.test.cpp
+    test/util/position.test.cpp
     test/util/projection.test.cpp
     test/util/run_loop.test.cpp
     test/util/text_conversions.test.cpp
