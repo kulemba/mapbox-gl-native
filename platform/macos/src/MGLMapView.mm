@@ -28,7 +28,7 @@
 #import <mbgl/util/default_thread_pool.hpp>
 #import <mbgl/map/backend.hpp>
 #import <mbgl/map/backend_scope.hpp>
-#import <mbgl/sprite/sprite_image.hpp>
+#import <mbgl/style/image.hpp>
 #import <mbgl/storage/default_file_source.hpp>
 #import <mbgl/storage/network_status.hpp>
 #import <mbgl/math/wrap.hpp>
@@ -363,7 +363,7 @@ public:
     NSImage *logoImage = [[NSImage alloc] initWithContentsOfFile:
                           [[NSBundle mgl_frameworkBundle] pathForResource:@"mapbox" ofType:@"pdf"]];
     // Account for the image’s built-in padding when aligning other controls to the logo.
-    logoImage.alignmentRect = NSInsetRect(logoImage.alignmentRect, 3, 3);
+    logoImage.alignmentRect = NSInsetRect(logoImage.alignmentRect, 0, 3);
     _logoView.image = logoImage;
     _logoView.translatesAutoresizingMaskIntoConstraints = NO;
     _logoView.accessibilityTitle = NSLocalizedStringWithDefaultValue(@"MAP_A11Y_TITLE", nil, nil, @"Mapbox", @"Accessibility title");
@@ -1949,8 +1949,7 @@ public:
         return;
     }
 
-    std::shared_ptr<mbgl::SpriteImage> sprite(annotationImage.image.mgl_spriteImage);
-    _mbglMap->addAnnotationIcon(iconIdentifier.UTF8String, sprite);
+    _mbglMap->addAnnotationImage(iconIdentifier.UTF8String, annotationImage.image.mgl_styleImage);
 
     // Create a slop area with a “radius” equal to the annotation image’s entire
     // size, allowing the eventual click to be on any point within this image.
