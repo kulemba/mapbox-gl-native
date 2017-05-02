@@ -6,7 +6,10 @@
 #include <mbgl/style/layer_impl.hpp>
 #include <mbgl/style/layers/background_layer.hpp>
 #include <mbgl/style/layers/custom_layer.hpp>
-#include <mbgl/style/layers/symbol_layer.hpp>
+#include <mbgl/renderer/render_background_layer.hpp>
+#include <mbgl/renderer/render_custom_layer.hpp>
+#include <mbgl/renderer/render_symbol_layer.hpp>
+#include <mbgl/renderer/symbol_bucket.hpp>
 #include <mbgl/style/style.hpp>
 #include <mbgl/storage/file_source.hpp>
 #include <mbgl/geometry/feature_index.hpp>
@@ -26,7 +29,9 @@ using namespace style;
 
 GeometryTile::GeometryTile(const OverscaledTileID& id_,
                            std::string sourceID_,
-                           const style::UpdateParameters& parameters)
+                           const style::UpdateParameters& parameters,
+                           GlyphAtlas& glyphAtlas_,
+                           SpriteAtlas& spriteAtlas_)
     : Tile(id_),
       sourceID(std::move(sourceID_)),
       style(parameters.style),
@@ -36,14 +41,13 @@ GeometryTile::GeometryTile(const OverscaledTileID& id_,
              id_,
              obsolete,
              parameters.mode),
-             glyphAtlas(*parameters.style.glyphAtlas) {
+      glyphAtlas(glyphAtlas_),
+      spriteAtlas(spriteAtlas_) {
 }
 
 GeometryTile::~GeometryTile() {
     glyphAtlas.removeGlyphs(*this);
-    for (auto spriteAtlas : pendingSpriteAtlases) {
-        spriteAtlas->removeRequestor(*this);
-    }
+    spriteAtlas.removeRequestor(*this);
     cancel();
 }
 
@@ -123,6 +127,9 @@ void GeometryTile::onPlacement(PlacementResult result) {
         pending = false;
     }
     symbolBuckets = std::move(result.symbolBuckets);
+    for (auto& entry : symbolBuckets) {
+        dynamic_cast<SymbolBucket*>(entry.second.get())->spriteAtlas = &spriteAtlas;
+    }
     collisionTile = std::move(result.collisionTile);
     observer->onTileChanged(*this);
 }
@@ -142,26 +149,17 @@ void GeometryTile::getGlyphs(GlyphDependencies glyphDependencies) {
     glyphAtlas.getGlyphs(*this, std::move(glyphDependencies));
 }
 
-void GeometryTile::onIconsAvailable(SpriteAtlas* spriteAtlas, IconMap icons) {
-    iconAtlasMap[(uintptr_t)spriteAtlas] = icons;
-    pendingSpriteAtlases.erase(spriteAtlas);
-    if (pendingSpriteAtlases.empty()) {
-        worker.invoke(&GeometryTileWorker::onIconsAvailable, std::move(iconAtlasMap));
-    }
+void GeometryTile::onIconsAvailable(IconMap icons) {
+    worker.invoke(&GeometryTileWorker::onIconsAvailable, std::move(icons));
 }
 
-// TODO: If there's any value to be gained by it, we can narrow our request to just the sprites
-//  we need, but SpriteAtlases are just "loaded" or "not loaded"
-void GeometryTile::getIcons(IconDependencyMap iconDependencyMap) {
-    for (auto dependency : iconDependencyMap) {
-        pendingSpriteAtlases.insert(dependency.first);
-        dependency.first->getIcons(*this);
-    }
+void GeometryTile::getIcons(IconDependencies) {
+    spriteAtlas.getIcons(*this);
 }
 
-Bucket* GeometryTile::getBucket(const Layer& layer) const {
-    const auto& buckets = layer.is<SymbolLayer>() ? symbolBuckets : nonSymbolBuckets;
-    const auto it = buckets.find(layer.baseImpl->id);
+Bucket* GeometryTile::getBucket(const RenderLayer& layer) const {
+    const auto& buckets = layer.is<RenderSymbolLayer>() ? symbolBuckets : nonSymbolBuckets;
+    const auto it = buckets.find(layer.baseImpl.id);
     if (it == buckets.end()) {
         return nullptr;
     }

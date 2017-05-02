@@ -1,7 +1,7 @@
 #include <mbgl/renderer/line_bucket.hpp>
 #include <mbgl/renderer/painter.hpp>
-#include <mbgl/style/layers/line_layer.hpp>
-#include <mbgl/style/bucket_parameters.hpp>
+#include <mbgl/renderer/render_line_layer.hpp>
+#include <mbgl/renderer/bucket_parameters.hpp>
 #include <mbgl/style/layers/line_layer_impl.hpp>
 #include <mbgl/util/math.hpp>
 #include <mbgl/util/constants.hpp>
@@ -13,7 +13,7 @@ namespace mbgl {
 using namespace style;
 
 LineBucket::LineBucket(const BucketParameters& parameters,
-                       const std::vector<const Layer*>& layers,
+                       const std::vector<const RenderLayer*>& layers,
                        const style::LineLayoutProperties& layout_)
     : layout(layout_.evaluate(PropertyEvaluationParameters(parameters.tileID.overscaledZ))),
       overscaling(parameters.tileID.overscaleFactor()) {
@@ -22,7 +22,7 @@ LineBucket::LineBucket(const BucketParameters& parameters,
             std::piecewise_construct,
             std::forward_as_tuple(layer->getID()),
             std::forward_as_tuple(
-                layer->as<LineLayer>()->impl->paint.evaluated,
+                layer->as<RenderLineLayer>()->evaluated,
                 parameters.tileID.overscaledZ));
     }
 }
@@ -73,6 +73,15 @@ void LineBucket::addGeometry(const GeometryCoordinates& coordinates, FeatureType
         return l;
     }();
 
+    const std::size_t first = [&coordinates, &len] {
+        std::size_t i = 0;
+        // If the line has duplicate vertices at the start, adjust index to remove them.
+        while (i < len - 1 && coordinates[i] == coordinates[i + 1]) {
+            i++;
+        }
+        return i;
+    }();
+
     // Ignore invalid geometry.
     if (len < (type == FeatureType::Polygon ? 3 : 2)) {
         return;
@@ -82,7 +91,7 @@ void LineBucket::addGeometry(const GeometryCoordinates& coordinates, FeatureType
 
     const double sharpCornerOffset = SHARP_CORNER_OFFSET * (float(util::EXTENT) / (util::tileSize * overscaling));
 
-    const GeometryCoordinate firstCoordinate = coordinates.front();
+    const GeometryCoordinate firstCoordinate = coordinates[first];
     const LineCapType beginCap = layout.get<LineCap>();
     const LineCapType endCap = type == FeatureType::Polygon ? LineCapType::Butt : LineCapType(layout.get<LineCap>());
 
@@ -105,10 +114,10 @@ void LineBucket::addGeometry(const GeometryCoordinates& coordinates, FeatureType
     const std::size_t startVertex = vertices.vertexSize();
     std::vector<TriangleElement> triangleStore;
 
-    for (std::size_t i = 0; i < len; ++i) {
+    for (std::size_t i = first; i < len; ++i) {
         if (type == FeatureType::Polygon && i == len - 1) {
             // if the line is closed, we treat the last vertex like the first
-            nextCoordinate = coordinates[1];
+            nextCoordinate = coordinates[first + 1];
         } else if (i + 1 < len) {
             // just the next vertex
             nextCoordinate = coordinates[i + 1];
@@ -173,7 +182,7 @@ void LineBucket::addGeometry(const GeometryCoordinates& coordinates, FeatureType
 
         const bool isSharpCorner = cosHalfAngle < COS_HALF_SHARP_CORNER && prevCoordinate && nextCoordinate;
 
-        if (isSharpCorner && i > 0) {
+        if (isSharpCorner && i > first) {
             const double prevSegmentLength = util::dist<double>(*currentCoordinate, *prevCoordinate);
             if (prevSegmentLength > 2.0 * sharpCornerOffset) {
                 GeometryCoordinate newPrevVertex = *currentCoordinate - convertPoint<int16_t>(util::round(convertPoint<double>(*currentCoordinate - *prevCoordinate) * (sharpCornerOffset / prevSegmentLength)));
@@ -451,9 +460,9 @@ void LineBucket::upload(gl::Context& context) {
 
 void LineBucket::render(Painter& painter,
                         PaintParameters& parameters,
-                        const Layer& layer,
+                        const RenderLayer& layer,
                         const RenderTile& tile) {
-    painter.renderLine(parameters, *this, *layer.as<LineLayer>(), tile);
+    painter.renderLine(parameters, *this, *layer.as<RenderLineLayer>(), tile);
 }
 
 bool LineBucket::hasData() const {
@@ -461,17 +470,17 @@ bool LineBucket::hasData() const {
 }
 
 template <class Property>
-static float get(const LineLayer& layer, const std::map<std::string, LineProgram::PaintPropertyBinders>& paintPropertyBinders) {
+static float get(const RenderLineLayer& layer, const std::map<std::string, LineProgram::PaintPropertyBinders>& paintPropertyBinders) {
     auto it = paintPropertyBinders.find(layer.getID());
     if (it == paintPropertyBinders.end() || !it->second.statistics<Property>().max()) {
-        return layer.impl->paint.evaluated.get<Property>().constantOr(Property::defaultValue());
+        return layer.evaluated.get<Property>().constantOr(Property::defaultValue());
     } else {
         return *it->second.statistics<Property>().max();
     }
 }
 
-float LineBucket::getLineWidth(const style::LineLayer& layer) const {
-    float lineWidth = layer.impl->paint.evaluated.get<LineWidth>();
+float LineBucket::getLineWidth(const RenderLineLayer& layer) const {
+    float lineWidth = layer.evaluated.get<LineWidth>();
     float gapWidth = get<LineGapWidth>(layer, paintPropertyBinders);
 
     if (gapWidth) {
@@ -481,15 +490,14 @@ float LineBucket::getLineWidth(const style::LineLayer& layer) const {
     }
 }
 
-float LineBucket::getQueryRadius(const style::Layer& layer) const {
-    if (!layer.is<LineLayer>()) {
+float LineBucket::getQueryRadius(const RenderLayer& layer) const {
+    if (!layer.is<RenderLineLayer>()) {
         return 0;
     }
 
-    auto lineLayer = layer.as<LineLayer>();
-    auto paint = lineLayer->impl->paint;
+    auto lineLayer = layer.as<RenderLineLayer>();
 
-    const std::array<float, 2>& translate = paint.evaluated.get<LineTranslate>();
+    const std::array<float, 2>& translate = lineLayer->evaluated.get<LineTranslate>();
     float offset = get<LineOffset>(*lineLayer, paintPropertyBinders);
     return getLineWidth(*lineLayer) / 2.0 + std::abs(offset) + util::length(translate[0], translate[1]);
 }
