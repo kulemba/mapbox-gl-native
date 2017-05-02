@@ -1,7 +1,7 @@
 #include "glfw_view.hpp"
 
 #include <mbgl/annotation/annotation.hpp>
-#include <mbgl/sprite/sprite_image.hpp>
+#include <mbgl/style/image.hpp>
 #include <mbgl/style/transition_options.hpp>
 #include <mbgl/util/logging.hpp>
 #include <mbgl/util/platform.hpp>
@@ -22,7 +22,7 @@ GLFWView::GLFWView(bool fullscreen_, bool benchmark_)
     : fullscreen(fullscreen_), benchmark(benchmark_) {
     glfwSetErrorCallback(glfwError);
 
-    std::srand(std::time(nullptr));
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
     if (!glfwInit()) {
         mbgl::Log::Error(mbgl::Event::OpenGL, "failed to initialize glfw");
@@ -124,7 +124,7 @@ GLFWView::~GLFWView() {
 
 void GLFWView::setMap(mbgl::Map *map_) {
     map = map_;
-    map->addAnnotationIcon("default_marker", makeSpriteImage(22, 22, 1));
+    map->addAnnotationImage("default_marker", makeImage(22, 22, 1));
 }
 
 void GLFWView::updateAssumedState() {
@@ -258,8 +258,8 @@ mbgl::Point<double> GLFWView::makeRandomPoint() const {
     return { latLng.longitude(), latLng.latitude() };
 }
 
-std::shared_ptr<const mbgl::SpriteImage>
-GLFWView::makeSpriteImage(int width, int height, float pixelRatio) {
+std::unique_ptr<mbgl::style::Image>
+GLFWView::makeImage(int width, int height, float pixelRatio) {
     const int r = 255 * (double(std::rand()) / RAND_MAX);
     const int g = 255 * (double(std::rand()) / RAND_MAX);
     const int b = 255 * (double(std::rand()) / RAND_MAX);
@@ -284,7 +284,7 @@ GLFWView::makeSpriteImage(int width, int height, float pixelRatio) {
         }
     }
 
-    return std::make_shared<mbgl::SpriteImage>(std::move(image), pixelRatio);
+    return std::make_unique<mbgl::style::Image>(std::move(image), pixelRatio);
 }
 
 void GLFWView::nextOrientation() {
@@ -301,7 +301,7 @@ void GLFWView::addRandomCustomPointAnnotations(int count) {
     for (int i = 0; i < count; i++) {
         static int spriteID = 1;
         const auto name = std::string{ "marker-" } + mbgl::util::toString(spriteID++);
-        map->addAnnotationIcon(name, makeSpriteImage(22, 22, 1));
+        map->addAnnotationImage(name, makeImage(22, 22, 1));
         spriteIDs.push_back(name);
         annotationIDs.push_back(map->addAnnotation(mbgl::SymbolAnnotation { makeRandomPoint(), name }));
     }
@@ -542,7 +542,7 @@ void showDebugImage(std::string name, const char *data, size_t width, size_t hei
 
     static GLFWwindow *debugWindow = nullptr;
     if (!debugWindow) {
-        debugWindow = glfwCreateWindow(width, height, name.c_str(), nullptr, nullptr);
+        debugWindow = glfwCreateWindow(static_cast<int>(width), static_cast<int>(height), name.c_str(), nullptr, nullptr);
         if (!debugWindow) {
             glfwTerminate();
             fprintf(stderr, "Failed to initialize window\n");
@@ -552,7 +552,7 @@ void showDebugImage(std::string name, const char *data, size_t width, size_t hei
 
     GLFWwindow *currentWindow = glfwGetCurrentContext();
 
-    glfwSetWindowSize(debugWindow, width, height);
+    glfwSetWindowSize(debugWindow, static_cast<int>(width), static_cast<int>(height));
     glfwMakeContextCurrent(debugWindow);
 
     int fbWidth, fbHeight;
@@ -573,7 +573,7 @@ void showColorDebugImage(std::string name, const char *data, size_t logicalWidth
 
     static GLFWwindow *debugWindow = nullptr;
     if (!debugWindow) {
-        debugWindow = glfwCreateWindow(logicalWidth, logicalHeight, name.c_str(), nullptr, nullptr);
+        debugWindow = glfwCreateWindow(static_cast<int>(logicalWidth), static_cast<int>(logicalHeight), name.c_str(), nullptr, nullptr);
         if (!debugWindow) {
             glfwTerminate();
             fprintf(stderr, "Failed to initialize window\n");
@@ -583,7 +583,7 @@ void showColorDebugImage(std::string name, const char *data, size_t logicalWidth
 
     GLFWwindow *currentWindow = glfwGetCurrentContext();
 
-    glfwSetWindowSize(debugWindow, logicalWidth, logicalHeight);
+    glfwSetWindowSize(debugWindow, static_cast<int>(logicalWidth), static_cast<int>(logicalHeight));
     glfwMakeContextCurrent(debugWindow);
 
     int fbWidth, fbHeight;
