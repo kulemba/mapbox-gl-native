@@ -24,6 +24,14 @@
 #include <mbgl/geometry/line_atlas.hpp>
 #include <mbgl/renderer/render_item.hpp>
 #include <mbgl/renderer/render_tile.hpp>
+#include <mbgl/renderer/render_background_layer.hpp>
+#include <mbgl/renderer/render_circle_layer.hpp>
+#include <mbgl/renderer/render_custom_layer.hpp>
+#include <mbgl/renderer/render_fill_extrusion_layer.hpp>
+#include <mbgl/renderer/render_fill_layer.hpp>
+#include <mbgl/renderer/render_line_layer.hpp>
+#include <mbgl/renderer/render_raster_layer.hpp>
+#include <mbgl/renderer/render_symbol_layer.hpp>
 #include <mbgl/util/constants.hpp>
 #include <mbgl/util/exception.hpp>
 #include <mbgl/util/geometry.hpp>
@@ -40,11 +48,13 @@ namespace style {
 
 static Observer nullObserver;
 
-Style::Style(FileSource& fileSource_, float pixelRatio)
-    : fileSource(fileSource_),
+Style::Style(Scheduler& scheduler_, FileSource& fileSource_, float pixelRatio)
+    : scheduler(scheduler_),
+      fileSource(fileSource_),
       glyphAtlas(std::make_unique<GlyphAtlas>(Size{ 2048, 2048 }, fileSource)),
       spriteAtlas(std::make_unique<SpriteAtlas>(Size{ 1024, 1024 }, pixelRatio)),
       lineAtlas(std::make_unique<LineAtlas>(Size{ 256, 512 })),
+      light(std::make_unique<Light>()),
       observer(&nullObserver) {
     glyphAtlas->setObserver(this);
     spriteAtlas->setObserver(this);
@@ -103,6 +113,7 @@ TransitionOptions Style::getTransitionOptions() const {
 void Style::setJSON(const std::string& json) {
     sources.clear();
     layers.clear();
+    renderLayers.clear();
     classes.clear();
     transitionOptions = {};
     updateBatch = {};
@@ -131,9 +142,10 @@ void Style::setJSON(const std::string& json) {
     defaultZoom = parser.zoom;
     defaultBearing = parser.bearing;
     defaultPitch = parser.pitch;
+    light = std::make_unique<Light>(parser.light);
 
     glyphAtlas->setURL(parser.glyphURL);
-    spriteAtlas->load(parser.spriteURL, fileSource);
+    spriteAtlas->load(parser.spriteURL, scheduler, fileSource);
 
     loaded = true;
 
@@ -213,19 +225,15 @@ Layer* Style::addLayer(std::unique_ptr<Layer> layer, optional<std::string> befor
         throw std::runtime_error(std::string{"Layer "} + layer->getID() + " already exists");
     }
 
-    if (SymbolLayer* symbolLayer = layer->as<SymbolLayer>()) {
-        if (!symbolLayer->impl->spriteAtlas) {
-            symbolLayer->impl->spriteAtlas = spriteAtlas.get();
-        }
-    }
-
     if (CustomLayer* customLayer = layer->as<CustomLayer>()) {
         customLayer->impl->initialize();
     }
 
     layer->baseImpl->setObserver(this);
 
-    return layers.emplace(before ? findLayer(*before) : layers.end(), std::move(layer))->get();
+    auto added = layers.emplace(before ? findLayer(*before) : layers.end(), std::move(layer))->get();
+    renderLayers.emplace(before ? findRenderLayer(*before) : renderLayers.end(), added->baseImpl->createRenderLayer());
+    return std::move(added);
 }
 
 std::unique_ptr<Layer> Style::removeLayer(const std::string& id) {
@@ -243,7 +251,47 @@ std::unique_ptr<Layer> Style::removeLayer(const std::string& id) {
     }
 
     layers.erase(it);
+    removeRenderLayer(id);
     return layer;
+}
+
+std::vector<const RenderLayer*> Style::getRenderLayers() const {
+    std::vector<const RenderLayer*> result;
+    result.reserve(renderLayers.size());
+    for (const auto& layer : renderLayers) {
+        result.push_back(layer.get());
+    }
+    return result;
+}
+
+std::vector<RenderLayer*> Style::getRenderLayers() {
+    std::vector<RenderLayer*> result;
+    result.reserve(renderLayers.size());
+    for (auto& layer : renderLayers) {
+        result.push_back(layer.get());
+    }
+    return result;
+}
+
+std::vector<std::unique_ptr<RenderLayer>>::const_iterator Style::findRenderLayer(const std::string& id) const {
+    return std::find_if(renderLayers.begin(), renderLayers.end(), [&](const auto& layer) {
+        return layer->baseImpl.id == id;
+    });
+}
+
+RenderLayer* Style::getRenderLayer(const std::string& id) const {
+    auto it = findRenderLayer(id);
+    return it != renderLayers.end() ? it->get() : nullptr;
+}
+
+void Style::removeRenderLayer(const std::string& id) {
+    auto it = std::find_if(renderLayers.begin(), renderLayers.end(), [&](const auto& layer) {
+        return layer->baseImpl.id == id;
+    });
+
+    if (it != renderLayers.end()) {
+        renderLayers.erase(it);
+    }
 }
 
 std::string Style::getName() const {
@@ -303,9 +351,11 @@ void Style::cascade(const TimePoint& timePoint, MapMode mode) {
         mode == MapMode::Continuous ? transitionOptions : immediateTransition
     };
 
-    for (const auto& layer : layers) {
-        layer->baseImpl->cascade(parameters);
+    for (const auto& layer : renderLayers) {
+        layer->cascade(parameters);
     }
+
+    transitioningLight = TransitioningLight(*light, std::move(transitioningLight), parameters);
 }
 
 void Style::recalculate(float z, const TimePoint& timePoint, MapMode mode) {
@@ -324,24 +374,26 @@ void Style::recalculate(float z, const TimePoint& timePoint, MapMode mode) {
         mode == MapMode::Continuous ? util::DEFAULT_FADE_DURATION : Duration::zero()
     };
 
-    hasPendingTransitions = false;
-    for (const auto& layer : layers) {
-        hasPendingTransitions |= layer->baseImpl->evaluate(parameters);
+    hasPendingTransitions = transitioningLight.hasTransition();
+    for (const auto& layer : renderLayers) {
+        hasPendingTransitions |= layer->evaluate(parameters);
 
         // Disable this layer if it doesn't need to be rendered.
-        const bool needsRendering = layer->baseImpl->needsRendering(zoomHistory.lastZoom);
+        const bool needsRendering = layer->needsRendering(zoomHistory.lastZoom);
         if (!needsRendering) {
             continue;
         }
 
         // If this layer has a source, make sure that it gets loaded.
-        if (Source* source = getSource(layer->baseImpl->source)) {
+        if (Source* source = getSource(layer->baseImpl.source)) {
             source->baseImpl->enabled = true;
             if (!source->baseImpl->loaded) {
                 source->baseImpl->loadDescription(fileSource);
             }
         }
     }
+
+    evaluatedLight = EvaluatedLight(transitioningLight, parameters);
 
     // Remove the existing tiles if we didn't end up re-enabling the source.
     for (const auto& source : sources) {
@@ -408,19 +460,19 @@ RenderData Style::getRenderData(MapDebugOptions debugOptions, float angle) const
         }
     }
 
-    for (const auto& layer : layers) {
-        if (!layer->baseImpl->needsRendering(zoomHistory.lastZoom)) {
+    for (const auto& layer : renderLayers) {
+        if (!layer->needsRendering(zoomHistory.lastZoom)) {
             continue;
         }
 
-        if (const BackgroundLayer* background = layer->as<BackgroundLayer>()) {
+        if (const RenderBackgroundLayer* background = layer->as<RenderBackgroundLayer>()) {
             if (debugOptions & MapDebugOptions::Overdraw) {
                 // We want to skip glClear optimization in overdraw mode.
                 result.order.emplace_back(*layer);
                 continue;
             }
-            const BackgroundPaintProperties::Evaluated& paint = background->impl->paint.evaluated;
-            if (layer.get() == layers[0].get() && paint.get<BackgroundPattern>().from.empty()) {
+            const BackgroundPaintProperties::Evaluated& paint = background->evaluated;
+            if (layer.get() == renderLayers[0].get() && paint.get<BackgroundPattern>().from.empty()) {
                 // This is a solid background. We can use glClear().
                 result.backgroundColor = paint.get<BackgroundColor>() * paint.get<BackgroundOpacity>();
             } else {
@@ -430,19 +482,19 @@ RenderData Style::getRenderData(MapDebugOptions debugOptions, float angle) const
             continue;
         }
 
-        if (layer->is<CustomLayer>()) {
+        if (layer->is<RenderCustomLayer>()) {
             result.order.emplace_back(*layer);
             continue;
         }
 
-        Source* source = getSource(layer->baseImpl->source);
+        Source* source = getSource(layer->baseImpl.source);
         if (!source) {
-            Log::Warning(Event::Render, "can't find source for layer '%s'", layer->baseImpl->id.c_str());
+            Log::Warning(Event::Render, "can't find source for layer '%s'", layer->baseImpl.id.c_str());
             continue;
         }
 
         auto& renderTiles = source->baseImpl->getRenderTiles();
-        const bool symbolLayer = layer->is<SymbolLayer>();
+        const bool symbolLayer = layer->is<RenderSymbolLayer>();
 
         // Sort symbol tiles in opposite y position, so tiles with overlapping
         // symbols are drawn on top of each other, with lower symbols being
@@ -463,8 +515,9 @@ RenderData Style::getRenderData(MapDebugOptions debugOptions, float angle) const
             });
         }
 
-        for (auto& tileRef : sortedTiles) {
-            auto& tile = tileRef.get();
+        std::vector<std::reference_wrapper<RenderTile>> sortedTilesForInsertion;
+        for (auto tileIt = sortedTiles.begin(); tileIt != sortedTiles.end(); ++tileIt) {
+            auto& tile = tileIt->get();
             if (!tile.tile.isRenderable()) {
                 continue;
             }
@@ -477,8 +530,9 @@ RenderData Style::getRenderData(MapDebugOptions debugOptions, float angle) const
                 // Look back through the buckets we decided to render to find out whether there is
                 // already a bucket from this layer that is a parent of this tile. Tiles are ordered
                 // by zoom level when we obtain them from getTiles().
-                for (auto it = result.order.rbegin(); it != result.order.rend() && (&it->layer == layer.get()); ++it) {
-                    if (tile.tile.id.isChildOf(it->tile->tile.id)) {
+                for (auto it = sortedTilesForInsertion.rbegin();
+                     it != sortedTilesForInsertion.rend(); ++it) {
+                    if (tile.tile.id.isChildOf(it->get().tile.id)) {
                         skip = true;
                         break;
                     }
@@ -490,10 +544,12 @@ RenderData Style::getRenderData(MapDebugOptions debugOptions, float angle) const
 
             auto bucket = tile.tile.getBucket(*layer);
             if (bucket) {
-                result.order.emplace_back(*layer, &tile, bucket);
+                sortedTilesForInsertion.emplace_back(tile);
                 tile.used = true;
             }
         }
+
+        result.order.emplace_back(*layer, std::move(sortedTilesForInsertion));
     }
 
     return result;
@@ -528,11 +584,11 @@ std::vector<Feature> Style::queryRenderedFeatures(const ScreenLineString& geomet
     }
 
     // Combine all results based on the style layer order.
-    for (const auto& layer : layers) {
-        if (!layer->baseImpl->needsRendering(zoomHistory.lastZoom)) {
+    for (const auto& layer : renderLayers) {
+        if (!layer->needsRendering(zoomHistory.lastZoom)) {
             continue;
         }
-        auto it = resultsByLayer.find(layer->baseImpl->id);
+        auto it = resultsByLayer.find(layer->baseImpl.id);
         if (it != resultsByLayer.end()) {
             std::move(it->second.begin(), it->second.end(), std::back_inserter(result));
         }
