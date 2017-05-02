@@ -15,27 +15,25 @@
 
 namespace mbgl {
 
-class GeometryTileLayer;
+class BucketParameters;
 class CollisionTile;
 class SymbolBucket;
 class Anchor;
+class RenderLayer;
 
 namespace style {
-class BucketParameters;
 class Filter;
-class Layer;
 } // namespace style
 
 class SymbolLayout {
 public:
-    SymbolLayout(const style::BucketParameters&,
-                 const std::vector<const style::Layer*>&,
+    SymbolLayout(const BucketParameters&,
+                 const std::vector<const RenderLayer*>&,
                  const GeometryTileLayer&,
                  IconDependencies&,
-                 uintptr_t,
                  GlyphDependencies&);
 
-    void prepare(const GlyphPositionMap& glyphs, const IconAtlasMap& icons);
+    void prepare(const GlyphPositionMap& glyphs, const IconMap& icons);
 
     std::unique_ptr<SymbolBucket> place(CollisionTile&);
 
@@ -82,8 +80,6 @@ private:
     const MapMode mode;
 
     style::SymbolLayoutProperties::PossiblyEvaluated layout;
-    
-    uintptr_t spriteAtlasMapIndex; // Actually a pointer to the SpriteAtlas for this symbol's layer, but don't use it from worker threads!
 
     const uint32_t tileSize;
     const float tilePixelRatio;
