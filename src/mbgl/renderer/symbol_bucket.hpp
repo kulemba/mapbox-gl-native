@@ -26,7 +26,7 @@ public:
                  bool iconsNeedLinear);
 
     void upload(gl::Context&) override;
-    void render(Painter&, PaintParameters&, const style::Layer&, const RenderTile&) override;
+    void render(Painter&, PaintParameters&, const RenderLayer&, const RenderTile&) override;
     bool hasData() const override;
     bool hasTextData() const;
     bool hasIconData() const;
@@ -70,6 +70,8 @@ public:
         optional<gl::VertexBuffer<CollisionBoxVertex>> vertexBuffer;
         optional<gl::IndexBuffer<gl::Lines>> indexBuffer;
     } collisionBox;
+
+    SpriteAtlas* spriteAtlas = nullptr;
 };
 
 } // namespace mbgl
