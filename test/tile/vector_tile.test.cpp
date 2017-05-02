@@ -26,7 +26,7 @@ public:
     util::RunLoop loop;
     ThreadPool threadPool { 1 };
     AnnotationManager annotationManager { 1.0 };
-    style::Style style { fileSource, 1.0 };
+    style::Style style { threadPool, fileSource, 1.0 };
     Tileset tileset { { "https://example.com" }, { 0, 22 }, "none" };
 
     style::UpdateParameters updateParameters {
@@ -89,7 +89,7 @@ TEST(VectorTile, Issue7615) {
         0
     });
 
-    EXPECT_EQ(symbolBucket.get(), tile.getBucket(symbolLayer));
+    EXPECT_EQ(symbolBucket.get(), tile.getBucket(*symbolLayer.baseImpl->createRenderLayer()));
 }
 
 TEST(VectorTile, Issue8542) {
