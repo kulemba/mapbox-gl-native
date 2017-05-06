@@ -8,7 +8,7 @@
 #include <mbgl/util/run_loop.hpp>
 #include <mbgl/map/transform.hpp>
 #include <mbgl/style/style.hpp>
-#include <mbgl/style/update_parameters.hpp>
+#include <mbgl/renderer/tile_parameters.hpp>
 #include <mbgl/style/layers/circle_layer.hpp>
 #include <mbgl/annotation/annotation_manager.hpp>
 
@@ -27,7 +27,7 @@ public:
     style::Style style { threadPool, fileSource, 1.0 };
     Tileset tileset { { "https://example.com" }, { 0, 22 }, "none" };
 
-    style::UpdateParameters updateParameters {
+    TileParameters tileParameters {
         1.0,
         MapDebugOptions(),
         transformState,
@@ -41,9 +41,15 @@ public:
 
 TEST(GeoJSONTile, Issue7648) {
     GeoJSONTileTest test;
-    GeoJSONTile tile(OverscaledTileID(0, 0, 0), "source", test.updateParameters);
 
     test.style.addLayer(std::make_unique<CircleLayer>("circle", "source"));
+
+    mapbox::geometry::feature_collection<int16_t> features;
+    features.push_back(mapbox::geometry::feature<int16_t> {
+        mapbox::geometry::point<int16_t>(0, 0)
+    });
+
+    GeoJSONTile tile(OverscaledTileID(0, 0, 0), "source", test.tileParameters, features);
 
     StubTileObserver observer;
     observer.tileChanged = [&] (const Tile&) {
@@ -51,16 +57,10 @@ TEST(GeoJSONTile, Issue7648) {
         // flickering.
         ASSERT_NE(nullptr, tile.getBucket(*test.style.getRenderLayer("circle")));
     };
-    tile.setObserver(&observer);
 
+    tile.setObserver(&observer);
     tile.setPlacementConfig({});
 
-    mapbox::geometry::feature_collection<int16_t> features;
-    features.push_back(mapbox::geometry::feature<int16_t> {
-        mapbox::geometry::point<int16_t>(0, 0)
-    });
-
-    tile.updateData(features);
     while (!tile.isComplete()) {
         test.loop.runOnce();
     }

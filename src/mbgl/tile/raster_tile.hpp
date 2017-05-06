@@ -8,16 +8,16 @@
 namespace mbgl {
 
 class Tileset;
+class TileParameters;
 
 namespace style {
 class Layer;
-class UpdateParameters;
 } // namespace style
 
 class RasterTile : public Tile {
 public:
     RasterTile(const OverscaledTileID&,
-                   const style::UpdateParameters&,
+                   const TileParameters&,
                    const Tileset&);
     ~RasterTile() final;
 
