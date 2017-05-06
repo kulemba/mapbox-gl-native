@@ -54,6 +54,7 @@ class RenderBackgroundLayer;
 
 class Programs;
 class PaintParameters;
+class TilePyramid;
 
 struct ClipID;
 
@@ -157,7 +158,7 @@ private:
     GlyphAtlas* glyphAtlas = nullptr;
     LineAtlas* lineAtlas = nullptr;
 
-    style::EvaluatedLight evaluatedLight;
+    EvaluatedLight evaluatedLight;
 
     FrameHistory frameHistory;
 

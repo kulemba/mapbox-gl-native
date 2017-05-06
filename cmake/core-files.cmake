@@ -28,6 +28,8 @@ set(MBGL_CORE_FILES
     src/mbgl/annotation/fill_annotation_impl.hpp
     src/mbgl/annotation/line_annotation_impl.cpp
     src/mbgl/annotation/line_annotation_impl.hpp
+    src/mbgl/annotation/render_annotation_source.cpp
+    src/mbgl/annotation/render_annotation_source.hpp
     src/mbgl/annotation/shape_annotation_impl.cpp
     src/mbgl/annotation/shape_annotation_impl.hpp
     src/mbgl/annotation/style_sourced_annotation_impl.cpp
@@ -160,8 +162,12 @@ set(MBGL_CORE_FILES
     src/mbgl/renderer/bucket.hpp
     src/mbgl/renderer/bucket_parameters.cpp
     src/mbgl/renderer/bucket_parameters.hpp
+    src/mbgl/renderer/cascade_parameters.hpp
     src/mbgl/renderer/circle_bucket.cpp
     src/mbgl/renderer/circle_bucket.hpp
+    src/mbgl/renderer/cross_faded_property_evaluator.cpp
+    src/mbgl/renderer/cross_faded_property_evaluator.hpp
+    src/mbgl/renderer/data_driven_property_evaluator.hpp
     src/mbgl/renderer/debug_bucket.cpp
     src/mbgl/renderer/debug_bucket.hpp
     src/mbgl/renderer/fill_bucket.cpp
@@ -175,6 +181,8 @@ set(MBGL_CORE_FILES
     src/mbgl/renderer/line_bucket.cpp
     src/mbgl/renderer/line_bucket.hpp
     src/mbgl/renderer/paint_parameters.hpp
+    src/mbgl/renderer/paint_property_binder.hpp
+    src/mbgl/renderer/paint_property_statistics.hpp
     src/mbgl/renderer/painter.cpp
     src/mbgl/renderer/painter.hpp
     src/mbgl/renderer/painter_background.cpp
@@ -186,6 +194,9 @@ set(MBGL_CORE_FILES
     src/mbgl/renderer/painter_line.cpp
     src/mbgl/renderer/painter_raster.cpp
     src/mbgl/renderer/painter_symbol.cpp
+    src/mbgl/renderer/possibly_evaluated_property_value.hpp
+    src/mbgl/renderer/property_evaluation_parameters.hpp
+    src/mbgl/renderer/property_evaluator.hpp
     src/mbgl/renderer/raster_bucket.cpp
     src/mbgl/renderer/raster_bucket.hpp
     src/mbgl/renderer/render_background_layer.cpp
@@ -201,17 +212,34 @@ set(MBGL_CORE_FILES
     src/mbgl/renderer/render_item.hpp
     src/mbgl/renderer/render_layer.cpp
     src/mbgl/renderer/render_layer.hpp
+    src/mbgl/renderer/render_light.hpp
     src/mbgl/renderer/render_line_layer.cpp
     src/mbgl/renderer/render_line_layer.hpp
     src/mbgl/renderer/render_pass.hpp
     src/mbgl/renderer/render_raster_layer.cpp
     src/mbgl/renderer/render_raster_layer.hpp
+    src/mbgl/renderer/render_source.cpp
+    src/mbgl/renderer/render_source.hpp
+    src/mbgl/renderer/render_source_observer.hpp
     src/mbgl/renderer/render_symbol_layer.cpp
     src/mbgl/renderer/render_symbol_layer.hpp
     src/mbgl/renderer/render_tile.cpp
     src/mbgl/renderer/render_tile.hpp
     src/mbgl/renderer/symbol_bucket.cpp
     src/mbgl/renderer/symbol_bucket.hpp
+    src/mbgl/renderer/tile_parameters.hpp
+    src/mbgl/renderer/tile_pyramid.cpp
+    src/mbgl/renderer/tile_pyramid.hpp
+    src/mbgl/renderer/transitioning_property.hpp
+    src/mbgl/renderer/update_parameters.hpp
+
+    # renderer/sources
+    src/mbgl/renderer/sources/render_geojson_source.cpp
+    src/mbgl/renderer/sources/render_geojson_source.hpp
+    src/mbgl/renderer/sources/render_raster_source.cpp
+    src/mbgl/renderer/sources/render_raster_source.hpp
+    src/mbgl/renderer/sources/render_vector_source.cpp
+    src/mbgl/renderer/sources/render_vector_source.hpp
 
     # shaders
     src/mbgl/shaders/circle.cpp
@@ -286,33 +314,22 @@ set(MBGL_CORE_FILES
     include/mbgl/style/light.hpp
     include/mbgl/style/position.hpp
     include/mbgl/style/property_value.hpp
-    include/mbgl/style/query.hpp
     include/mbgl/style/source.hpp
     include/mbgl/style/transition_options.hpp
     include/mbgl/style/types.hpp
     include/mbgl/style/undefined.hpp
-    src/mbgl/style/cascade_parameters.hpp
     src/mbgl/style/class_dictionary.cpp
     src/mbgl/style/class_dictionary.hpp
-    src/mbgl/style/cross_faded_property_evaluator.cpp
-    src/mbgl/style/cross_faded_property_evaluator.hpp
-    src/mbgl/style/data_driven_property_evaluator.hpp
     src/mbgl/style/image.cpp
     src/mbgl/style/layer.cpp
     src/mbgl/style/layer_impl.cpp
     src/mbgl/style/layer_impl.hpp
     src/mbgl/style/layer_observer.hpp
     src/mbgl/style/layout_property.hpp
-    src/mbgl/style/light_impl.hpp
     src/mbgl/style/observer.hpp
     src/mbgl/style/paint_property.hpp
-    src/mbgl/style/paint_property_binder.hpp
-    src/mbgl/style/paint_property_statistics.hpp
     src/mbgl/style/parser.cpp
     src/mbgl/style/parser.hpp
-    src/mbgl/style/possibly_evaluated_property_value.hpp
-    src/mbgl/style/property_evaluation_parameters.hpp
-    src/mbgl/style/property_evaluator.hpp
     src/mbgl/style/rapidjson_conversion.hpp
     src/mbgl/style/source.cpp
     src/mbgl/style/source_impl.cpp
@@ -322,10 +339,8 @@ set(MBGL_CORE_FILES
     src/mbgl/style/style.hpp
     src/mbgl/style/tile_source_impl.cpp
     src/mbgl/style/tile_source_impl.hpp
-    src/mbgl/style/transitioning_property.hpp
     src/mbgl/style/types.cpp
     src/mbgl/style/update_batch.hpp
-    src/mbgl/style/update_parameters.hpp
 
     # style/conversion
     include/mbgl/style/conversion/constant.hpp
@@ -497,6 +512,7 @@ set(MBGL_CORE_FILES
     include/mbgl/util/noncopyable.hpp
     include/mbgl/util/optional.hpp
     include/mbgl/util/platform.hpp
+    include/mbgl/util/premultiply.hpp
     include/mbgl/util/projection.hpp
     include/mbgl/util/range.hpp
     include/mbgl/util/run_loop.hpp
@@ -551,7 +567,6 @@ set(MBGL_CORE_FILES
     src/mbgl/util/offscreen_texture.cpp
     src/mbgl/util/offscreen_texture.hpp
     src/mbgl/util/premultiply.cpp
-    src/mbgl/util/premultiply.hpp
     src/mbgl/util/rapidjson.hpp
     src/mbgl/util/rect.hpp
     src/mbgl/util/std.hpp

@@ -10,19 +10,19 @@ class FileSource;
 class AnnotationManager;
 
 namespace style {
-
 class Style;
+} // namespace style
 
-class UpdateParameters {
+class TileParameters {
 public:
-    UpdateParameters(float pixelRatio_,
-                          MapDebugOptions debugOptions_,
-                          const TransformState& transformState_,
-                          Scheduler& workerScheduler_,
-                          FileSource& fileSource_,
-                          const MapMode mode_,
-                          AnnotationManager& annotationManager_,
-                          Style& style_)
+    TileParameters(float pixelRatio_,
+                   MapDebugOptions debugOptions_,
+                   const TransformState& transformState_,
+                   Scheduler& workerScheduler_,
+                   FileSource& fileSource_,
+                   const MapMode mode_,
+                   AnnotationManager& annotationManager_,
+                   style::Style& style_)
         : pixelRatio(pixelRatio_),
           debugOptions(debugOptions_),
           transformState(transformState_),
@@ -41,8 +41,7 @@ public:
     AnnotationManager& annotationManager;
 
     // TODO: remove
-    Style& style;
+    style::Style& style;
 };
 
-} // namespace style
 } // namespace mbgl
