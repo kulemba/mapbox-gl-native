@@ -6,7 +6,6 @@
 #include <mbgl/util/range.hpp>
 #include <mbgl/util/any.hpp>
 #include <mbgl/style/types.hpp>
-#include <mbgl/style/query.hpp>
 
 #include <memory>
 #include <string>
@@ -51,15 +50,7 @@ public:
     }
 
     const std::string& getID() const;
-
-    // Create a new source with the specified `id`. All other properties
-    // are copied from this source.
-    std::unique_ptr<Source> copy(const std::string& id) const;
-
     optional<std::string> getAttribution() const;
-    optional<Range<uint8_t>> getZoomRange() const;
-
-    std::vector<Feature> querySourceFeatures(const SourceQueryOptions& options = {});
 
     // Private implementation
     class Impl;
