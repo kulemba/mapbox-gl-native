@@ -20,11 +20,11 @@ std::unique_ptr<Bucket> RenderCircleLayer::createBucket(const BucketParameters& 
     return std::make_unique<CircleBucket>(parameters, layers);
 }
 
-void RenderCircleLayer::cascade(const style::CascadeParameters& parameters) {
+void RenderCircleLayer::cascade(const CascadeParameters& parameters) {
     unevaluated = impl->cascading.cascade(parameters, std::move(unevaluated));
 }
 
-bool RenderCircleLayer::evaluate(const style::PropertyEvaluationParameters& parameters) {
+void RenderCircleLayer::evaluate(const PropertyEvaluationParameters& parameters) {
     evaluated = unevaluated.evaluate(parameters);
 
     passes = ((evaluated.get<style::CircleRadius>().constantOr(1) > 0 ||
@@ -34,7 +34,9 @@ bool RenderCircleLayer::evaluate(const style::PropertyEvaluationParameters& para
               && (evaluated.get<style::CircleOpacity>().constantOr(1) > 0 ||
                   evaluated.get<style::CircleStrokeOpacity>().constantOr(1) > 0))
              ? RenderPass::Translucent : RenderPass::None;
+}
 
+bool RenderCircleLayer::hasTransition() const {
     return unevaluated.hasTransition();
 }
 

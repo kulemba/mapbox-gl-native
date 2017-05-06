@@ -19,16 +19,18 @@ std::unique_ptr<Bucket> RenderBackgroundLayer::createBucket(const BucketParamete
     return nullptr;
 }
 
-void RenderBackgroundLayer::cascade(const style::CascadeParameters &parameters) {
+void RenderBackgroundLayer::cascade(const CascadeParameters &parameters) {
     unevaluated = impl->cascading.cascade(parameters, std::move(unevaluated));
 }
 
-bool RenderBackgroundLayer::evaluate(const style::PropertyEvaluationParameters &parameters) {
+void RenderBackgroundLayer::evaluate(const PropertyEvaluationParameters &parameters) {
     evaluated = unevaluated.evaluate(parameters);
 
     passes = evaluated.get<style::BackgroundOpacity>() > 0 ? RenderPass::Translucent
                                                            : RenderPass::None;
+}
 
+bool RenderBackgroundLayer::hasTransition() const {
     return unevaluated.hasTransition();
 }
 

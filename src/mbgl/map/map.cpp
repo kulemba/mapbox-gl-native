@@ -12,8 +12,9 @@
 #include <mbgl/style/light.hpp>
 #include <mbgl/style/observer.hpp>
 #include <mbgl/style/transition_options.hpp>
-#include <mbgl/style/update_parameters.hpp>
+#include <mbgl/renderer/update_parameters.hpp>
 #include <mbgl/renderer/painter.hpp>
+#include <mbgl/renderer/render_source.hpp>
 #include <mbgl/storage/file_source.hpp>
 #include <mbgl/storage/resource.hpp>
 #include <mbgl/storage/response.hpp>
@@ -25,7 +26,6 @@
 #include <mbgl/util/tile_coordinate.hpp>
 #include <mbgl/actor/scheduler.hpp>
 #include <mbgl/util/logging.hpp>
-#include <mbgl/util/string.hpp>
 #include <mbgl/math/log2.hpp>
 
 namespace mbgl {
@@ -227,43 +227,31 @@ void Map::Impl::render(View& view) {
         return;
     }
 
-    TimePoint timePoint = Clock::now();
+    TimePoint timePoint = mode == MapMode::Continuous
+        ? Clock::now()
+        : Clock::time_point::max();
 
-    auto flags = transform.updateTransitions(timePoint);
-
-    updateFlags |= flags;
+    transform.updateTransitions(timePoint);
 
     if (style->loaded && updateFlags & Update::AnnotationStyle) {
         annotationManager->updateStyle(*style);
-        updateFlags |= Update::Classes;
     }
 
     if (updateFlags & Update::AnnotationData) {
         annotationManager->updateData();
     }
 
-    if (updateFlags & Update::Classes) {
-        style->cascade(timePoint, mode);
-    }
-
-    if (updateFlags & Update::Classes || updateFlags & Update::RecalculateStyle) {
-        style->recalculate(transform.getZoom(), timePoint, mode);
-    }
-
-    if (updateFlags & Update::Layout) {
-        style->relayout();
-    }
-
-    style::UpdateParameters parameters(pixelRatio,
-                                       debugOptions,
-                                       transform.getState(),
-                                       scheduler,
-                                       fileSource,
-                                       mode,
-                                       *annotationManager,
-                                       *style);
-
-    style->updateTiles(parameters);
+    style->update({
+        mode,
+        updateFlags,
+        pixelRatio,
+        debugOptions,
+        timePoint,
+        transform.getState(),
+        scheduler,
+        fileSource,
+        *annotationManager
+    });
 
     updateFlags = Update::Nothing;
 
@@ -307,16 +295,10 @@ void Map::Impl::render(View& view) {
             }
         }
 
-        if (style->hasTransitions()) {
-            flags |= Update::RecalculateStyle;
-        } else if (painter->needsAnimation()) {
-            flags |= Update::Repaint;
-        }
-
-        // Only schedule an update if we need to paint another frame due to transitions or
+        // Schedule an update if we need to paint another frame due to transitions or
         // animations that are still in progress
-        if (flags != Update::Nothing) {
-            onUpdate(flags);
+        if (style->hasTransitions() || painter->needsAnimation() || transform.inTransition()) {
+            onUpdate(Update::Repaint);
         }
     } else if (stillImageRequest && style->isLoaded()) {
         FrameData frameData { timePoint,
@@ -327,15 +309,10 @@ void Map::Impl::render(View& view) {
 
         backend.updateAssumedState();
 
-        try {
-            painter->render(*style,
-                            frameData,
-                            view,
-                            annotationManager->getSpriteAtlas());
-        } catch (...) {
-            Log::Error(Event::General, "Exception in render: %s", util::toString(std::current_exception()).c_str());
-            exit(1);
-        }
+        painter->render(*style,
+                        frameData,
+                        view,
+                        annotationManager->getSpriteAtlas());
 
         auto request = std::move(stillImageRequest);
         request->callback(nullptr);
@@ -416,9 +393,6 @@ void Map::Impl::loadStyleJSON(const std::string& json, uint8_t maxZoomLimit) {
     style->setJSON(json, maxZoomLimit);
     styleJSON = json;
 
-    // force style cascade, causing all pending transitions to complete.
-    style->cascade(Clock::now(), mode);
-
     if (!cameraMutated) {
         // Zoom first because it may constrain subsequent operations.
         map.setZoom(map.getDefaultZoom());
@@ -427,7 +401,7 @@ void Map::Impl::loadStyleJSON(const std::string& json, uint8_t maxZoomLimit) {
         map.setPitch(map.getDefaultPitch());
     }
 
-    onUpdate(Update::Classes | Update::RecalculateStyle | Update::AnnotationStyle);
+    onUpdate(Update::Classes | Update::AnnotationStyle);
 }
 
 std::string Map::getStyleURL() const {
@@ -475,19 +449,19 @@ CameraOptions Map::getCameraOptions(const EdgeInsets& padding) const {
 void Map::jumpTo(const CameraOptions& camera) {
     impl->cameraMutated = true;
     impl->transform.jumpTo(camera);
-    impl->onUpdate(camera.zoom ? Update::RecalculateStyle : Update::Repaint);
+    impl->onUpdate(Update::Repaint);
 }
 
 void Map::easeTo(const CameraOptions& camera, const AnimationOptions& animation) {
     impl->cameraMutated = true;
     impl->transform.easeTo(camera, animation);
-    impl->onUpdate(camera.zoom ? Update::RecalculateStyle : Update::Repaint);
+    impl->onUpdate(Update::Repaint);
 }
 
 void Map::flyTo(const CameraOptions& camera, const AnimationOptions& animation) {
     impl->cameraMutated = true;
     impl->transform.flyTo(camera, animation);
-    impl->onUpdate(Update::RecalculateStyle);
+    impl->onUpdate(Update::Repaint);
 }
 
 #pragma mark - Position
@@ -528,7 +502,7 @@ void Map::resetPosition(const EdgeInsets& padding) {
     camera.padding = padding;
     camera.zoom = 0;
     impl->transform.jumpTo(camera);
-    impl->onUpdate(Update::RecalculateStyle);
+    impl->onUpdate(Update::Repaint);
 }
 
 
@@ -542,13 +516,13 @@ void Map::setZoom(double zoom, const AnimationOptions& animation) {
 void Map::setZoom(double zoom, optional<ScreenCoordinate> anchor, const AnimationOptions& animation) {
     impl->cameraMutated = true;
     impl->transform.setZoom(zoom, anchor, animation);
-    impl->onUpdate(Update::RecalculateStyle);
+    impl->onUpdate(Update::Repaint);
 }
 
 void Map::setZoom(double zoom, const EdgeInsets& padding, const AnimationOptions& animation) {
     impl->cameraMutated = true;
     impl->transform.setZoom(zoom, padding, animation);
-    impl->onUpdate(Update::RecalculateStyle);
+    impl->onUpdate(Update::Repaint);
 }
 
 double Map::getZoom() const {
@@ -563,7 +537,7 @@ void Map::setLatLngZoom(const LatLng& latLng, double zoom, const AnimationOption
 void Map::setLatLngZoom(const LatLng& latLng, double zoom, const EdgeInsets& padding, const AnimationOptions& animation) {
     impl->cameraMutated = true;
     impl->transform.setLatLngZoom(latLng, zoom, padding, animation);
-    impl->onUpdate(Update::RecalculateStyle);
+    impl->onUpdate(Update::Repaint);
 }
 
 CameraOptions Map::cameraForLatLngBounds(const LatLngBounds& bounds, const EdgeInsets& padding) const {
@@ -868,6 +842,15 @@ std::vector<Feature> Map::queryRenderedFeatures(const ScreenBox& box, const Rend
     );
 }
 
+std::vector<Feature> Map::querySourceFeatures(const std::string& sourceID, const SourceQueryOptions& options) {
+    if (!impl->style) return {};
+
+    const RenderSource* source = impl->style->getRenderSource(sourceID);
+    if (!source) return {};
+
+    return source->querySourceFeatures(options);
+}
+
 AnnotationIDs Map::queryPointAnnotations(const ScreenBox& box) {
     RenderedQueryOptions options;
     options.layerIDs = {{ AnnotationManager::PointLayerID }};
@@ -947,7 +930,7 @@ std::unique_ptr<Layer> Map::removeLayer(const std::string& id) {
     BackendScope guard(impl->backend);
 
     auto removedLayer = impl->style->removeLayer(id);
-    impl->onUpdate(Update::Classes);
+    impl->onUpdate(Update::Repaint);
 
     return removedLayer;
 }
