@@ -18,15 +18,17 @@ std::unique_ptr<Bucket> RenderRasterLayer::createBucket(const BucketParameters&,
     return nullptr;
 }
 
-void RenderRasterLayer::cascade(const style::CascadeParameters& parameters) {
+void RenderRasterLayer::cascade(const CascadeParameters& parameters) {
     unevaluated = impl->cascading.cascade(parameters, std::move(unevaluated));
 }
 
-bool RenderRasterLayer::evaluate(const style::PropertyEvaluationParameters& parameters) {
+void RenderRasterLayer::evaluate(const PropertyEvaluationParameters& parameters) {
     evaluated = unevaluated.evaluate(parameters);
 
     passes = evaluated.get<style::RasterOpacity>() > 0 ? RenderPass::Translucent : RenderPass::None;
+}
 
+bool RenderRasterLayer::hasTransition() const {
     return unevaluated.hasTransition();
 }
 

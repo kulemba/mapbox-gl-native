@@ -1,17 +1,19 @@
 #include <mbgl/test/util.hpp>
 
 #include <mbgl/style/paint_property.hpp>
-#include <mbgl/style/transitioning_property.hpp>
+#include <mbgl/renderer/transitioning_property.hpp>
 
 using namespace mbgl;
 using namespace mbgl::style;
 using namespace std::literals::chrono_literals;
 
 float evaluate(TransitioningProperty<PropertyValue<float>>& property, Duration delta = Duration::zero()) {
+    ZoomHistory zoomHistory;
+    zoomHistory.update(0, TimePoint::min() + delta);
+
     PropertyEvaluationParameters parameters {
-        0,
+        zoomHistory,
         TimePoint::min() + delta,
-        ZoomHistory(),
         Duration::zero()
     };
 
@@ -24,10 +26,12 @@ float evaluate(TransitioningProperty<PropertyValue<float>>& property, Duration d
 }
 
 PossiblyEvaluatedPropertyValue<float> evaluate(TransitioningProperty<DataDrivenPropertyValue<float>>& property, Duration delta = Duration::zero()) {
+    ZoomHistory zoomHistory;
+    zoomHistory.update(0, TimePoint::min() + delta);
+
     PropertyEvaluationParameters parameters {
-        0,
+        zoomHistory,
         TimePoint::min() + delta,
-        ZoomHistory(),
         Duration::zero()
     };
     
