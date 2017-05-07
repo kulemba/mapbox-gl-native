@@ -3,10 +3,11 @@
 #include <mbgl/style/transition_options.hpp>
 #include <mbgl/style/observer.hpp>
 #include <mbgl/style/source_observer.hpp>
+#include <mbgl/renderer/render_source_observer.hpp>
 #include <mbgl/style/layer_observer.hpp>
 #include <mbgl/style/update_batch.hpp>
 #include <mbgl/renderer/render_layer.hpp>
-#include <mbgl/style/light_impl.hpp>
+#include <mbgl/renderer/render_light.hpp>
 #include <mbgl/text/glyph_atlas_observer.hpp>
 #include <mbgl/sprite/sprite_atlas_observer.hpp>
 #include <mbgl/map/mode.hpp>
@@ -34,16 +35,18 @@ class TransformState;
 class RenderedQueryOptions;
 class Scheduler;
 class RenderLayer;
+class RenderSource;
+class UpdateParameters;
 
 namespace style {
 
 class Layer;
-class UpdateParameters;
 class QueryParameters;
 
 class Style : public GlyphAtlasObserver,
               public SpriteAtlasObserver,
               public SourceObserver,
+              public RenderSourceObserver,
               public LayerObserver,
               public util::noncopyable {
 public:
@@ -56,13 +59,7 @@ public:
 
     bool isLoaded() const;
 
-    // Fetch the tiles needed by the current viewport and emit a signal when
-    // a tile is ready so observers can render the tile.
-    void updateTiles(const UpdateParameters&);
-
-    void relayout();
-    void cascade(const TimePoint&, MapMode);
-    void recalculate(float z, const TimePoint&, MapMode);
+    void update(const UpdateParameters&);
 
     bool hasTransitions() const;
 
@@ -127,8 +124,12 @@ public:
     TransitioningLight transitioningLight;
     EvaluatedLight evaluatedLight;
 
+    RenderSource* getRenderSource(const std::string& id) const;
+
 private:
     std::vector<std::unique_ptr<Source>> sources;
+    std::vector<std::unique_ptr<RenderSource>> renderSources;
+
     std::vector<std::unique_ptr<Layer>> layers;
     std::vector<std::unique_ptr<RenderLayer>> renderLayers;
     std::vector<std::string> classes;
@@ -143,7 +144,6 @@ private:
 
     std::vector<std::unique_ptr<Layer>>::const_iterator findLayer(const std::string& layerID) const;
     std::vector<std::unique_ptr<RenderLayer>>::const_iterator findRenderLayer(const std::string&) const;
-    void reloadLayerSource(Layer&);
 
     // GlyphStoreObserver implementation.
     void onGlyphsLoaded(const FontStack&, const GlyphRange&) override;
@@ -158,8 +158,8 @@ private:
     void onSourceChanged(Source&) override;
     void onSourceError(Source&, std::exception_ptr) override;
     void onSourceDescriptionChanged(Source&) override;
-    void onTileChanged(Source&, const OverscaledTileID&) override;
-    void onTileError(Source&, const OverscaledTileID&, std::exception_ptr) override;
+    void onTileChanged(RenderSource&, const OverscaledTileID&) override;
+    void onTileError(RenderSource&, const OverscaledTileID&, std::exception_ptr) override;
 
     // LayerObserver implementation.
     void onLayerFilterChanged(Layer&) override;
@@ -175,11 +175,11 @@ private:
 
     UpdateBatch updateBatch;
     ZoomHistory zoomHistory;
-    bool hasPendingTransitions = false;
                   
     uint8_t maxZoomLimit = std::numeric_limits<uint8_t>::max();
 
     void removeRenderLayer(const std::string& layerID);
+
 public:
     bool loaded = false;
 };
