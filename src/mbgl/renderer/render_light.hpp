@@ -1,11 +1,14 @@
 #pragma once
 
-#include <mbgl/style/light.hpp>
+#include <mbgl/style/light_impl.hpp>
+#include <mbgl/style/light_properties.hpp>
 #include <mbgl/renderer/transitioning_property.hpp>
 #include <mbgl/renderer/cascade_parameters.hpp>
 #include <mbgl/renderer/property_evaluator.hpp>
 #include <mbgl/renderer/property_evaluation_parameters.hpp>
 #include <mbgl/util/ignore.hpp>
+
+#include <memory>
 
 namespace mbgl {
 
@@ -68,5 +71,22 @@ public:
 
 using TransitioningLight = Transitioning<style::LightProperties>;
 using EvaluatedLight     = Evaluated<style::LightProperties>;
+
+class RenderLight {
+public:
+    RenderLight(Immutable<style::Light::Impl>);
+
+    void transition(const CascadeParameters&);
+    void evaluate(const PropertyEvaluationParameters&);
+    bool hasTransition() const;
+
+    const EvaluatedLight& getEvaluated() const;
+
+    Immutable<style::Light::Impl> impl;
+
+private:
+    TransitioningLight transitioning;
+    EvaluatedLight evaluated;
+};
 
 } // namespace mbgl
