@@ -15,10 +15,10 @@
 #include <mbgl/style/layer_impl.hpp>
 
 #include <mbgl/tile/tile.hpp>
-#include <mbgl/renderer/render_background_layer.hpp>
-#include <mbgl/renderer/render_custom_layer.hpp>
+#include <mbgl/renderer/layers/render_background_layer.hpp>
+#include <mbgl/renderer/layers/render_custom_layer.hpp>
 #include <mbgl/style/layers/custom_layer_impl.hpp>
-#include <mbgl/renderer/render_fill_extrusion_layer.hpp>
+#include <mbgl/renderer/layers/render_fill_extrusion_layer.hpp>
 
 #include <mbgl/sprite/sprite_atlas.hpp>
 #include <mbgl/geometry/line_atlas.hpp>
@@ -33,8 +33,6 @@
 #include <mbgl/util/constants.hpp>
 #include <mbgl/util/mat3.hpp>
 #include <mbgl/util/string.hpp>
-
-#include <mbgl/util/offscreen_texture.hpp>
 
 #include <mbgl/util/stopwatch.hpp>
 
@@ -146,7 +144,7 @@ void Painter::render(const Style& style, const FrameData& frame_, View& view, Sp
     spriteAtlas = style.spriteAtlas.get();
     lineAtlas = style.lineAtlas.get();
 
-    evaluatedLight = style.evaluatedLight;
+    evaluatedLight = style.getRenderLight().getEvaluated();
 
     RenderData renderData = style.getRenderData(frame.debugOptions, state.getAngle());
     const std::vector<RenderItem>& order = renderData.order;
@@ -182,7 +180,7 @@ void Painter::render(const Style& style, const FrameData& frame_, View& view, Sp
 
         for (const auto& item : order) {
             for (const auto& tileRef : item.tiles) {
-                const auto& bucket = tileRef.get().tile.getBucket(item.layer);
+                const auto& bucket = tileRef.get().tile.getBucket(*item.layer.baseImpl);
                 if (bucket && bucket->needsUpload()) {
                     bucket->upload(context);
                 }
@@ -311,7 +309,7 @@ void Painter::renderPass(PaintParameters& parameters,
             MBGL_DEBUG_GROUP(context, "background");
             renderBackground(parameters, *layer.as<RenderBackgroundLayer>());
         } else if (layer.is<RenderCustomLayer>()) {
-            MBGL_DEBUG_GROUP(context, layer.baseImpl.id + " - custom");
+            MBGL_DEBUG_GROUP(context, layer.baseImpl->id + " - custom");
 
             // Reset GL state to a known state so the CustomLayer always has a clean slate.
             context.vertexArrayObject = 0;
@@ -319,7 +317,7 @@ void Painter::renderPass(PaintParameters& parameters,
             context.setStencilMode(gl::StencilMode::disabled());
             context.setColorMode(colorModeForRenderPass());
 
-            layer.as<RenderCustomLayer>()->impl->render(state);
+            layer.as<RenderCustomLayer>()->impl().render(state);
 
             // Reset the view back to our original one, just in case the CustomLayer changed
             // the viewport or Framebuffer.
@@ -328,8 +326,11 @@ void Painter::renderPass(PaintParameters& parameters,
         } else if (layer.is<RenderFillExtrusionLayer>()) {
             const auto size = context.viewport.getCurrentValue().size;
 
-            OffscreenTexture texture(context, size);
-            texture.bindRenderbuffers(1);
+            if (!extrusionTexture || extrusionTexture->getSize() != size) {
+                extrusionTexture = OffscreenTexture(context, size, OffscreenTextureAttachment::Depth);
+            }
+
+            extrusionTexture->bind();
 
             context.setStencilMode(gl::StencilMode::disabled());
             context.setDepthMode(depthModeForSublayer(0, gl::DepthMode::ReadWrite));
@@ -338,12 +339,13 @@ void Painter::renderPass(PaintParameters& parameters,
             for (auto& tileRef : item.tiles) {
                 auto& tile = tileRef.get();
 
-                MBGL_DEBUG_GROUP(context, layer.baseImpl.id + " - " + util::toString(tile.id));
-                auto bucket = tile.tile.getBucket(layer);
+                MBGL_DEBUG_GROUP(context, layer.baseImpl->id + " - " + util::toString(tile.id));
+                auto bucket = tile.tile.getBucket(*layer.baseImpl);
                 bucket->render(*this, parameters, layer, tile);
             }
 
             parameters.view.bind();
+            context.bindTexture(extrusionTexture->getTexture());
 
             mat4 viewportMat;
             matrix::ortho(viewportMat, 0, size.width, size.height, 0, 0, 1);
@@ -355,18 +357,17 @@ void Painter::renderPass(PaintParameters& parameters,
                 colorModeForRenderPass(),
                 ExtrusionTextureProgram::UniformValues{
                     uniforms::u_matrix::Value{ viewportMat }, uniforms::u_world::Value{ size },
-                    uniforms::u_image::Value{ 1 },
-                    uniforms::u_opacity::Value{
-                        layer.as<RenderFillExtrusionLayer>()->evaluated.get<FillExtrusionOpacity>() } },
-                extrusionTextureVertexBuffer, quadTriangleIndexBuffer,
-                extrusionTextureSegments,
+                    uniforms::u_image::Value{ 0 },
+                    uniforms::u_opacity::Value{ layer.as<RenderFillExtrusionLayer>()
+                                                    ->evaluated.get<FillExtrusionOpacity>() } },
+                extrusionTextureVertexBuffer, quadTriangleIndexBuffer, extrusionTextureSegments,
                 ExtrusionTextureProgram::PaintPropertyBinders{ properties, 0 }, properties,
                 state.getZoom());
         } else {
             for (auto& tileRef : item.tiles) {
                 auto& tile = tileRef.get();
-                MBGL_DEBUG_GROUP(context, layer.baseImpl.id + " - " + util::toString(tile.id));
-                auto bucket = tile.tile.getBucket(layer);
+                MBGL_DEBUG_GROUP(context, layer.baseImpl->id + " - " + util::toString(tile.id));
+                auto bucket = tile.tile.getBucket(*layer.baseImpl);
                 bucket->render(*this, parameters, layer, tile);
             }
         }
