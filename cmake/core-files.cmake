@@ -32,8 +32,6 @@ set(MBGL_CORE_FILES
     src/mbgl/annotation/render_annotation_source.hpp
     src/mbgl/annotation/shape_annotation_impl.cpp
     src/mbgl/annotation/shape_annotation_impl.hpp
-    src/mbgl/annotation/style_sourced_annotation_impl.cpp
-    src/mbgl/annotation/style_sourced_annotation_impl.hpp
     src/mbgl/annotation/symbol_annotation_impl.cpp
     src/mbgl/annotation/symbol_annotation_impl.hpp
 
@@ -163,75 +161,84 @@ set(MBGL_CORE_FILES
     src/mbgl/renderer/bucket_parameters.cpp
     src/mbgl/renderer/bucket_parameters.hpp
     src/mbgl/renderer/cascade_parameters.hpp
-    src/mbgl/renderer/circle_bucket.cpp
-    src/mbgl/renderer/circle_bucket.hpp
     src/mbgl/renderer/cross_faded_property_evaluator.cpp
     src/mbgl/renderer/cross_faded_property_evaluator.hpp
     src/mbgl/renderer/data_driven_property_evaluator.hpp
-    src/mbgl/renderer/debug_bucket.cpp
-    src/mbgl/renderer/debug_bucket.hpp
-    src/mbgl/renderer/fill_bucket.cpp
-    src/mbgl/renderer/fill_bucket.hpp
-    src/mbgl/renderer/fill_extrusion_bucket.cpp
-    src/mbgl/renderer/fill_extrusion_bucket.hpp
     src/mbgl/renderer/frame_history.cpp
     src/mbgl/renderer/frame_history.hpp
     src/mbgl/renderer/group_by_layout.cpp
     src/mbgl/renderer/group_by_layout.hpp
-    src/mbgl/renderer/line_bucket.cpp
-    src/mbgl/renderer/line_bucket.hpp
     src/mbgl/renderer/paint_parameters.hpp
     src/mbgl/renderer/paint_property_binder.hpp
     src/mbgl/renderer/paint_property_statistics.hpp
     src/mbgl/renderer/painter.cpp
     src/mbgl/renderer/painter.hpp
-    src/mbgl/renderer/painter_background.cpp
-    src/mbgl/renderer/painter_circle.cpp
-    src/mbgl/renderer/painter_clipping.cpp
-    src/mbgl/renderer/painter_debug.cpp
-    src/mbgl/renderer/painter_fill.cpp
-    src/mbgl/renderer/painter_fill_extrusion.cpp
-    src/mbgl/renderer/painter_line.cpp
-    src/mbgl/renderer/painter_raster.cpp
-    src/mbgl/renderer/painter_symbol.cpp
     src/mbgl/renderer/possibly_evaluated_property_value.hpp
     src/mbgl/renderer/property_evaluation_parameters.hpp
     src/mbgl/renderer/property_evaluator.hpp
-    src/mbgl/renderer/raster_bucket.cpp
-    src/mbgl/renderer/raster_bucket.hpp
-    src/mbgl/renderer/render_background_layer.cpp
-    src/mbgl/renderer/render_background_layer.hpp
-    src/mbgl/renderer/render_circle_layer.cpp
-    src/mbgl/renderer/render_circle_layer.hpp
-    src/mbgl/renderer/render_custom_layer.cpp
-    src/mbgl/renderer/render_custom_layer.hpp
-    src/mbgl/renderer/render_fill_extrusion_layer.cpp
-    src/mbgl/renderer/render_fill_extrusion_layer.hpp
-    src/mbgl/renderer/render_fill_layer.cpp
-    src/mbgl/renderer/render_fill_layer.hpp
     src/mbgl/renderer/render_item.hpp
     src/mbgl/renderer/render_layer.cpp
     src/mbgl/renderer/render_layer.hpp
+    src/mbgl/renderer/render_light.cpp
     src/mbgl/renderer/render_light.hpp
-    src/mbgl/renderer/render_line_layer.cpp
-    src/mbgl/renderer/render_line_layer.hpp
     src/mbgl/renderer/render_pass.hpp
-    src/mbgl/renderer/render_raster_layer.cpp
-    src/mbgl/renderer/render_raster_layer.hpp
     src/mbgl/renderer/render_source.cpp
     src/mbgl/renderer/render_source.hpp
     src/mbgl/renderer/render_source_observer.hpp
-    src/mbgl/renderer/render_symbol_layer.cpp
-    src/mbgl/renderer/render_symbol_layer.hpp
     src/mbgl/renderer/render_tile.cpp
     src/mbgl/renderer/render_tile.hpp
-    src/mbgl/renderer/symbol_bucket.cpp
-    src/mbgl/renderer/symbol_bucket.hpp
+    src/mbgl/renderer/style_diff.cpp
+    src/mbgl/renderer/style_diff.hpp
     src/mbgl/renderer/tile_parameters.hpp
     src/mbgl/renderer/tile_pyramid.cpp
     src/mbgl/renderer/tile_pyramid.hpp
     src/mbgl/renderer/transitioning_property.hpp
     src/mbgl/renderer/update_parameters.hpp
+
+    # renderer/buckets
+    src/mbgl/renderer/buckets/circle_bucket.cpp
+    src/mbgl/renderer/buckets/circle_bucket.hpp
+    src/mbgl/renderer/buckets/debug_bucket.cpp
+    src/mbgl/renderer/buckets/debug_bucket.hpp
+    src/mbgl/renderer/buckets/fill_bucket.cpp
+    src/mbgl/renderer/buckets/fill_bucket.hpp
+    src/mbgl/renderer/buckets/fill_extrusion_bucket.cpp
+    src/mbgl/renderer/buckets/fill_extrusion_bucket.hpp
+    src/mbgl/renderer/buckets/line_bucket.cpp
+    src/mbgl/renderer/buckets/line_bucket.hpp
+    src/mbgl/renderer/buckets/raster_bucket.cpp
+    src/mbgl/renderer/buckets/raster_bucket.hpp
+    src/mbgl/renderer/buckets/symbol_bucket.cpp
+    src/mbgl/renderer/buckets/symbol_bucket.hpp
+
+    # renderer/layers
+    src/mbgl/renderer/layers/render_background_layer.cpp
+    src/mbgl/renderer/layers/render_background_layer.hpp
+    src/mbgl/renderer/layers/render_circle_layer.cpp
+    src/mbgl/renderer/layers/render_circle_layer.hpp
+    src/mbgl/renderer/layers/render_custom_layer.cpp
+    src/mbgl/renderer/layers/render_custom_layer.hpp
+    src/mbgl/renderer/layers/render_fill_extrusion_layer.cpp
+    src/mbgl/renderer/layers/render_fill_extrusion_layer.hpp
+    src/mbgl/renderer/layers/render_fill_layer.cpp
+    src/mbgl/renderer/layers/render_fill_layer.hpp
+    src/mbgl/renderer/layers/render_line_layer.cpp
+    src/mbgl/renderer/layers/render_line_layer.hpp
+    src/mbgl/renderer/layers/render_raster_layer.cpp
+    src/mbgl/renderer/layers/render_raster_layer.hpp
+    src/mbgl/renderer/layers/render_symbol_layer.cpp
+    src/mbgl/renderer/layers/render_symbol_layer.hpp
+
+    # renderer/painters
+    src/mbgl/renderer/painters/painter_background.cpp
+    src/mbgl/renderer/painters/painter_circle.cpp
+    src/mbgl/renderer/painters/painter_clipping.cpp
+    src/mbgl/renderer/painters/painter_debug.cpp
+    src/mbgl/renderer/painters/painter_fill.cpp
+    src/mbgl/renderer/painters/painter_fill_extrusion.cpp
+    src/mbgl/renderer/painters/painter_line.cpp
+    src/mbgl/renderer/painters/painter_raster.cpp
+    src/mbgl/renderer/painters/painter_symbol.cpp
 
     # renderer/sources
     src/mbgl/renderer/sources/render_geojson_source.cpp
@@ -282,9 +289,13 @@ set(MBGL_CORE_FILES
     # sprite
     src/mbgl/sprite/sprite_atlas.cpp
     src/mbgl/sprite/sprite_atlas.hpp
-    src/mbgl/sprite/sprite_atlas_observer.hpp
-    src/mbgl/sprite/sprite_atlas_worker.cpp
-    src/mbgl/sprite/sprite_atlas_worker.hpp
+    src/mbgl/sprite/sprite_image_collection.cpp
+    src/mbgl/sprite/sprite_image_collection.hpp
+    src/mbgl/sprite/sprite_loader.cpp
+    src/mbgl/sprite/sprite_loader.hpp
+    src/mbgl/sprite/sprite_loader_observer.hpp
+    src/mbgl/sprite/sprite_loader_worker.cpp
+    src/mbgl/sprite/sprite_loader_worker.hpp
     src/mbgl/sprite/sprite_parser.cpp
     src/mbgl/sprite/sprite_parser.hpp
 
@@ -321,11 +332,18 @@ set(MBGL_CORE_FILES
     src/mbgl/style/class_dictionary.cpp
     src/mbgl/style/class_dictionary.hpp
     src/mbgl/style/image.cpp
+    src/mbgl/style/image_impl.cpp
+    src/mbgl/style/image_impl.hpp
     src/mbgl/style/layer.cpp
     src/mbgl/style/layer_impl.cpp
     src/mbgl/style/layer_impl.hpp
     src/mbgl/style/layer_observer.hpp
     src/mbgl/style/layout_property.hpp
+    src/mbgl/style/light.cpp
+    src/mbgl/style/light_impl.cpp
+    src/mbgl/style/light_impl.hpp
+    src/mbgl/style/light_observer.hpp
+    src/mbgl/style/light_properties.hpp
     src/mbgl/style/observer.hpp
     src/mbgl/style/paint_property.hpp
     src/mbgl/style/parser.cpp
@@ -337,8 +355,6 @@ set(MBGL_CORE_FILES
     src/mbgl/style/source_observer.hpp
     src/mbgl/style/style.cpp
     src/mbgl/style/style.hpp
-    src/mbgl/style/tile_source_impl.cpp
-    src/mbgl/style/tile_source_impl.hpp
     src/mbgl/style/types.cpp
     src/mbgl/style/update_batch.hpp
 
@@ -359,6 +375,7 @@ set(MBGL_CORE_FILES
     include/mbgl/style/conversion/tileset.hpp
     include/mbgl/style/conversion/transition_options.hpp
     src/mbgl/style/conversion/geojson.cpp
+    src/mbgl/style/conversion/json.hpp
     src/mbgl/style/conversion/stringify.hpp
 
     # style/function
@@ -506,6 +523,7 @@ set(MBGL_CORE_FILES
     include/mbgl/util/geometry.hpp
     include/mbgl/util/ignore.hpp
     include/mbgl/util/image.hpp
+    include/mbgl/util/immutable.hpp
     include/mbgl/util/indexed_tuple.hpp
     include/mbgl/util/interpolate.hpp
     include/mbgl/util/logging.hpp
@@ -555,6 +573,7 @@ set(MBGL_CORE_FILES
     src/mbgl/util/io.cpp
     src/mbgl/util/io.hpp
     src/mbgl/util/logging.cpp
+    src/mbgl/util/longest_common_subsequence.hpp
     src/mbgl/util/mapbox.cpp
     src/mbgl/util/mapbox.hpp
     src/mbgl/util/mat2.cpp
