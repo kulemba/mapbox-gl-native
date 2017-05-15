@@ -866,9 +866,6 @@ mbgl::Annotation asMapboxGLAnnotation(const QMapbox::Annotation & annotation) {
         } else {
             return mbgl::FillAnnotation { asMapboxGLGeometry(fillAnnotation.geometry), fillAnnotation.opacity, { *color }, {} };
         }
-    } else if (annotation.canConvert<QMapbox::StyleSourcedAnnotation>()) {
-        QMapbox::StyleSourcedAnnotation styleSourcedAnnotation = annotation.value<QMapbox::StyleSourcedAnnotation>();
-        return mbgl::StyleSourcedAnnotation { asMapboxGLGeometry(styleSourcedAnnotation.geometry), styleSourcedAnnotation.layerID.toStdString() };
     }
 
     qWarning() << "Unable to convert annotation:" << annotation;
@@ -1303,7 +1300,7 @@ void QMapboxGL::updateSource(const QString &id, const QVariantMap &params)
 
     if (params.contains("data")) {
         Error error;
-        auto result = convertGeoJSON(params["data"], error);
+        auto result = convert<mbgl::GeoJSON>(params["data"], error);
         if (result) {
             sourceGeoJSON->setGeoJSON(*result);
         }
@@ -1337,7 +1334,7 @@ void QMapboxGL::addCustomLayer(const QString &id,
         QMapbox::CustomLayerRenderFunction renderFn,
         QMapbox::CustomLayerDeinitializeFunction deinitFn,
         void *context,
-        char *before)
+        const QString& before)
 {
     d_ptr->mapObj->addLayer(std::make_unique<mbgl::style::CustomLayer>(
             id.toStdString(),
@@ -1347,13 +1344,14 @@ void QMapboxGL::addCustomLayer(const QString &id,
             (mbgl::style::CustomLayerRenderFunction)renderFn,
             reinterpret_cast<mbgl::style::CustomLayerDeinitializeFunction>(deinitFn),
             context),
-            before ? mbgl::optional<std::string>(before) : mbgl::optional<std::string>());
+            before.isEmpty() ? mbgl::optional<std::string>() : mbgl::optional<std::string>(before.toStdString()));
 }
 
 /*!
     Adds a style layer to the map as specified by the \l
     {https://www.mapbox.com/mapbox-gl-style-spec/#root-layers}{Mapbox style specification} with
-    \a params.
+    \a params. The layer will be added under the layer specified by \a before, if specified.
+    Otherwise it will be added as the topmost layer.
 
     This example shows how to add a layer that will be used to show a route line on the map. Note
     that nothing will be drawn until we set paint properties using setPaintProperty().
@@ -1369,7 +1367,7 @@ void QMapboxGL::addCustomLayer(const QString &id,
 
     /note The source must exist prior to adding a layer.
 */
-void QMapboxGL::addLayer(const QVariantMap &params)
+void QMapboxGL::addLayer(const QVariantMap &params, const QString& before)
 {
     using namespace mbgl::style;
     using namespace mbgl::style::conversion;
@@ -1381,7 +1379,8 @@ void QMapboxGL::addLayer(const QVariantMap &params)
         return;
     }
 
-    d_ptr->mapObj->addLayer(std::move(*layer));
+    d_ptr->mapObj->addLayer(std::move(*layer),
+        before.isEmpty() ? mbgl::optional<std::string>() : mbgl::optional<std::string>(before.toStdString()));
 }
 
 /*!

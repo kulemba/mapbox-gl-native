@@ -30,70 +30,70 @@ TEST(StyleConversion, Light) {
     }
 
     {
-        auto light = parseLight("{\"color\":{\"stops\":[[14,\"blue\"],[16,\"red\"]]},\"intensity\":0.3,\"position\":[3,90,90]}");
+        auto light = parseLight(R"({"color":{"stops":[[14,"blue"],[16,"red"]]},"intensity":0.3,"position":[3,90,90]})");
         ASSERT_TRUE((bool) light);
 
-        ASSERT_TRUE(light->get<LightAnchor>().value.isUndefined());
-        ASSERT_FALSE(light->get<LightAnchor>().value.isConstant());
-        ASSERT_FALSE(light->get<LightAnchor>().value.isCameraFunction());
+        ASSERT_TRUE(light->getAnchor().isUndefined());
+        ASSERT_FALSE(light->getAnchor().isConstant());
+        ASSERT_FALSE(light->getAnchor().isCameraFunction());
 
-        ASSERT_FALSE(light->get<LightIntensity>().value.isUndefined());
-        ASSERT_TRUE(light->get<LightIntensity>().value.isConstant());
-        ASSERT_EQ(light->get<LightIntensity>().value.asConstant(), 0.3f);
-        ASSERT_FALSE(light->get<LightAnchor>().value.isCameraFunction());
+        ASSERT_FALSE(light->getIntensity().isUndefined());
+        ASSERT_TRUE(light->getIntensity().isConstant());
+        ASSERT_EQ(light->getIntensity().asConstant(), 0.3f);
+        ASSERT_FALSE(light->getAnchor().isCameraFunction());
 
-        ASSERT_FALSE(light->get<LightColor>().value.isUndefined());
-        ASSERT_FALSE(light->get<LightColor>().value.isConstant());
-        ASSERT_TRUE(light->get<LightColor>().value.isCameraFunction());
+        ASSERT_FALSE(light->getColor().isUndefined());
+        ASSERT_FALSE(light->getColor().isConstant());
+        ASSERT_TRUE(light->getColor().isCameraFunction());
 
-        ASSERT_FALSE(light->get<LightPosition>().value.isUndefined());
-        ASSERT_TRUE(light->get<LightPosition>().value.isConstant());
+        ASSERT_FALSE(light->getPosition().isUndefined());
+        ASSERT_TRUE(light->getPosition().isConstant());
         std::array<float, 3> expected{{ 3, 90, 90 }};
-        ASSERT_EQ(light->get<LightPosition>().value.asConstant(), mbgl::style::Position({ expected }));
-        ASSERT_FALSE(light->get<LightPosition>().value.isCameraFunction());
+        ASSERT_EQ(light->getPosition().asConstant(), mbgl::style::Position({ expected }));
+        ASSERT_FALSE(light->getPosition().isCameraFunction());
     }
 
     {
-        auto light = parseLight("{\"color\":\"blue\",\"intensity\":0.3,\"color-transition\":{\"duration\":1000}}");
+        auto light = parseLight(R"({"color":"blue","intensity":0.3,"color-transition":{"duration":1000}})");
         ASSERT_TRUE((bool) light);
 
-        ASSERT_FALSE(light->get<LightColor>().value.isUndefined());
-        ASSERT_TRUE(light->get<LightColor>().value.isConstant());
-        ASSERT_FALSE(light->get<LightColor>().value.isCameraFunction());
-        ASSERT_EQ(light->get<LightColor>().transition.duration, mbgl::Duration(mbgl::Milliseconds(1000)));
-        ASSERT_FALSE((bool) light->get<LightColor>().transition.delay);
+        ASSERT_FALSE(light->getColor().isUndefined());
+        ASSERT_TRUE(light->getColor().isConstant());
+        ASSERT_FALSE(light->getColor().isCameraFunction());
+        ASSERT_EQ(light->getColorTransition().duration, mbgl::Duration(mbgl::Milliseconds(1000)));
+        ASSERT_FALSE((bool) light->getColorTransition().delay);
     }
 
     {
-        auto light = parseLight("{\"intensity\":false}");
+        auto light = parseLight(R"({"intensity":false})");
 
         ASSERT_FALSE((bool) light);
         ASSERT_EQ("value must be a number", error.message);
     }
 
     {
-        auto light = parseLight("{\"intensity\":{\"stops\":[[15,\"red\"],[17,\"blue\"]]}}");
+        auto light = parseLight(R"({"intensity":{"stops":[[15,"red"],[17,"blue"]]}})");
 
         ASSERT_FALSE((bool) light);
         ASSERT_EQ("value must be a number", error.message);
     }
 
     {
-        auto light = parseLight("{\"color\":5}");
+        auto light = parseLight(R"({"color":5})");
 
         ASSERT_FALSE((bool) light);
         ASSERT_EQ("value must be a string", error.message);
     }
 
     {
-        auto light = parseLight("{\"position\":[0,5]}");
+        auto light = parseLight(R"({"position":[0,5]})");
 
         ASSERT_FALSE((bool) light);
         ASSERT_EQ("value must be an array of 3 numbers", error.message);
     }
 
     {
-        auto light = parseLight("{\"anchor\":\"something\"}");
+        auto light = parseLight(R"({"anchor":"something"})");
 
         ASSERT_FALSE((bool) light);
         ASSERT_EQ("value must be a valid enumeration value", error.message);
