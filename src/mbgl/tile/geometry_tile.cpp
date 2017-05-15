@@ -6,10 +6,10 @@
 #include <mbgl/style/layers/background_layer.hpp>
 #include <mbgl/style/layers/custom_layer.hpp>
 #include <mbgl/renderer/tile_parameters.hpp>
-#include <mbgl/renderer/render_background_layer.hpp>
-#include <mbgl/renderer/render_custom_layer.hpp>
-#include <mbgl/renderer/render_symbol_layer.hpp>
-#include <mbgl/renderer/symbol_bucket.hpp>
+#include <mbgl/renderer/layers/render_background_layer.hpp>
+#include <mbgl/renderer/layers/render_custom_layer.hpp>
+#include <mbgl/renderer/layers/render_symbol_layer.hpp>
+#include <mbgl/renderer/buckets/symbol_bucket.hpp>
 #include <mbgl/style/style.hpp>
 #include <mbgl/storage/file_source.hpp>
 #include <mbgl/geometry/feature_index.hpp>
@@ -47,10 +47,14 @@ GeometryTile::GeometryTile(const OverscaledTileID& id_,
 GeometryTile::~GeometryTile() {
     glyphAtlas.removeGlyphs(*this);
     spriteAtlas.removeRequestor(*this);
-    cancel();
+    markObsolete();
 }
 
 void GeometryTile::cancel() {
+    markObsolete();
+}
+
+void GeometryTile::markObsolete() {
     obsolete = true;
 }
 
@@ -89,10 +93,10 @@ void GeometryTile::redoLayout() {
     // state despite pending parse operations.
     pending = true;
 
-    std::vector<std::unique_ptr<Layer>> copy;
+    std::vector<Immutable<Layer::Impl>> impls;
 
     for (const Layer* layer : style.getLayers()) {
-        // Avoid cloning and including irrelevant layers.
+        // Skip irrelevant layers.
         if (layer->is<BackgroundLayer>() ||
             layer->is<CustomLayer>() ||
             layer->baseImpl->source != sourceID ||
@@ -102,11 +106,11 @@ void GeometryTile::redoLayout() {
             continue;
         }
 
-        copy.push_back(layer->baseImpl->clone());
+        impls.push_back(layer->baseImpl);
     }
 
     ++correlationID;
-    worker.invoke(&GeometryTileWorker::setLayers, std::move(copy), correlationID);
+    worker.invoke(&GeometryTileWorker::setLayers, std::move(impls), correlationID);
 }
 
 void GeometryTile::onLayout(LayoutResult result) {
@@ -156,9 +160,9 @@ void GeometryTile::getIcons(IconDependencies) {
     spriteAtlas.getIcons(*this);
 }
 
-Bucket* GeometryTile::getBucket(const RenderLayer& layer) const {
-    const auto& buckets = layer.is<RenderSymbolLayer>() ? symbolBuckets : nonSymbolBuckets;
-    const auto it = buckets.find(layer.baseImpl.id);
+Bucket* GeometryTile::getBucket(const Layer::Impl& layer) const {
+    const auto& buckets = layer.type == LayerType::Symbol ? symbolBuckets : nonSymbolBuckets;
+    const auto it = buckets.find(layer.id);
     if (it == buckets.end()) {
         return nullptr;
     }

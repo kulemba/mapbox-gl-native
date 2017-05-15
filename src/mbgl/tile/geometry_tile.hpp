@@ -48,7 +48,7 @@ public:
     void getGlyphs(GlyphDependencies);
     void getIcons(IconDependencies);
 
-    Bucket* getBucket(const RenderLayer&) const override;
+    Bucket* getBucket(const style::Layer::Impl&) const override;
 
     void queryRenderedFeatures(
             std::unordered_map<std::string, std::vector<Feature>>& result,
@@ -87,6 +87,8 @@ protected:
     }
 
 private:
+    void markObsolete();
+
     const std::string sourceID;
     style::Style& style;
 

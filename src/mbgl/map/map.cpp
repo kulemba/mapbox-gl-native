@@ -27,6 +27,7 @@
 #include <mbgl/actor/scheduler.hpp>
 #include <mbgl/util/logging.hpp>
 #include <mbgl/math/log2.hpp>
+#include <utility>
 
 namespace mbgl {
 
@@ -58,7 +59,7 @@ public:
          GLContextMode,
          ConstrainMode,
          ViewportMode,
-         const std::string& programCacheDir);
+         std::string programCacheDir);
 
     void onSourceChanged(style::Source&) override;
     void onUpdate(Update) override;
@@ -139,7 +140,7 @@ Map::Impl::Impl(Map& map_,
                 GLContextMode contextMode_,
                 ConstrainMode constrainMode_,
                 ViewportMode viewportMode_,
-                const std::string& programCacheDir_)
+                std::string programCacheDir_)
     : map(map_),
       observer(backend_),
       backend(backend_),
@@ -151,7 +152,7 @@ Map::Impl::Impl(Map& map_,
       mode(mode_),
       contextMode(contextMode_),
       pixelRatio(pixelRatio_),
-      programCacheDir(programCacheDir_),
+      programCacheDir(std::move(programCacheDir_)),
       annotationManager(std::make_unique<AnnotationManager>(pixelRatio)),
       asyncInvalidate([this] {
           if (mode == MapMode::Continuous) {
@@ -401,7 +402,7 @@ void Map::Impl::loadStyleJSON(const std::string& json) {
         map.setPitch(map.getDefaultPitch());
     }
 
-    onUpdate(Update::Classes | Update::AnnotationStyle);
+    onUpdate(Update::AnnotationStyle);
 }
 
 std::string Map::getStyleURL() const {
@@ -918,7 +919,7 @@ void Map::addLayer(std::unique_ptr<Layer> layer, const optional<std::string>& be
     BackendScope guard(impl->backend);
 
     impl->style->addLayer(std::move(layer), before);
-    impl->onUpdate(Update::Classes);
+    impl->onUpdate(Update::Repaint);
 }
 
 std::unique_ptr<Layer> Map::removeLayer(const std::string& id) {
@@ -941,8 +942,7 @@ void Map::addImage(const std::string& id, std::unique_ptr<style::Image> image) {
     }
 
     impl->styleMutated = true;
-    impl->style->spriteAtlas->addImage(id, std::move(image));
-    impl->onUpdate(Update::Repaint);
+    impl->style->addImage(id, std::move(image));
 }
 
 void Map::removeImage(const std::string& id) {
@@ -951,13 +951,12 @@ void Map::removeImage(const std::string& id) {
     }
 
     impl->styleMutated = true;
-    impl->style->spriteAtlas->removeImage(id);
-    impl->onUpdate(Update::Repaint);
+    impl->style->removeImage(id);
 }
 
 const style::Image* Map::getImage(const std::string& id) {
     if (impl->style) {
-        return impl->style->spriteAtlas->getImage(id);
+        return impl->style->getImage(id);
     }
     return nullptr;
 }
@@ -967,7 +966,7 @@ void Map::setLight(std::unique_ptr<style::Light> light) {
         return;
     }
 
-    impl->style->light = std::move(light);
+    impl->style->setLight(std::move(light));
 }
 
 style::Light* Map::getLight() {
@@ -975,7 +974,7 @@ style::Light* Map::getLight() {
         return nullptr;
     }
 
-    return impl->style->light.get();
+    return impl->style->getLight();
 }
 
 #pragma mark - Defaults
