@@ -7,17 +7,12 @@
 #include <mbgl/style/image.hpp>
 
 #include <string>
-#include <map>
 #include <set>
 #include <unordered_map>
 #include <array>
 #include <memory>
 
 namespace mbgl {
-
-class Scheduler;
-class FileSource;
-class SpriteAtlasObserver;
 
 namespace gl {
 class Context;
@@ -38,8 +33,8 @@ public:
     float height;
 };
 
-typedef std::map<std::string, SpriteAtlasElement> IconMap;
-typedef std::set<std::string> IconDependencies;
+using IconMap = std::unordered_map<std::string, SpriteAtlasElement>;
+using IconDependencies = std::set<std::string>;
 
 class IconRequestor {
 public:
@@ -48,12 +43,12 @@ public:
 
 class SpriteAtlas : public util::noncopyable {
 public:
-    using Images = std::map<std::string, std::unique_ptr<style::Image>>;
+    using Images = std::unordered_map<std::string, std::unique_ptr<style::Image>>;
 
     SpriteAtlas(Size, float pixelRatio);
     ~SpriteAtlas();
 
-    void load(const std::string& url, Scheduler&, FileSource&);
+    void onSpriteLoaded(Images&&);
 
     void markAsLoaded() {
         loaded = true;
@@ -64,8 +59,6 @@ public:
     }
 
     void dumpDebugLogs() const;
-
-    void setObserver(SpriteAtlasObserver*);
 
     const style::Image* getImage(const std::string&) const;
     void addImage(const std::string&, std::unique_ptr<style::Image>);
@@ -93,25 +86,12 @@ public:
     }
 
 private:
-    void emitSpriteLoadedIfComplete();
-
-    // Invoked by SpriteAtlasWorker
-    friend class SpriteAtlasWorker;
-    void onParsed(Images&& result);
-    void onError(std::exception_ptr);
-
     const Size size;
     const float pixelRatio;
-
-    struct Loader;
-    std::unique_ptr<Loader> loader;
-
     bool loaded = false;
 
-    SpriteAtlasObserver* observer = nullptr;
-
     struct Entry {
-        std::unique_ptr<style::Image> image;
+        std::unique_ptr<const style::Image> image;
 
         // One sprite image might be used as both an icon image and a pattern image. If so,
         // it must have two distinct entries in the texture. The one for the icon image has
