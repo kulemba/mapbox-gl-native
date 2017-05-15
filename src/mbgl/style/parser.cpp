@@ -120,7 +120,7 @@ void Parser::parseLight(const JSValue& value) {
         return;
     }
 
-    light = *converted;
+    light = std::move(*converted);
 }
 
 void Parser::parseSources(const JSValue& value) {
@@ -236,7 +236,7 @@ void Parser::parseLayer(const std::string& id, const JSValue& value, std::unique
             return;
         }
 
-        layer = reference->baseImpl->cloneRef(id);
+        layer = reference->cloneRef(id);
         conversion::setPaintProperties(*layer, value);
     } else {
         conversion::Error error;
