@@ -92,6 +92,9 @@ void MapWindow::keyPressEvent(QKeyEvent *ev)
 
             m_sourceAdded = true;
 
+            // Not in all styles, but will work on streets
+            QString before = "waterway-label";
+
             QFile geojson(":source1.geojson");
             geojson.open(QIODevice::ReadOnly);
 
@@ -106,7 +109,7 @@ void MapWindow::keyPressEvent(QKeyEvent *ev)
             routeCase["id"] = "routeCase";
             routeCase["type"] = "line";
             routeCase["source"] = "routeSource";
-            m_map->addLayer(routeCase);
+            m_map->addLayer(routeCase, before);
 
             m_map->setPaintProperty("routeCase", "line-color", QColor("white"));
             m_map->setPaintProperty("routeCase", "line-width", 20.0);
@@ -118,7 +121,7 @@ void MapWindow::keyPressEvent(QKeyEvent *ev)
             route["id"] = "route";
             route["type"] = "line";
             route["source"] = "routeSource";
-            m_map->addLayer(route);
+            m_map->addLayer(route, before);
 
             m_map->setPaintProperty("route", "line-color", QColor("blue"));
             m_map->setPaintProperty("route", "line-width", 8.0);
@@ -274,21 +277,6 @@ void MapWindow::keyPressEvent(QKeyEvent *ev)
             } else {
                 m_map->removeAnnotation(m_fillAnnotationId.toUInt());
                 m_fillAnnotationId.clear();
-            }
-        }
-        break;
-    case Qt::Key_4: {
-            if (m_styleSourcedAnnotationId.isNull()) {
-                QMapbox::Coordinate topLeft     = m_map->coordinateForPixel({ 0, 0 });
-                QMapbox::Coordinate topRight    = m_map->coordinateForPixel({ 0, qreal(size().height()) });
-                QMapbox::Coordinate bottomLeft  = m_map->coordinateForPixel({ qreal(size().width()), 0 });
-                QMapbox::Coordinate bottomRight = m_map->coordinateForPixel({ qreal(size().width()), qreal(size().height()) });
-                QMapbox::CoordinatesCollections geometry { { { bottomLeft, bottomRight, topRight, topLeft, bottomLeft } } };
-                QMapbox::StyleSourcedAnnotation styleSourced { { QMapbox::ShapeAnnotationGeometry::PolygonType, geometry }, "water" };
-                m_styleSourcedAnnotationId = m_map->addAnnotation(QVariant::fromValue<QMapbox::StyleSourcedAnnotation>(styleSourced));
-            } else {
-                m_map->removeAnnotation(m_styleSourcedAnnotationId.toUInt());
-                m_styleSourcedAnnotationId.clear();
             }
         }
         break;

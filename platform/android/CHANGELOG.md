@@ -3,7 +3,7 @@
 Mapbox welcomes participation and contributions from everyone.  If you'd like to do so please see the [`Contributing Guide`](https://github.com/mapbox/mapbox-gl-native/blob/master/CONTRIBUTING.md) first to get started.
 
 ## 5.1.0 - TBA
-
+* Update attribution with new Mapbox wordmark [#8774](https://github.com/mapbox/mapbox-gl-native/pull/8774)
 
 ## 5.1.0-beta.1 - May 2, 2017
 
@@ -36,6 +36,8 @@ Mapbox welcomes participation and contributions from everyone.  If you'd like to
 * Expose Source Layer identifier [#8709](https://github.com/mapbox/mapbox-gl-native/pull/8709)
 * Derived source attribution [#8630](https://github.com/mapbox/mapbox-gl-native/pull/8630)
 * Consistent use of duration unit [#8578](https://github.com/mapbox/mapbox-gl-native/pull/8578)
+* Swedish localization [#8883](https://github.com/mapbox/mapbox-gl-native/pull/8883)
+* Streets v10, Outdoors v10, Satellite Streets v10, Traffic Day v2, Traffic Night v2 [#6301](https://github.com/mapbox/mapbox-gl-native/pull/6301)
 
 ## 5.0.2 - April 3, 2017
 
