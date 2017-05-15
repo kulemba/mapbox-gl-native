@@ -1,10 +1,10 @@
 #include <mbgl/layout/symbol_layout.hpp>
 #include <mbgl/layout/merge_lines.hpp>
 #include <mbgl/layout/clip_lines.hpp>
-#include <mbgl/renderer/symbol_bucket.hpp>
+#include <mbgl/renderer/buckets/symbol_bucket.hpp>
 #include <mbgl/style/filter_evaluator.hpp>
 #include <mbgl/renderer/bucket_parameters.hpp>
-#include <mbgl/renderer/render_symbol_layer.hpp>
+#include <mbgl/renderer/layers/render_symbol_layer.hpp>
 #include <mbgl/style/layers/symbol_layer_impl.hpp>
 #include <mbgl/sprite/sprite_atlas.hpp>
 #include <mbgl/text/get_anchors.hpp>
@@ -50,11 +50,11 @@ SymbolLayout::SymbolLayout(const BucketParameters& parameters,
       mode(parameters.mode),
       tileSize(util::tileSize * overscaling),
       tilePixelRatio(float(util::EXTENT) / tileSize),
-      textSize(layers.at(0)->as<RenderSymbolLayer>()->impl->layout.unevaluated.get<TextSize>()),
-      iconSize(layers.at(0)->as<RenderSymbolLayer>()->impl->layout.unevaluated.get<IconSize>())
+      textSize(layers.at(0)->as<RenderSymbolLayer>()->impl().layout.unevaluated.get<TextSize>()),
+      iconSize(layers.at(0)->as<RenderSymbolLayer>()->impl().layout.unevaluated.get<IconSize>())
     {
 
-    const SymbolLayer::Impl& leader = *layers.at(0)->as<RenderSymbolLayer>()->impl;
+    const SymbolLayer::Impl& leader = layers.at(0)->as<RenderSymbolLayer>()->impl();
 
     layout = leader.layout.evaluate(PropertyEvaluationParameters(zoom));
 
