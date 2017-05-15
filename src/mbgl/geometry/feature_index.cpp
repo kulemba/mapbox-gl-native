@@ -1,7 +1,7 @@
 #include <mbgl/geometry/feature_index.hpp>
 #include <mbgl/style/style.hpp>
 #include <mbgl/renderer/render_layer.hpp>
-#include <mbgl/renderer/render_symbol_layer.hpp>
+#include <mbgl/renderer/layers/render_symbol_layer.hpp>
 #include <mbgl/text/collision_tile.hpp>
 #include <mbgl/util/constants.hpp>
 #include <mbgl/util/math.hpp>
@@ -61,7 +61,7 @@ static int16_t getAdditionalQueryRadius(const RenderedQueryOptions& queryOptions
     // Determine the additional radius needed factoring in property functions
     float additionalRadius = 0;
     auto getQueryRadius = [&](const RenderLayer& layer) {
-        auto bucket = tile.getBucket(layer);
+        auto bucket = tile.getBucket(*layer.baseImpl);
         if (bucket) {
             additionalRadius = std::max(additionalRadius, bucket->getQueryRadius(layer) * pixelsToTileUnits);
         }

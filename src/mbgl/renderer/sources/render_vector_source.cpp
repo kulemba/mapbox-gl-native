@@ -9,10 +9,13 @@ namespace mbgl {
 
 using namespace style;
 
-RenderVectorSource::RenderVectorSource(const style::VectorSource::Impl& impl_)
-    : RenderSource(impl_),
-      impl(impl_) {
+RenderVectorSource::RenderVectorSource(Immutable<style::VectorSource::Impl> impl_)
+    : RenderSource(impl_) {
     tilePyramid.setObserver(this);
+}
+
+const style::VectorSource::Impl& RenderVectorSource::impl() const {
+    return static_cast<const style::VectorSource::Impl&>(*baseImpl);
 }
 
 bool RenderVectorSource::isLoaded() const {
@@ -37,7 +40,7 @@ std::map<UnwrappedTileID, RenderTile>& RenderVectorSource::getRenderTiles() {
 }
 
 void RenderVectorSource::updateTiles(const TileParameters& parameters) {
-    optional<Tileset> tileset = impl.getTileset();
+    optional<Tileset> tileset = impl().getTileset();
 
     if (!tileset) {
         return;
@@ -51,9 +54,9 @@ void RenderVectorSource::updateTiles(const TileParameters& parameters) {
     tilePyramid.updateTiles(parameters,
                             SourceType::Vector,
                             util::tileSize,
-                            tileset->zoomRange,
+                            Range<uint8_t>(tileset->zoomRange.min, std::min(tileset->zoomRange.max, maxZoomLimit)),
                             [&] (const OverscaledTileID& tileID) {
-                                return std::make_unique<VectorTile>(tileID, impl.id, parameters, *tileset);
+                                return std::make_unique<VectorTile>(tileID, impl().id, parameters, *tileset);
                             });
 }
 
@@ -88,4 +91,8 @@ void RenderVectorSource::dumpDebugLogs() const {
     tilePyramid.dumpDebugLogs();
 }
 
+void RenderVectorSource::limitMaxZoom(uint8_t maxZoomLimit_) {
+    maxZoomLimit = maxZoomLimit_;
+}
+    
 } // namespace mbgl

@@ -107,8 +107,7 @@ Database &Database::operator=(Database &&other) {
     return *this;
 }
 
-Database::~Database() {
-}
+Database::~Database() = default;
 
 void Database::setBusyTimeout(std::chrono::milliseconds timeout) {
     assert(impl);
@@ -151,8 +150,7 @@ Statement &Statement::operator=(Statement &&other) {
     return *this;
 }
 
-Statement::~Statement() {
-}
+Statement::~Statement() = default;
 
 template <> void Statement::bind(int offset, std::nullptr_t) {
     assert(impl);
@@ -314,7 +312,7 @@ template <> std::string Statement::get(int offset) {
 
 template <> std::vector<uint8_t> Statement::get(int offset) {
     assert(impl);
-    const uint8_t* begin = reinterpret_cast<const uint8_t*>(sqlite3_column_blob(impl->stmt, offset));
+    const auto* begin = reinterpret_cast<const uint8_t*>(sqlite3_column_blob(impl->stmt, offset));
     const uint8_t* end   = begin + sqlite3_column_bytes(impl->stmt, offset);
     return { begin, end };
 }
