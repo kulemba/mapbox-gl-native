@@ -13,8 +13,8 @@
 
 namespace mbgl {
 
-typedef char16_t GlyphID;
-typedef std::set<GlyphID> GlyphIDs;
+using GlyphID = char16_t;
+using GlyphIDs = std::set<GlyphID>;
     
 // Note: this only works for the BMP
 GlyphRange getGlyphRange(GlyphID glyph);
@@ -40,8 +40,8 @@ struct Glyph {
     GlyphMetrics metrics;
 };
 
-typedef std::map<GlyphID, optional<Glyph>> GlyphPositions;
-typedef std::map<FontStack, GlyphPositions> GlyphPositionMap;
+using GlyphPositions = std::map<GlyphID, optional<Glyph>>;
+using GlyphPositionMap = std::map<FontStack, GlyphPositions>;
 
 class PositionedGlyph {
 public:
@@ -58,14 +58,14 @@ enum class WritingModeType : uint8_t;
 
 class Shaping {
     public:
-    explicit Shaping() : top(0), bottom(0), left(0), right(0) {}
+    explicit Shaping() = default;
     explicit Shaping(float x, float y, WritingModeType writingMode_)
         : top(y), bottom(y), left(x), right(x), writingMode(writingMode_) {}
     std::vector<PositionedGlyph> positionedGlyphs;
-    int32_t top;
-    int32_t bottom;
-    int32_t left;
-    int32_t right;
+    int32_t top = 0;
+    int32_t bottom = 0;
+    int32_t left = 0;
+    int32_t right = 0;
     WritingModeType writingMode;
 
     explicit operator bool() const { return !positionedGlyphs.empty(); }
@@ -97,8 +97,7 @@ constexpr WritingModeType operator~(WritingModeType value) {
     return WritingModeType(~mbgl::underlying_type(value));
 }
 
-typedef std::map<FontStack,GlyphIDs> GlyphDependencies;
-typedef std::map<FontStack,GlyphRangeSet> GlyphRangeDependencies;
-
+using GlyphDependencies = std::map<FontStack,GlyphIDs>;
+using GlyphRangeDependencies = std::map<FontStack,GlyphRangeSet>;
 
 } // end namespace mbgl
