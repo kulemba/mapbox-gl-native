@@ -1261,8 +1261,7 @@ typedef NS_ENUM(NSInteger, MBXSettingsMiscellaneousRows) {
 
 - (void)styleRasterSource
 {
-    // 3rd party raster source requires NSAppTransportSecurity exception for stamen.com
-    NSArray *tileURLTemplates = @[@"http://a.tile.stamen.com/terrain-background/{z}/{x}/{y}.jpg"];
+    NSArray *tileURLTemplates = @[@"https://stamen-tiles.a.ssl.fastly.net/terrain-background/{z}/{x}/{y}.jpg"];
     MGLRasterSource *rasterSource = [[MGLRasterSource alloc] initWithIdentifier:@"style-raster-source-id" tileURLTemplates:tileURLTemplates options:@{
         MGLTileSourceOptionTileSize: @256,
     }];
@@ -1543,14 +1542,18 @@ typedef NS_ENUM(NSInteger, MBXSettingsMiscellaneousRows) {
             @"Dark",
             @"Satellite",
             @"Satellite Streets",
+            @"Traffic Day",
+            @"Traffic Night",
         ];
         styleURLs = @[
-            [MGLStyle streetsStyleURLWithVersion:MGLStyleDefaultVersion],
-            [MGLStyle outdoorsStyleURLWithVersion:MGLStyleDefaultVersion],
-            [MGLStyle lightStyleURLWithVersion:MGLStyleDefaultVersion],
-            [MGLStyle darkStyleURLWithVersion:MGLStyleDefaultVersion],
-            [MGLStyle satelliteStyleURLWithVersion:MGLStyleDefaultVersion],
-            [MGLStyle satelliteStreetsStyleURLWithVersion:MGLStyleDefaultVersion],
+            [MGLStyle streetsStyleURL],
+            [MGLStyle outdoorsStyleURL],
+            [MGLStyle lightStyleURL],
+            [MGLStyle darkStyleURL],
+            [MGLStyle satelliteStyleURL],
+            [MGLStyle satelliteStreetsStyleURL],
+            [MGLStyle trafficDayStyleURL],
+            [MGLStyle trafficNightStyleURL],
         ];
         NSAssert(styleNames.count == styleURLs.count, @"Style names and URLs don’t match.");
 
