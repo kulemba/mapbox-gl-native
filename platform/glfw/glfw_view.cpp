@@ -131,7 +131,7 @@ GLFWView::~GLFWView() {
 
 void GLFWView::setMap(mbgl::Map *map_) {
     map = map_;
-    map->addAnnotationImage("default_marker", makeImage(22, 22, 1));
+    map->addAnnotationImage(makeImage("default_marker", 22, 22, 1));
 }
 
 void GLFWView::updateAssumedState() {
@@ -162,17 +162,6 @@ void GLFWView::onKey(GLFWwindow *window, int key, int /*scancode*/, int action, 
         case GLFW_KEY_S:
             if (view->changeStyleCallback)
                 view->changeStyleCallback();
-            break;
-        case GLFW_KEY_R:
-            if (!mods) {
-                static const mbgl::style::TransitionOptions transition { { mbgl::Milliseconds(300) } };
-                view->map->setTransitionOptions(transition);
-                if (view->map->hasClass("night")) {
-                    view->map->removeClass("night");
-                } else {
-                    view->map->addClass("night");
-                }
-            }
             break;
 #if not MBGL_USE_GLES2
         case GLFW_KEY_B: {
@@ -266,7 +255,7 @@ mbgl::Point<double> GLFWView::makeRandomPoint() const {
 }
 
 std::unique_ptr<mbgl::style::Image>
-GLFWView::makeImage(int width, int height, float pixelRatio) {
+GLFWView::makeImage(const std::string& id, int width, int height, float pixelRatio) {
     const int r = 255 * (double(std::rand()) / RAND_MAX);
     const int g = 255 * (double(std::rand()) / RAND_MAX);
     const int b = 255 * (double(std::rand()) / RAND_MAX);
@@ -291,7 +280,7 @@ GLFWView::makeImage(int width, int height, float pixelRatio) {
         }
     }
 
-    return std::make_unique<mbgl::style::Image>(std::move(image), pixelRatio);
+    return std::make_unique<mbgl::style::Image>(id, std::move(image), pixelRatio);
 }
 
 void GLFWView::nextOrientation() {
@@ -308,7 +297,7 @@ void GLFWView::addRandomCustomPointAnnotations(int count) {
     for (int i = 0; i < count; i++) {
         static int spriteID = 1;
         const auto name = std::string{ "marker-" } + mbgl::util::toString(spriteID++);
-        map->addAnnotationImage(name, makeImage(22, 22, 1));
+        map->addAnnotationImage(makeImage(name, 22, 22, 1));
         spriteIDs.push_back(name);
         annotationIDs.push_back(map->addAnnotation(mbgl::SymbolAnnotation { makeRandomPoint(), name }));
     }
