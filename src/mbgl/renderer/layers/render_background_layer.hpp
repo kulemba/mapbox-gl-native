@@ -11,7 +11,7 @@ public:
     RenderBackgroundLayer(Immutable<style::BackgroundLayer::Impl>);
     ~RenderBackgroundLayer() final = default;
 
-    void cascade(const CascadeParameters&) override;
+    void transition(const TransitionParameters&) override;
     void evaluate(const PropertyEvaluationParameters&) override;
     bool hasTransition() const override;
 
@@ -19,7 +19,7 @@ public:
 
     // Paint properties
     style::BackgroundPaintProperties::Unevaluated unevaluated;
-    style::BackgroundPaintProperties::Evaluated evaluated;
+    style::BackgroundPaintProperties::PossiblyEvaluated evaluated;
 
     const style::BackgroundLayer::Impl& impl() const;
 };
