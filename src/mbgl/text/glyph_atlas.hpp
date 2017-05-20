@@ -7,7 +7,6 @@
 #include <mbgl/util/noncopyable.hpp>
 #include <mbgl/util/optional.hpp>
 #include <mbgl/util/font_stack.hpp>
-#include <mbgl/util/work_queue.hpp>
 #include <mbgl/util/image.hpp>
 #include <mbgl/gl/texture.hpp>
 #include <mbgl/gl/object.hpp>
@@ -30,6 +29,7 @@ class Context;
 
 class GlyphRequestor {
 public:
+    virtual ~GlyphRequestor() = default;
     virtual void onGlyphsAvailable(GlyphPositionMap) = 0;
 };
     

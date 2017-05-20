@@ -11,7 +11,7 @@ public:
     RenderFillLayer(Immutable<style::FillLayer::Impl>);
     ~RenderFillLayer() final = default;
 
-    void cascade(const CascadeParameters&) override;
+    void transition(const TransitionParameters&) override;
     void evaluate(const PropertyEvaluationParameters&) override;
     bool hasTransition() const override;
 
@@ -26,7 +26,7 @@ public:
 
     // Paint properties
     style::FillPaintProperties::Unevaluated unevaluated;
-    style::FillPaintProperties::Evaluated evaluated;
+    style::FillPaintProperties::PossiblyEvaluated evaluated;
 
     const style::FillLayer::Impl& impl() const;
 };
