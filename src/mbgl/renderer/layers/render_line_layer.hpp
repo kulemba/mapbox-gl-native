@@ -11,7 +11,7 @@ public:
     RenderLineLayer(Immutable<style::LineLayer::Impl>);
     ~RenderLineLayer() final = default;
 
-    void cascade(const CascadeParameters&) override;
+    void transition(const TransitionParameters&) override;
     void evaluate(const PropertyEvaluationParameters&) override;
     bool hasTransition() const override;
 
@@ -26,7 +26,7 @@ public:
 
     // Paint properties
     style::LinePaintProperties::Unevaluated unevaluated;
-    style::LinePaintProperties::Evaluated evaluated;
+    style::LinePaintProperties::PossiblyEvaluated evaluated;
 
     const style::LineLayer::Impl& impl() const;
 
