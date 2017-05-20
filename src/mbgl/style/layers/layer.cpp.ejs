@@ -7,7 +7,6 @@
 
 #include <mbgl/style/layers/<%- type.replace('-', '_') %>_layer.hpp>
 #include <mbgl/style/layers/<%- type.replace('-', '_') %>_layer_impl.hpp>
-#include <mbgl/style/conversion/stringify.hpp>
 #include <mbgl/style/layer_observer.hpp>
 
 namespace mbgl {
@@ -40,13 +39,13 @@ Mutable<<%- camelize(type) %>Layer::Impl> <%- camelize(type) %>Layer::mutableImp
 std::unique_ptr<Layer> <%- camelize(type) %>Layer::cloneRef(const std::string& id_) const {
     auto impl_ = mutableImpl();
     impl_->id = id_;
-    impl_->cascading = <%- camelize(type) %>PaintProperties::Cascading();
+    impl_->paint = <%- camelize(type) %>PaintProperties::Transitionable();
     return std::make_unique<<%- camelize(type) %>Layer>(std::move(impl_));
 }
 
 <% if (layoutProperties.length) { -%>
 void <%- camelize(type) %>Layer::Impl::stringifyLayout(rapidjson::Writer<rapidjson::StringBuffer>& writer) const {
-    conversion::stringify(writer, layout);
+    layout.stringify(writer);
 }
 <% } else { -%>
 void <%- camelize(type) %>Layer::Impl::stringifyLayout(rapidjson::Writer<rapidjson::StringBuffer>&) const {
@@ -119,14 +118,14 @@ void <%- camelize(type) %>Layer::setMaxZoom(float maxZoom) {
 }
 
 <%- propertyValueType(property) %> <%- camelize(type) %>Layer::get<%- camelize(property.name) %>() const {
-    return impl().layout.unevaluated.get<<%- camelize(property.name) %>>();
+    return impl().layout.get<<%- camelize(property.name) %>>();
 }
 
 void <%- camelize(type) %>Layer::set<%- camelize(property.name) %>(<%- propertyValueType(property) %> value) {
     if (value == get<%- camelize(property.name) %>())
         return;
     auto impl_ = mutableImpl();
-    impl_->layout.unevaluated.get<<%- camelize(property.name) %>>() = value;
+    impl_->layout.get<<%- camelize(property.name) %>>() = value;
     baseImpl = std::move(impl_);
     observer->onLayerLayoutPropertyChanged(*this, "<%- property.name %>");
 }
@@ -138,15 +137,15 @@ void <%- camelize(type) %>Layer::set<%- camelize(property.name) %>(<%- propertyV
     return { <%- defaultValue(property) %> };
 }
 
-<%- propertyValueType(property) %> <%- camelize(type) %>Layer::get<%- camelize(property.name) %>(const optional<std::string>& klass) const {
-    return impl().cascading.template get<<%- camelize(property.name) %>>().get(klass);
+<%- propertyValueType(property) %> <%- camelize(type) %>Layer::get<%- camelize(property.name) %>() const {
+    return impl().paint.template get<<%- camelize(property.name) %>>().value;
 }
 
-void <%- camelize(type) %>Layer::set<%- camelize(property.name) %>(<%- propertyValueType(property) %> value, const optional<std::string>& klass) {
-    if (value == get<%- camelize(property.name) %>(klass))
+void <%- camelize(type) %>Layer::set<%- camelize(property.name) %>(<%- propertyValueType(property) %> value) {
+    if (value == get<%- camelize(property.name) %>())
         return;
     auto impl_ = mutableImpl();
-    impl_->cascading.template get<<%- camelize(property.name) %>>().set(value, klass);
+    impl_->paint.template get<<%- camelize(property.name) %>>().value = value;
     baseImpl = std::move(impl_);
 <% if (isDataDriven(property)) { -%>
     if (value.isDataDriven()) {
@@ -159,14 +158,14 @@ void <%- camelize(type) %>Layer::set<%- camelize(property.name) %>(<%- propertyV
 <% } -%>
 }
 
-void <%- camelize(type) %>Layer::set<%- camelize(property.name) %>Transition(const TransitionOptions& value, const optional<std::string>& klass) {
+void <%- camelize(type) %>Layer::set<%- camelize(property.name) %>Transition(const TransitionOptions& options) {
     auto impl_ = mutableImpl();
-    impl_->cascading.template get<<%- camelize(property.name) %>>().setTransition(value, klass);
+    impl_->paint.template get<<%- camelize(property.name) %>>().options = options;
     baseImpl = std::move(impl_);
 }
 
-TransitionOptions <%- camelize(type) %>Layer::get<%- camelize(property.name) %>Transition(const optional<std::string>& klass) const {
-    return impl().cascading.template get<<%- camelize(property.name) %>>().getTransition(klass);
+TransitionOptions <%- camelize(type) %>Layer::get<%- camelize(property.name) %>Transition() const {
+    return impl().paint.template get<<%- camelize(property.name) %>>().options;
 }
 <% } -%>
 
