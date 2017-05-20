@@ -20,7 +20,7 @@ class Context;
 
 class SpriteAtlasElement {
 public:
-    SpriteAtlasElement(Rect<uint16_t>, const style::Image&, Size size, float pixelRatio);
+    SpriteAtlasElement(Rect<uint16_t>, const style::Image::Impl&, Size size, float pixelRatio);
 
     Rect<uint16_t> pos;
     bool sdf;
@@ -29,8 +29,6 @@ public:
     std::array<float, 2> size;
     std::array<float, 2> tl;
     std::array<float, 2> br;
-    float width;
-    float height;
 };
 
 using IconMap = std::unordered_map<std::string, SpriteAtlasElement>;
@@ -38,17 +36,16 @@ using IconDependencies = std::set<std::string>;
 
 class IconRequestor {
 public:
+    virtual ~IconRequestor() = default;
     virtual void onIconsAvailable(IconMap) = 0;
 };
 
 class SpriteAtlas : public util::noncopyable {
 public:
-    using Images = std::unordered_map<std::string, std::unique_ptr<style::Image>>;
-
     SpriteAtlas(Size, float pixelRatio);
     ~SpriteAtlas();
 
-    void onSpriteLoaded(Images&&);
+    void onSpriteLoaded();
 
     void markAsLoaded() {
         loaded = true;
@@ -60,8 +57,8 @@ public:
 
     void dumpDebugLogs() const;
 
-    const style::Image* getImage(const std::string&) const;
-    void addImage(const std::string&, std::unique_ptr<style::Image>);
+    const style::Image::Impl* getImage(const std::string&) const;
+    void addImage(Immutable<style::Image::Impl>);
     void removeImage(const std::string&);
 
     void getIcons(IconRequestor& requestor);
@@ -91,7 +88,7 @@ private:
     bool loaded = false;
 
     struct Entry {
-        std::unique_ptr<const style::Image> image;
+        Immutable<style::Image::Impl> image;
 
         // One sprite image might be used as both an icon image and a pattern image. If so,
         // it must have two distinct entries in the texture. The one for the icon image has
