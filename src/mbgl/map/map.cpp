@@ -792,8 +792,8 @@ LatLng Map::latLngForPixel(const ScreenCoordinate& pixel) const {
 
 #pragma mark - Annotations
 
-void Map::addAnnotationImage(const std::string& id, std::unique_ptr<style::Image> image) {
-    impl->annotationManager->addImage(id, std::move(image));
+void Map::addAnnotationImage(std::unique_ptr<style::Image> image) {
+    impl->annotationManager->addImage(std::move(image));
 }
 
 void Map::removeAnnotationImage(const std::string& id) {
@@ -940,13 +940,13 @@ std::unique_ptr<Layer> Map::removeLayer(const std::string& id) {
     return removedLayer;
 }
 
-void Map::addImage(const std::string& id, std::unique_ptr<style::Image> image) {
+void Map::addImage(std::unique_ptr<style::Image> image) {
     if (!impl->style) {
         return;
     }
 
     impl->styleMutated = true;
-    impl->style->addImage(id, std::move(image));
+    impl->style->addImage(std::move(image));
 }
 
 void Map::removeImage(const std::string& id) {
@@ -1057,25 +1057,6 @@ bool Map::isFullyLoaded() const {
     return impl->style ? impl->style->isLoaded() : false;
 }
 
-void Map::addClass(const std::string& className) {
-    if (impl->style && impl->style->addClass(className)) {
-        impl->onUpdate(Update::Classes);
-    }
-}
-
-void Map::removeClass(const std::string& className) {
-    if (impl->style && impl->style->removeClass(className)) {
-        impl->onUpdate(Update::Classes);
-    }
-}
-
-void Map::setClasses(const std::vector<std::string>& classNames) {
-    if (impl->style) {
-        impl->style->setClasses(classNames);
-        impl->onUpdate(Update::Classes);
-    }
-}
-
 style::TransitionOptions Map::getTransitionOptions() const {
     if (impl->style) {
         return impl->style->getTransitionOptions();
@@ -1087,17 +1068,6 @@ void Map::setTransitionOptions(const style::TransitionOptions& options) {
     if (impl->style) {
         impl->style->setTransitionOptions(options);
     }
-}
-
-bool Map::hasClass(const std::string& className) const {
-    return impl->style ? impl->style->hasClass(className) : false;
-}
-
-std::vector<std::string> Map::getClasses() const {
-    if (impl->style) {
-        return impl->style->getClasses();
-    }
-    return {};
 }
 
 void Map::setSourceTileCacheSize(size_t size) {

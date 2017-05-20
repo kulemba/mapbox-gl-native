@@ -15,14 +15,13 @@
 #include <mbgl/style/layer_impl.hpp>
 #include <mbgl/style/parser.hpp>
 #include <mbgl/style/transition_options.hpp>
-#include <mbgl/style/class_dictionary.hpp>
 #include <mbgl/sprite/sprite_atlas.hpp>
 #include <mbgl/sprite/sprite_image_collection.hpp>
 #include <mbgl/sprite/sprite_loader.hpp>
 #include <mbgl/text/glyph_atlas.hpp>
 #include <mbgl/geometry/line_atlas.hpp>
 #include <mbgl/renderer/update_parameters.hpp>
-#include <mbgl/renderer/cascade_parameters.hpp>
+#include <mbgl/renderer/transition_parameters.hpp>
 #include <mbgl/renderer/property_evaluation_parameters.hpp>
 #include <mbgl/renderer/tile_parameters.hpp>
 #include <mbgl/renderer/render_source.hpp>
@@ -93,33 +92,6 @@ Style::~Style() {
     }
 }
 
-bool Style::addClass(const std::string& className) {
-    if (hasClass(className)) return false;
-    classes.push_back(className);
-    return true;
-}
-
-bool Style::hasClass(const std::string& className) const {
-    return std::find(classes.begin(), classes.end(), className) != classes.end();
-}
-
-bool Style::removeClass(const std::string& className) {
-    const auto it = std::find(classes.begin(), classes.end(), className);
-    if (it != classes.end()) {
-        classes.erase(it);
-        return true;
-    }
-    return false;
-}
-
-void Style::setClasses(const std::vector<std::string>& classNames) {
-    classes = classNames;
-}
-
-std::vector<std::string> Style::getClasses() const {
-    return classes;
-}
-
 void Style::setTransitionOptions(const TransitionOptions& options) {
     transitionOptions = options;
 }
@@ -132,7 +104,6 @@ void Style::setJSON(const std::string& json, uint8_t maxZoomLimit_) {
     sources.clear();
     renderSources.clear();
     layers.clear();
-    classes.clear();
     transitionOptions = {};
     updateBatch = {};
     maxZoomLimit = maxZoomLimit_;
@@ -334,16 +305,8 @@ double Style::getDefaultPitch() const {
 
 void Style::update(const UpdateParameters& parameters) {
     const bool zoomChanged = zoomHistory.update(parameters.transformState.getZoom(), parameters.timePoint);
-    const bool classesChanged = parameters.updateFlags & Update::Classes;
 
-    std::vector<ClassID> classIDs;
-    for (const auto& className : classes) {
-        classIDs.push_back(ClassDictionary::Get().lookup(className));
-    }
-    classIDs.push_back(ClassID::Default);
-
-    const CascadeParameters cascadeParameters {
-        classIDs,
+    const TransitionParameters transitionParameters {
         parameters.timePoint,
         parameters.mode == MapMode::Continuous ? transitionOptions : TransitionOptions()
     };
@@ -368,7 +331,7 @@ void Style::update(const UpdateParameters& parameters) {
 
     if (lightChanged) {
         renderLight.impl = light->impl;
-        renderLight.transition(cascadeParameters);
+        renderLight.transition(transitionParameters);
     }
 
     if (lightChanged || zoomChanged || renderLight.hasTransition()) {
@@ -434,11 +397,11 @@ void Style::update(const UpdateParameters& parameters) {
         const bool layerAdded = layerDiff.added.count(entry.first);
         const bool layerChanged = layerDiff.changed.count(entry.first);
 
-        if (classesChanged || layerAdded || layerChanged) {
-            layer.cascade(cascadeParameters);
+        if (layerAdded || layerChanged) {
+            layer.transition(transitionParameters);
         }
 
-        if (classesChanged || layerAdded || layerChanged || zoomChanged || layer.hasTransition()) {
+        if (layerAdded || layerChanged || zoomChanged || layer.hasTransition()) {
             layer.evaluate(evaluationParameters);
         }
     }
@@ -544,9 +507,9 @@ bool Style::isLoaded() const {
     return true;
 }
 
-void Style::addImage(const std::string& id, std::unique_ptr<style::Image> image) {
-    addSpriteImage(spriteImages, id, std::move(image), [&](style::Image& added) {
-        spriteAtlas->addImage(id, std::make_unique<style::Image>(added));
+void Style::addImage(std::unique_ptr<style::Image> image) {
+    addSpriteImage(spriteImages, std::move(image), [&](style::Image& added) {
+        spriteAtlas->addImage(added.impl);
         observer->onUpdate(Update::Repaint);
     });
 }
@@ -559,7 +522,8 @@ void Style::removeImage(const std::string& id) {
 }
 
 const style::Image* Style::getImage(const std::string& id) const {
-    return spriteAtlas->getImage(id);
+    auto it = spriteImages.find(id);
+    return it == spriteImages.end() ? nullptr : it->second.get();
 }
 
 RenderData Style::getRenderData(MapDebugOptions debugOptions, float angle) const {
@@ -585,7 +549,7 @@ RenderData Style::getRenderData(MapDebugOptions debugOptions, float angle) const
                 result.order.emplace_back(*layer);
                 continue;
             }
-            const BackgroundPaintProperties::Evaluated& paint = background->evaluated;
+            const BackgroundPaintProperties::PossiblyEvaluated& paint = background->evaluated;
             if (layerImpl.get() == layerImpls[0].get() && paint.get<BackgroundPattern>().from.empty()) {
                 // This is a solid background. We can use glClear().
                 result.backgroundColor = paint.get<BackgroundColor>() * paint.get<BackgroundOpacity>();
@@ -731,15 +695,10 @@ void Style::setObserver(style::Observer* observer_) {
     observer = observer_;
 }
 
-void Style::onGlyphsLoaded(const FontStack& fontStack, const GlyphRange& glyphRange) {
-    observer->onGlyphsLoaded(fontStack, glyphRange);
-}
-
 void Style::onGlyphsError(const FontStack& fontStack, const GlyphRange& glyphRange, std::exception_ptr error) {
     lastError = error;
     Log::Error(Event::Style, "Failed to load glyph range %d-%d for font stack %s: %s",
                glyphRange.first, glyphRange.second, fontStackToString(fontStack).c_str(), util::toString(error).c_str());
-    observer->onGlyphsError(fontStack, glyphRange, error);
     observer->onResourceError(error);
 }
 
@@ -778,27 +737,17 @@ void Style::onTileError(RenderSource& source, const OverscaledTileID& tileID, st
     observer->onResourceError(error);
 }
 
-void Style::onSpriteLoaded(SpriteLoader::Images&& images) {
-    // Add images to collection
-    Images addedImages;
-    for (auto& entry : images) {
-        addSpriteImage(spriteImages, entry.first, std::move(entry.second), [&] (style::Image& added) {
-            addedImages.emplace(entry.first, std::make_unique<Image>(added));
-        });
+void Style::onSpriteLoaded(std::vector<std::unique_ptr<Image>>&& images) {
+    for (auto& image : images) {
+        addImage(std::move(image));
     }
-
-    // Update render sprite atlas
-    spriteAtlas->onSpriteLoaded(std::move(addedImages));
-
-    // Update observer
-    observer->onSpriteLoaded(std::move(images));
+    spriteAtlas->onSpriteLoaded();
     observer->onUpdate(Update::Repaint); // For *-pattern properties.
 }
 
 void Style::onSpriteError(std::exception_ptr error) {
     lastError = error;
     Log::Error(Event::Style, "Failed to load sprite: %s", util::toString(error).c_str());
-    observer->onSpriteError(error);
     observer->onResourceError(error);
 }
 

@@ -93,22 +93,15 @@ public:
     double getDefaultBearing() const;
     double getDefaultPitch() const;
 
-    bool addClass(const std::string&);
-    bool removeClass(const std::string&);
-    void setClasses(const std::vector<std::string>&);
-
     TransitionOptions getTransitionOptions() const;
     void setTransitionOptions(const TransitionOptions&);
-
-    bool hasClass(const std::string&) const;
-    std::vector<std::string> getClasses() const;
 
     void setLight(std::unique_ptr<Light>);
     Light* getLight() const;
     const RenderLight& getRenderLight() const;
 
     const style::Image* getImage(const std::string&) const;
-    void addImage(const std::string&, std::unique_ptr<style::Image>);
+    void addImage(std::unique_ptr<style::Image>);
     void removeImage(const std::string&);
 
     RenderData getRenderData(MapDebugOptions, float angle) const;
@@ -136,7 +129,6 @@ public:
 private:
     std::vector<std::unique_ptr<Source>> sources;
     std::vector<std::unique_ptr<Layer>> layers;
-    std::vector<std::string> classes;
     TransitionOptions transitionOptions;
     std::unique_ptr<Light> light;
 
@@ -156,13 +148,12 @@ private:
 
     std::vector<std::unique_ptr<Layer>>::const_iterator findLayer(const std::string& layerID) const;
 
-    // GlyphStoreObserver implementation.
-    void onGlyphsLoaded(const FontStack&, const GlyphRange&) override;
+    // GlyphAtlasObserver implementation.
     void onGlyphsError(const FontStack&, const GlyphRange&, std::exception_ptr) override;
 
     // SpriteLoaderObserver implementation.
     std::unordered_map<std::string, std::unique_ptr<style::Image>> spriteImages;
-    void onSpriteLoaded(SpriteLoaderObserver::Images&&) override;
+    void onSpriteLoaded(std::vector<std::unique_ptr<Image>>&&) override;
     void onSpriteError(std::exception_ptr) override;
 
     // SourceObserver implementation.
