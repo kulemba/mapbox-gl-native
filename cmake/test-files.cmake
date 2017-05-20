@@ -94,10 +94,12 @@ set(MBGL_TEST_FILES
     # style/function
     test/style/function/camera_function.test.cpp
     test/style/function/composite_function.test.cpp
+    test/style/function/exponential_stops.test.cpp
+    test/style/function/interval_stops.test.cpp
     test/style/function/source_function.test.cpp
 
     # style
-    test/style/paint_property.test.cpp
+    test/style/properties.test.cpp
     test/style/source.test.cpp
     test/style/style.test.cpp
     test/style/style_image.test.cpp
@@ -138,5 +140,4 @@ set(MBGL_TEST_FILES
     test/util/timer.test.cpp
     test/util/token.test.cpp
     test/util/url.test.cpp
-    test/util/work_queue.test.cpp
 )

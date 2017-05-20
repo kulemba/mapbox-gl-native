@@ -11,7 +11,7 @@ public:
     RenderCircleLayer(Immutable<style::CircleLayer::Impl>);
     ~RenderCircleLayer() final = default;
 
-    void cascade(const CascadeParameters&) override;
+    void transition(const TransitionParameters&) override;
     void evaluate(const PropertyEvaluationParameters&) override;
     bool hasTransition() const override;
 
@@ -26,7 +26,7 @@ public:
 
     // Paint properties
     style::CirclePaintProperties::Unevaluated unevaluated;
-    style::CirclePaintProperties::Evaluated evaluated;
+    style::CirclePaintProperties::PossiblyEvaluated evaluated;
 
     const style::CircleLayer::Impl& impl() const;
 };
