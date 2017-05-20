@@ -439,54 +439,20 @@ TEST(Map, DisabledSources) {
     test::checkImage("test/fixtures/map/disabled_layers/second", test::render(map, test.view));
 }
 
-TEST(Map, Classes) {
-    MapTest test;
-
-    Map map(test.backend, test.view.getSize(), 1, test.fileSource, test.threadPool, MapMode::Still);
-    map.setStyleJSON(util::read_file("test/fixtures/api/empty.json"));
-
-    EXPECT_FALSE(map.getTransitionOptions().duration);
-
-    auto duration = mbgl::Duration(mbgl::Milliseconds(300));
-    map.setTransitionOptions({ duration });
-    EXPECT_EQ(map.getTransitionOptions().duration, duration);
-
-    map.addClass("test");
-    EXPECT_TRUE(map.hasClass("test"));
-
-    map.removeClass("test");
-    EXPECT_TRUE(map.getClasses().empty());
-
-    std::vector<std::string> classes = { "foo", "bar" };
-    map.setClasses(classes);
-    EXPECT_FALSE(map.hasClass("test"));
-    EXPECT_TRUE(map.hasClass("foo"));
-    EXPECT_TRUE(map.hasClass("bar"));
-
-    // Does nothing - same style JSON.
-    map.setStyleJSON(util::read_file("test/fixtures/api/empty.json"));
-    EXPECT_TRUE(map.hasClass("foo"));
-    EXPECT_EQ(map.getTransitionOptions().duration, duration);
-
-    map.setStyleJSON(util::read_file("test/fixtures/api/water.json"));
-    EXPECT_TRUE(map.getClasses().empty());
-    EXPECT_FALSE(map.getTransitionOptions().duration);
-}
-
 TEST(Map, AddImage) {
     MapTest test;
 
     Map map(test.backend, test.view.getSize(), 1, test.fileSource, test.threadPool, MapMode::Still);
     auto decoded1 = decodeImage(util::read_file("test/fixtures/sprites/default_marker.png"));
     auto decoded2 = decodeImage(util::read_file("test/fixtures/sprites/default_marker.png"));
-    auto image1 = std::make_unique<style::Image>(std::move(decoded1), 1.0);
-    auto image2 = std::make_unique<style::Image>(std::move(decoded2), 1.0);
+    auto image1 = std::make_unique<style::Image>("test-icon", std::move(decoded1), 1.0);
+    auto image2 = std::make_unique<style::Image>("test-icon", std::move(decoded2), 1.0);
 
     // No-op.
-    map.addImage("test-icon", std::move(image1));
+    map.addImage(std::move(image1));
 
     map.setStyleJSON(util::read_file("test/fixtures/api/icon_style.json"));
-    map.addImage("test-icon", std::move(image2));
+    map.addImage(std::move(image2));
     test::checkImage("test/fixtures/map/add_icon", test::render(map, test.view));
 }
 
@@ -495,10 +461,10 @@ TEST(Map, RemoveImage) {
 
     Map map(test.backend, test.view.getSize(), 1, test.fileSource, test.threadPool, MapMode::Still);
     auto decoded = decodeImage(util::read_file("test/fixtures/sprites/default_marker.png"));
-    auto image = std::make_unique<style::Image>(std::move(decoded), 1.0);
+    auto image = std::make_unique<style::Image>("test-icon", std::move(decoded), 1.0);
 
     map.setStyleJSON(util::read_file("test/fixtures/api/icon_style.json"));
-    map.addImage("test-icon", std::move(image));
+    map.addImage(std::move(image));
     map.removeImage("test-icon");
     test::checkImage("test/fixtures/map/remove_icon", test::render(map, test.view));
 }
@@ -508,10 +474,10 @@ TEST(Map, GetImage) {
 
     Map map(test.backend, test.view.getSize(), 1, test.fileSource, test.threadPool, MapMode::Still);
     auto decoded = decodeImage(util::read_file("test/fixtures/sprites/default_marker.png"));
-    auto image = std::make_unique<style::Image>(std::move(decoded), 1.0);
+    auto image = std::make_unique<style::Image>("test-icon", std::move(decoded), 1.0);
 
     map.setStyleJSON(util::read_file("test/fixtures/api/icon_style.json"));
-    map.addImage("test-icon", std::move(image));
+    map.addImage(std::move(image));
     test::checkImage("test/fixtures/map/get_icon", map.getImage("test-icon")->getImage());
 }
 
