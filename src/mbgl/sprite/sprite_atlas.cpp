@@ -1,4 +1,5 @@
 #include <mbgl/sprite/sprite_atlas.hpp>
+#include <mbgl/style/image_impl.hpp>
 #include <mbgl/gl/context.hpp>
 #include <mbgl/util/logging.hpp>
 #include <mbgl/util/platform.hpp>
@@ -13,21 +14,20 @@
 
 namespace mbgl {
 
+static constexpr uint32_t padding = 1;
+
 SpriteAtlasElement::SpriteAtlasElement(Rect<uint16_t> rect_,
-                                       const style::Image& image,
+                                       const style::Image::Impl& image,
                                        Size size_, float pixelRatio)
     : pos(std::move(rect_)),
-      sdf(image.isSdf()),
-      relativePixelRatio(image.getPixelRatio() / pixelRatio),
-      width(image.getWidth()),
-      height(image.getHeight()) {
+      sdf(image.sdf),
+      relativePixelRatio(image.pixelRatio / pixelRatio),
+      size{{image.image.size.width / image.pixelRatio,
+            image.image.size.height / image.pixelRatio}} {
 
-    const float padding = 1;
+    const float w = image.image.size.width / pixelRatio;
+    const float h = image.image.size.height / pixelRatio;
 
-    const float w = image.getWidth() * relativePixelRatio;
-    const float h = image.getHeight() * relativePixelRatio;
-
-    size = {{ float(image.getWidth()), image.getHeight() }};
     tl   = {{ float(pos.x + padding)     / size_.width, float(pos.y + padding)     / size_.height }};
     br   = {{ float(pos.x + padding + w) / size_.width, float(pos.y + padding + h) / size_.height }};
 }
@@ -41,32 +41,27 @@ SpriteAtlas::SpriteAtlas(Size size_, float pixelRatio_)
 
 SpriteAtlas::~SpriteAtlas() = default;
 
-void SpriteAtlas::onSpriteLoaded(Images&& result) {
+void SpriteAtlas::onSpriteLoaded() {
     markAsLoaded();
-
-    for (auto& pair : result) {
-        addImage(pair.first, std::move(pair.second));
-    }
-
     for (auto requestor : requestors) {
         requestor->onIconsAvailable(buildIconMap());
     }
     requestors.clear();
 }
 
-void SpriteAtlas::addImage(const std::string& id, std::unique_ptr<style::Image> image_) {
+void SpriteAtlas::addImage(Immutable<style::Image::Impl> image_) {
     icons.clear();
 
-    auto it = entries.find(id);
+    auto it = entries.find(image_->id);
     if (it == entries.end()) {
-        entries.emplace(id, Entry { std::move(image_), {}, {} });
+        entries.emplace(image_->id, Entry { image_, {}, {} });
         return;
     }
 
     Entry& entry = it->second;
 
     // There is already a sprite with that name in our store.
-    assert(entry.image->getImage().size == image_->getImage().size);
+    assert(entry.image->image.size == image_->image.size);
 
     entry.image = std::move(image_);
 
@@ -98,7 +93,7 @@ void SpriteAtlas::removeImage(const std::string& id) {
     entries.erase(it);
 }
 
-const style::Image* SpriteAtlas::getImage(const std::string& id) const {
+const style::Image::Impl* SpriteAtlas::getImage(const std::string& id) const {
     const auto it = entries.find(id);
     if (it != entries.end()) {
         return it->second.image.get();
@@ -152,17 +147,10 @@ optional<SpriteAtlasElement> SpriteAtlas::getImage(const std::string& id,
         };
     }
 
-    const uint16_t pixelWidth = std::ceil(entry.image->getImage().size.width / pixelRatio);
-    const uint16_t pixelHeight = std::ceil(entry.image->getImage().size.height / pixelRatio);
+    const uint16_t width = std::ceil(entry.image->image.size.width / pixelRatio) + 2 * padding;
+    const uint16_t height = std::ceil(entry.image->image.size.height / pixelRatio) + 2 * padding;
 
-    // Increase to next number divisible by 4, but at least 1.
-    // This is so we can scale down the texture coordinates and pack them
-    // into 2 bytes rather than 4 bytes.
-    const uint16_t packWidth = (pixelWidth + 1) + (4 - (pixelWidth + 1) % 4);
-    const uint16_t packHeight = (pixelHeight + 1) + (4 - (pixelHeight + 1) % 4);
-
-    // We have to allocate a new area in the bin, and store an empty image in it.
-    Rect<uint16_t> rect = bin.allocate(packWidth, packHeight);
+    Rect<uint16_t> rect = bin.allocate(width, height);
     if (rect.w == 0) {
         if (debug::spriteWarnings) {
             Log::Warning(Event::Sprite, "sprite atlas bitmap overflow");
@@ -188,10 +176,9 @@ void SpriteAtlas::copy(const Entry& entry, optional<Rect<uint16_t>> Entry::*entr
         image.fill(0);
     }
 
-    const PremultipliedImage& src = entry.image->getImage();
+    const PremultipliedImage& src = entry.image->image;
     const Rect<uint16_t>& rect = *(entry.*entryRect);
 
-    const uint32_t padding = 1;
     const uint32_t x = (rect.x + padding) * pixelRatio;
     const uint32_t y = (rect.y + padding) * pixelRatio;
     const uint32_t w = src.size.width;
