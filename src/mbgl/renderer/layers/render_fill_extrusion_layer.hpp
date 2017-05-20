@@ -11,7 +11,7 @@ public:
     RenderFillExtrusionLayer(Immutable<style::FillExtrusionLayer::Impl>);
     ~RenderFillExtrusionLayer() final = default;
 
-    void cascade(const CascadeParameters&) override;
+    void transition(const TransitionParameters&) override;
     void evaluate(const PropertyEvaluationParameters&) override;
     bool hasTransition() const override;
 
@@ -26,7 +26,7 @@ public:
 
     // Paint properties
     style::FillExtrusionPaintProperties::Unevaluated unevaluated;
-    style::FillExtrusionPaintProperties::Evaluated evaluated;
+    style::FillExtrusionPaintProperties::PossiblyEvaluated evaluated;
 
     const style::FillExtrusionLayer::Impl& impl() const;
 };
