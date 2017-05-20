@@ -5,6 +5,7 @@
 
 #include <mbgl/sprite/sprite_atlas.hpp>
 #include <mbgl/sprite/sprite_parser.hpp>
+#include <mbgl/style/image_impl.hpp>
 #include <mbgl/util/io.hpp>
 #include <mbgl/util/image.hpp>
 #include <mbgl/util/run_loop.hpp>
@@ -21,8 +22,8 @@ TEST(SpriteAtlas, Basic) {
 
     auto images = parseSprite(util::read_file("test/fixtures/annotations/emerald.png"),
                               util::read_file("test/fixtures/annotations/emerald.json"));
-    for (auto& pair : images) {
-        atlas.addImage(pair.first, std::move(pair.second));
+    for (auto& image : images) {
+        atlas.addImage(image->impl);
     }
 
     EXPECT_EQ(1.0f, atlas.getPixelRatio());
@@ -35,10 +36,10 @@ TEST(SpriteAtlas, Basic) {
     EXPECT_EQ(0, metro.pos.y);
     EXPECT_EQ(20, metro.pos.w);
     EXPECT_EQ(20, metro.pos.h);
-    EXPECT_EQ(18, metro.width);
-    EXPECT_EQ(18, metro.height);
-    EXPECT_EQ(18u, metro.width * imagePixelRatio);
-    EXPECT_EQ(18u, metro.height * imagePixelRatio);
+    EXPECT_EQ(18, metro.size[0]);
+    EXPECT_EQ(18, metro.size[1]);
+    EXPECT_EQ(18u, metro.size[0] * imagePixelRatio);
+    EXPECT_EQ(18u, metro.size[1] * imagePixelRatio);
     EXPECT_EQ(1.0f, imagePixelRatio);
 
 
@@ -78,8 +79,8 @@ TEST(SpriteAtlas, Size) {
 
     auto images = parseSprite(util::read_file("test/fixtures/annotations/emerald.png"),
                               util::read_file("test/fixtures/annotations/emerald.json"));
-    for (auto& pair : images) {
-        atlas.addImage(pair.first, std::move(pair.second));
+    for (auto& image : images) {
+        atlas.addImage(image->impl);
     }
 
     EXPECT_DOUBLE_EQ(1.4f, atlas.getPixelRatio());
@@ -90,12 +91,12 @@ TEST(SpriteAtlas, Size) {
     float imagePixelRatio = metro.relativePixelRatio * atlas.getPixelRatio();
     EXPECT_EQ(0, metro.pos.x);
     EXPECT_EQ(0, metro.pos.y);
-    EXPECT_EQ(16, metro.pos.w);
-    EXPECT_EQ(16, metro.pos.h);
-    EXPECT_EQ(18, metro.width);
-    EXPECT_EQ(18, metro.height);
-    EXPECT_EQ(18u, metro.width * imagePixelRatio);
-    EXPECT_EQ(18u, metro.height * imagePixelRatio);
+    EXPECT_EQ(15, metro.pos.w);
+    EXPECT_EQ(15, metro.pos.h);
+    EXPECT_EQ(18, metro.size[0]);
+    EXPECT_EQ(18, metro.size[1]);
+    EXPECT_EQ(18u, metro.size[0] * imagePixelRatio);
+    EXPECT_EQ(18u, metro.size[1] * imagePixelRatio);
     EXPECT_EQ(1.0f, imagePixelRatio);
 
     // Now the image was created lazily.
@@ -112,17 +113,17 @@ TEST(SpriteAtlas, Updates) {
     EXPECT_EQ(32u, atlas.getSize().width);
     EXPECT_EQ(32u, atlas.getSize().height);
 
-    atlas.addImage("one", std::make_unique<style::Image>(PremultipliedImage({ 16, 12 }), 1));
+    atlas.addImage(makeMutable<style::Image::Impl>("one", PremultipliedImage({ 16, 12 }), 1));
     auto one = *atlas.getIcon("one");
     float imagePixelRatio = one.relativePixelRatio * atlas.getPixelRatio();
     EXPECT_EQ(0, one.pos.x);
     EXPECT_EQ(0, one.pos.y);
-    EXPECT_EQ(20, one.pos.w);
-    EXPECT_EQ(16, one.pos.h);
-    EXPECT_EQ(16, one.width);
-    EXPECT_EQ(12, one.height);
-    EXPECT_EQ(16u, one.width * imagePixelRatio);
-    EXPECT_EQ(12u, one.height * imagePixelRatio);
+    EXPECT_EQ(18, one.pos.w);
+    EXPECT_EQ(14, one.pos.h);
+    EXPECT_EQ(16, one.size[0]);
+    EXPECT_EQ(12, one.size[1]);
+    EXPECT_EQ(16u, one.size[0] * imagePixelRatio);
+    EXPECT_EQ(12u, one.size[1] * imagePixelRatio);
     EXPECT_EQ(1.0f, imagePixelRatio);
 
     // Now the image was created lazily.
@@ -136,7 +137,7 @@ TEST(SpriteAtlas, Updates) {
     for (size_t i = 0; i < image2.bytes(); i++) {
         image2.data.get()[i] = 255;
     }
-    atlas.addImage("one", std::make_unique<style::Image>(std::move(image2), 1));
+    atlas.addImage(makeMutable<style::Image::Impl>("one", std::move(image2), 1));
 
     test::checkImage("test/fixtures/sprite_atlas/updates_after", atlas.getAtlasImage());
 }
@@ -145,9 +146,9 @@ TEST(SpriteAtlas, AddRemove) {
     FixtureLog log;
     SpriteAtlas atlas({ 32, 32 }, 1);
 
-    atlas.addImage("one", std::make_unique<style::Image>(PremultipliedImage({ 16, 16 }), 2));
-    atlas.addImage("two", std::make_unique<style::Image>(PremultipliedImage({ 16, 16 }), 2));
-    atlas.addImage("three", std::make_unique<style::Image>(PremultipliedImage({ 16, 16 }), 2));
+    atlas.addImage(makeMutable<style::Image::Impl>("one", PremultipliedImage({ 16, 16 }), 2));
+    atlas.addImage(makeMutable<style::Image::Impl>("two", PremultipliedImage({ 16, 16 }), 2));
+    atlas.addImage(makeMutable<style::Image::Impl>("three", PremultipliedImage({ 16, 16 }), 2));
 
     atlas.removeImage("one");
     atlas.removeImage("two");
@@ -175,12 +176,12 @@ TEST(SpriteAtlas, RemoveReleasesBinPackRect) {
 
     SpriteAtlas atlas({ 36, 36 }, 1);
 
-    atlas.addImage("big", std::make_unique<style::Image>(PremultipliedImage({ 32, 32 }), 1));
+    atlas.addImage(makeMutable<style::Image::Impl>("big", PremultipliedImage({ 32, 32 }), 1));
     EXPECT_TRUE(atlas.getIcon("big"));
 
     atlas.removeImage("big");
 
-    atlas.addImage("big", std::make_unique<style::Image>(PremultipliedImage({ 32, 32 }), 1));
+    atlas.addImage(makeMutable<style::Image::Impl>("big", PremultipliedImage({ 32, 32 }), 1));
     EXPECT_TRUE(atlas.getIcon("big"));
     EXPECT_TRUE(log.empty());
 }
