@@ -133,7 +133,11 @@ public:
 
             const bool hasPrior = resource.priorEtag || resource.priorModified || resource.priorExpires;
             if (!hasPrior || resource.necessity == Resource::Optional) {
-                auto offlineResponse = offlineDatabase.get(resource);
+                optional<Response> offlineResponse;
+                try {
+                    offlineResponse = offlineDatabase.get(resource);
+                } catch (...) {
+                }
 
                 if (! offlineResponse) {
                     auto supplementaryCachePathsOfKind = supplementaryCachePaths.find(resource.kind);
@@ -145,10 +149,16 @@ public:
                             const auto &cachePath = j->second;
                             auto supplementaryOfflineDatabase = supplementaryOfflineDatabases.find(cachePath);
                             if (supplementaryOfflineDatabase == supplementaryOfflineDatabases.end()) {
-                                supplementaryOfflineDatabase = supplementaryOfflineDatabases.emplace(cachePath, std::make_unique<OfflineDatabase>(cachePath)).first;
+                                try {
+                                    supplementaryOfflineDatabase = supplementaryOfflineDatabases.emplace(cachePath, std::make_unique<OfflineDatabase>(cachePath)).first;
+                                } catch (...) {
+                                }
                             }
                             if (supplementaryOfflineDatabase != supplementaryOfflineDatabases.end()) {
-                                offlineResponse = supplementaryOfflineDatabase->second->get(resource);
+                                try {
+                                    offlineResponse = supplementaryOfflineDatabase->second->get(resource);
+                                } catch (...) {
+                                }
                             }
                         }
                     }
@@ -174,7 +184,10 @@ public:
             // Get from the online file source
             if (resource.necessity == Resource::Required) {
                 tasks[req] = onlineFileSource.request(revalidation, [=] (Response onlineResponse) {
-                    this->offlineDatabase.put(revalidation, onlineResponse);
+                    try {
+                        this->offlineDatabase.put(revalidation, onlineResponse);
+                    } catch (...) {
+                    }
                     callback(onlineResponse);
                 });
             }
