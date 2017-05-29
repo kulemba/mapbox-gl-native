@@ -88,16 +88,17 @@ LinePatternProgram::uniformValues(const LinePaintProperties::PossiblyEvaluated& 
                                   const RenderTile& tile,
                                   const TransformState& state,
                                   const std::array<float, 2>& pixelsToGLUnits,
+                                  const Size atlasSize,
                                   const SpriteAtlasElement& posA,
                                   const SpriteAtlasElement& posB) {
      std::array<float, 2> sizeA {{
-         tile.id.pixelsToTileUnits(posA.size[0] * properties.get<LinePattern>().fromScale, state.getIntegerZoom()),
-         posA.size[1]
+         tile.id.pixelsToTileUnits(posA.displaySize()[0] * properties.get<LinePattern>().fromScale, state.getIntegerZoom()),
+         posA.displaySize()[1]
      }};
 
      std::array<float, 2> sizeB {{
-         tile.id.pixelsToTileUnits(posB.size[0] * properties.get<LinePattern>().toScale, state.getIntegerZoom()),
-         posB.size[1]
+         tile.id.pixelsToTileUnits(posB.displaySize()[0] * properties.get<LinePattern>().toScale, state.getIntegerZoom()),
+         posB.displaySize()[1]
      }};
 
     return makeValues<LinePatternProgram::UniformValues>(
@@ -105,12 +106,13 @@ LinePatternProgram::uniformValues(const LinePaintProperties::PossiblyEvaluated& 
         tile,
         state,
         pixelsToGLUnits,
-        uniforms::u_pattern_tl_a::Value{ posA.tl },
-        uniforms::u_pattern_br_a::Value{ posA.br },
-        uniforms::u_pattern_tl_b::Value{ posB.tl },
-        uniforms::u_pattern_br_b::Value{ posB.br },
+        uniforms::u_pattern_tl_a::Value{ posA.tl() },
+        uniforms::u_pattern_br_a::Value{ posA.br() },
+        uniforms::u_pattern_tl_b::Value{ posB.tl() },
+        uniforms::u_pattern_br_b::Value{ posB.br() },
         uniforms::u_pattern_size_a::Value{ sizeA },
         uniforms::u_pattern_size_b::Value{ sizeB },
+        uniforms::u_texsize::Value{ atlasSize },
         uniforms::u_fade::Value{ properties.get<LinePattern>().t },
         uniforms::u_image::Value{ 0 }
     );
