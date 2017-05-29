@@ -18,7 +18,7 @@ using namespace mbgl;
 
 TEST(SpriteAtlas, Basic) {
     FixtureLog log;
-    SpriteAtlas atlas({ 63, 112 }, 1);
+    SpriteAtlas atlas;
 
     auto images = parseSprite(util::read_file("test/fixtures/annotations/emerald.png"),
                               util::read_file("test/fixtures/annotations/emerald.json"));
@@ -26,33 +26,16 @@ TEST(SpriteAtlas, Basic) {
         atlas.addImage(image->impl);
     }
 
-    EXPECT_EQ(1.0f, atlas.getPixelRatio());
-    EXPECT_EQ(63u, atlas.getSize().width);
-    EXPECT_EQ(112u, atlas.getSize().height);
-
     auto metro = *atlas.getIcon("metro");
-    float imagePixelRatio = metro.relativePixelRatio * atlas.getPixelRatio();
-    EXPECT_EQ(0, metro.pos.x);
-    EXPECT_EQ(0, metro.pos.y);
-    EXPECT_EQ(20, metro.pos.w);
-    EXPECT_EQ(20, metro.pos.h);
-    EXPECT_EQ(18, metro.size[0]);
-    EXPECT_EQ(18, metro.size[1]);
-    EXPECT_EQ(18u, metro.size[0] * imagePixelRatio);
-    EXPECT_EQ(18u, metro.size[1] * imagePixelRatio);
-    EXPECT_EQ(1.0f, imagePixelRatio);
+    EXPECT_EQ(1, metro.tl()[0]);
+    EXPECT_EQ(1, metro.tl()[1]);
+    EXPECT_EQ(19, metro.br()[0]);
+    EXPECT_EQ(19, metro.br()[1]);
+    EXPECT_EQ(18, metro.displaySize()[0]);
+    EXPECT_EQ(18, metro.displaySize()[1]);
+    EXPECT_EQ(1.0f, metro.pixelRatio);
 
-
-    EXPECT_EQ(63u, atlas.getAtlasImage().size.width);
-    EXPECT_EQ(112u, atlas.getAtlasImage().size.height);
-
-    auto pos = *atlas.getIcon("metro");
-    EXPECT_DOUBLE_EQ(18, pos.size[0]);
-    EXPECT_DOUBLE_EQ(18, pos.size[1]);
-    EXPECT_DOUBLE_EQ(1.0f / 63, pos.tl[0]);
-    EXPECT_DOUBLE_EQ(1.0f / 112, pos.tl[1]);
-    EXPECT_DOUBLE_EQ(19.0f / 63, pos.br[0]);
-    EXPECT_DOUBLE_EQ(19.0f / 112, pos.br[1]);
+    EXPECT_EQ(atlas.getPixelSize(), atlas.getAtlasImage().size);
 
     auto missing = atlas.getIcon("doesnotexist");
     EXPECT_FALSE(missing);
@@ -66,16 +49,16 @@ TEST(SpriteAtlas, Basic) {
 
     // Different wrapping mode produces different image.
     auto metro2 = *atlas.getPattern("metro");
-    EXPECT_EQ(20, metro2.pos.x);
-    EXPECT_EQ(0, metro2.pos.y);
-    EXPECT_EQ(20, metro2.pos.w);
-    EXPECT_EQ(20, metro2.pos.h);
+    EXPECT_EQ(21, metro2.tl()[0]);
+    EXPECT_EQ(1, metro2.tl()[1]);
+    EXPECT_EQ(39, metro2.br()[0]);
+    EXPECT_EQ(19, metro2.br()[1]);
 
     test::checkImage("test/fixtures/sprite_atlas/basic", atlas.getAtlasImage());
 }
 
 TEST(SpriteAtlas, Size) {
-    SpriteAtlas atlas({ 63, 112 }, 1.4);
+    SpriteAtlas atlas;
 
     auto images = parseSprite(util::read_file("test/fixtures/annotations/emerald.png"),
                               util::read_file("test/fixtures/annotations/emerald.json"));
@@ -83,52 +66,30 @@ TEST(SpriteAtlas, Size) {
         atlas.addImage(image->impl);
     }
 
-    EXPECT_DOUBLE_EQ(1.4f, atlas.getPixelRatio());
-    EXPECT_EQ(63u, atlas.getSize().width);
-    EXPECT_EQ(112u, atlas.getSize().height);
-
     auto metro = *atlas.getIcon("metro");
-    float imagePixelRatio = metro.relativePixelRatio * atlas.getPixelRatio();
-    EXPECT_EQ(0, metro.pos.x);
-    EXPECT_EQ(0, metro.pos.y);
-    EXPECT_EQ(15, metro.pos.w);
-    EXPECT_EQ(15, metro.pos.h);
-    EXPECT_EQ(18, metro.size[0]);
-    EXPECT_EQ(18, metro.size[1]);
-    EXPECT_EQ(18u, metro.size[0] * imagePixelRatio);
-    EXPECT_EQ(18u, metro.size[1] * imagePixelRatio);
-    EXPECT_EQ(1.0f, imagePixelRatio);
-
-    // Now the image was created lazily.
-    EXPECT_EQ(89u, atlas.getAtlasImage().size.width);
-    EXPECT_EQ(157u, atlas.getAtlasImage().size.height);
+    EXPECT_EQ(1, metro.tl()[0]);
+    EXPECT_EQ(1, metro.tl()[1]);
+    EXPECT_EQ(19, metro.br()[0]);
+    EXPECT_EQ(19, metro.br()[1]);
+    EXPECT_EQ(18, metro.displaySize()[0]);
+    EXPECT_EQ(18, metro.displaySize()[1]);
+    EXPECT_EQ(1.0f, metro.pixelRatio);
 
     test::checkImage("test/fixtures/sprite_atlas/size", atlas.getAtlasImage());
 }
 
 TEST(SpriteAtlas, Updates) {
-    SpriteAtlas atlas({ 32, 32 }, 1);
-
-    EXPECT_EQ(1.0f, atlas.getPixelRatio());
-    EXPECT_EQ(32u, atlas.getSize().width);
-    EXPECT_EQ(32u, atlas.getSize().height);
+    SpriteAtlas atlas;
 
     atlas.addImage(makeMutable<style::Image::Impl>("one", PremultipliedImage({ 16, 12 }), 1));
     auto one = *atlas.getIcon("one");
-    float imagePixelRatio = one.relativePixelRatio * atlas.getPixelRatio();
-    EXPECT_EQ(0, one.pos.x);
-    EXPECT_EQ(0, one.pos.y);
-    EXPECT_EQ(18, one.pos.w);
-    EXPECT_EQ(14, one.pos.h);
-    EXPECT_EQ(16, one.size[0]);
-    EXPECT_EQ(12, one.size[1]);
-    EXPECT_EQ(16u, one.size[0] * imagePixelRatio);
-    EXPECT_EQ(12u, one.size[1] * imagePixelRatio);
-    EXPECT_EQ(1.0f, imagePixelRatio);
-
-    // Now the image was created lazily.
-    EXPECT_EQ(32u, atlas.getAtlasImage().size.width);
-    EXPECT_EQ(32u, atlas.getAtlasImage().size.height);
+    EXPECT_EQ(1, one.tl()[0]);
+    EXPECT_EQ(1, one.tl()[1]);
+    EXPECT_EQ(17, one.br()[0]);
+    EXPECT_EQ(13, one.br()[1]);
+    EXPECT_EQ(16, one.displaySize()[0]);
+    EXPECT_EQ(12, one.displaySize()[1]);
+    EXPECT_EQ(1.0f, one.pixelRatio);
 
     test::checkImage("test/fixtures/sprite_atlas/updates_before", atlas.getAtlasImage());
 
@@ -144,7 +105,7 @@ TEST(SpriteAtlas, Updates) {
 
 TEST(SpriteAtlas, AddRemove) {
     FixtureLog log;
-    SpriteAtlas atlas({ 32, 32 }, 1);
+    SpriteAtlas atlas;
 
     atlas.addImage(makeMutable<style::Image::Impl>("one", PremultipliedImage({ 16, 16 }), 2));
     atlas.addImage(makeMutable<style::Image::Impl>("two", PremultipliedImage({ 16, 16 }), 2));
@@ -173,8 +134,7 @@ TEST(SpriteAtlas, AddRemove) {
 
 TEST(SpriteAtlas, RemoveReleasesBinPackRect) {
     FixtureLog log;
-
-    SpriteAtlas atlas({ 36, 36 }, 1);
+    SpriteAtlas atlas;
 
     atlas.addImage(makeMutable<style::Image::Impl>("big", PremultipliedImage({ 32, 32 }), 1));
     EXPECT_TRUE(atlas.getIcon("big"));
@@ -184,4 +144,44 @@ TEST(SpriteAtlas, RemoveReleasesBinPackRect) {
     atlas.addImage(makeMutable<style::Image::Impl>("big", PremultipliedImage({ 32, 32 }), 1));
     EXPECT_TRUE(atlas.getIcon("big"));
     EXPECT_TRUE(log.empty());
+}
+
+class StubIconRequestor : public IconRequestor {
+public:
+    void onIconsAvailable(IconMap icons) final {
+        if (iconsAvailable) iconsAvailable(icons);
+    }
+
+    std::function<void (IconMap)> iconsAvailable;
+};
+
+TEST(SpriteAtlas, NotifiesRequestorWhenSpriteIsLoaded) {
+    SpriteAtlas atlas;
+    StubIconRequestor requestor;
+    bool notified = false;
+
+    requestor.iconsAvailable = [&] (IconMap) {
+        notified = true;
+    };
+
+    atlas.getIcons(requestor, {"one"});
+    ASSERT_FALSE(notified);
+
+    atlas.onSpriteLoaded();
+    ASSERT_TRUE(notified);
+}
+
+TEST(SpriteAtlas, NotifiesRequestorImmediatelyIfDependenciesAreSatisfied) {
+    SpriteAtlas atlas;
+    StubIconRequestor requestor;
+    bool notified = false;
+
+    requestor.iconsAvailable = [&] (IconMap) {
+        notified = true;
+    };
+
+    atlas.addImage(makeMutable<style::Image::Impl>("one", PremultipliedImage({ 16, 16 }), 2));
+    atlas.getIcons(requestor, {"one"});
+
+    ASSERT_TRUE(notified);
 }
