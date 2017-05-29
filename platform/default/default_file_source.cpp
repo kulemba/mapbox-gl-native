@@ -40,8 +40,10 @@ namespace mbgl {
 
 class DefaultFileSource::Impl {
 public:
-    Impl(const std::string& cachePath, uint64_t maximumCacheSize)
-        : offlineDatabase(cachePath, maximumCacheSize) {
+    Impl(std::shared_ptr<FileSource> assetFileSource_, const std::string& cachePath, uint64_t maximumCacheSize)
+            : assetFileSource(assetFileSource_)
+            , localFileSource(std::make_unique<LocalFileSource>())
+            , offlineDatabase(cachePath, maximumCacheSize) {
     }
 
     void setAPIBaseURL(const std::string& url) {
@@ -119,66 +121,63 @@ public:
     }
 
     void request(AsyncRequest* req, Resource resource, Callback callback) {
-        Resource revalidation = resource;
+        if (isAssetURL(resource.url)) {
+            //Asset request
+            tasks[req] = assetFileSource->request(resource, callback);
+        } else if (LocalFileSource::acceptsURL(resource.url)) {
+            //Local file request
+            tasks[req] = localFileSource->request(resource, callback);
+        } else {
+            // Try the offline database
+            Resource revalidation = resource;
 
-        const bool hasPrior = resource.priorEtag || resource.priorModified || resource.priorExpires;
-        if (!hasPrior || resource.necessity == Resource::Optional) {
-            optional<Response> offlineResponse;
-            try {
-                offlineResponse = offlineDatabase.get(resource);
-            } catch (...) {
-            }
+            const bool hasPrior = resource.priorEtag || resource.priorModified || resource.priorExpires;
+            if (!hasPrior || resource.necessity == Resource::Optional) {
+                auto offlineResponse = offlineDatabase.get(resource);
 
-            if (! offlineResponse) {
-                auto supplementaryCachePathsOfKind = supplementaryCachePaths.find(resource.kind);
-                if (supplementaryCachePathsOfKind != supplementaryCachePaths.end()) {
-                    const auto &latLngBoundsCachePathTree = supplementaryCachePathsOfKind->second;
-                    auto qCachePathsBegin = resource.tileData ? latLngBoundsCachePathTree.qbegin(boost::geometry::index::intersects(LatLngBounds(CanonicalTileID(resource.tileData->z, resource.tileData->x, resource.tileData->y)))): latLngBoundsCachePathTree.qbegin(boost::geometry::index::contains(LatLng()));
-                    auto qCachePathsEnd = latLngBoundsCachePathTree.qend();
-                    for (auto j = qCachePathsBegin; ! offlineResponse && j != qCachePathsEnd; ++ j) {
-                        const auto &cachePath = j->second;
-                        auto supplementaryOfflineDatabase = supplementaryOfflineDatabases.find(cachePath);
-                        if (supplementaryOfflineDatabase == supplementaryOfflineDatabases.end()) {
-                            try {
+                if (! offlineResponse) {
+                    auto supplementaryCachePathsOfKind = supplementaryCachePaths.find(resource.kind);
+                    if (supplementaryCachePathsOfKind != supplementaryCachePaths.end()) {
+                        const auto &latLngBoundsCachePathTree = supplementaryCachePathsOfKind->second;
+                        auto qCachePathsBegin = resource.tileData ? latLngBoundsCachePathTree.qbegin(boost::geometry::index::intersects(LatLngBounds(CanonicalTileID(resource.tileData->z, resource.tileData->x, resource.tileData->y)))): latLngBoundsCachePathTree.qbegin(boost::geometry::index::contains(LatLng()));
+                        auto qCachePathsEnd = latLngBoundsCachePathTree.qend();
+                        for (auto j = qCachePathsBegin; ! offlineResponse && j != qCachePathsEnd; ++ j) {
+                            const auto &cachePath = j->second;
+                            auto supplementaryOfflineDatabase = supplementaryOfflineDatabases.find(cachePath);
+                            if (supplementaryOfflineDatabase == supplementaryOfflineDatabases.end()) {
                                 supplementaryOfflineDatabase = supplementaryOfflineDatabases.emplace(cachePath, std::make_unique<OfflineDatabase>(cachePath)).first;
-                            } catch (...) {
+                            }
+                            if (supplementaryOfflineDatabase != supplementaryOfflineDatabases.end()) {
+                                offlineResponse = supplementaryOfflineDatabase->second->get(resource);
                             }
                         }
-                        if (supplementaryOfflineDatabase != supplementaryOfflineDatabases.end()) {
-                            try {
-                                offlineResponse = supplementaryOfflineDatabase->second->get(resource);
-                            } catch (...) {
-                            }
-                       }
                     }
                 }
-            }
-            
-            if (resource.necessity == Resource::Optional && !offlineResponse) {
-                // Ensure there's always a response that we can send, so the caller knows that
-                // there's no optional data available in the cache.
-                offlineResponse.emplace();
-                offlineResponse->noContent = true;
-                offlineResponse->error = std::make_unique<Response::Error>(
-                    Response::Error::Reason::NotFound, "Not found in offline database");
-            }
-
-            if (offlineResponse) {
-                revalidation.priorModified = offlineResponse->modified;
-                revalidation.priorExpires = offlineResponse->expires;
-                revalidation.priorEtag = offlineResponse->etag;
-                callback(*offlineResponse);
-            }
-        }
-
-        if (resource.necessity == Resource::Required) {
-            tasks[req] = onlineFileSource.request(revalidation, [=] (Response onlineResponse) {
-                try {
-                    this->offlineDatabase.put(revalidation, onlineResponse);
-                } catch (...) {
+                
+                if (resource.necessity == Resource::Optional && !offlineResponse) {
+                    // Ensure there's always a response that we can send, so the caller knows that
+                    // there's no optional data available in the cache.
+                    offlineResponse.emplace();
+                    offlineResponse->noContent = true;
+                    offlineResponse->error = std::make_unique<Response::Error>(
+                            Response::Error::Reason::NotFound, "Not found in offline database");
                 }
-                callback(onlineResponse);
-            });
+
+                if (offlineResponse) {
+                    revalidation.priorModified = offlineResponse->modified;
+                    revalidation.priorExpires = offlineResponse->expires;
+                    revalidation.priorEtag = offlineResponse->etag;
+                    callback(*offlineResponse);
+                }
+            }
+
+            // Get from the online file source
+            if (resource.necessity == Resource::Required) {
+                tasks[req] = onlineFileSource.request(revalidation, [=] (Response onlineResponse) {
+                    this->offlineDatabase.put(revalidation, onlineResponse);
+                    callback(onlineResponse);
+                });
+            }
         }
     }
 
@@ -237,6 +236,9 @@ private:
             std::make_unique<OfflineDownload>(regionID, offlineDatabase.getRegionDefinition(regionID), offlineDatabase, onlineFileSource)).first->second;
     }
 
+    // shared so that destruction is done on the creating thread
+    const std::shared_ptr<FileSource> assetFileSource;
+    const std::unique_ptr<FileSource> localFileSource;
     OfflineDatabase offlineDatabase;
     OnlineFileSource onlineFileSource;
     std::unordered_map<AsyncRequest*, std::unique_ptr<AsyncRequest>> tasks;
@@ -255,29 +257,38 @@ DefaultFileSource::DefaultFileSource(const std::string& cachePath,
 DefaultFileSource::DefaultFileSource(const std::string& cachePath,
                                      std::unique_ptr<FileSource>&& assetFileSource_,
                                      uint64_t maximumCacheSize)
-    : thread(std::make_unique<util::Thread<Impl>>(util::ThreadContext{"DefaultFileSource", util::ThreadPriority::Low},
-            cachePath, maximumCacheSize)),
-      assetFileSource(std::move(assetFileSource_)),
-      localFileSource(std::make_unique<LocalFileSource>()) {
+        : assetFileSource(std::move(assetFileSource_))
+        , thread(std::make_unique<util::Thread<Impl>>(util::ThreadContext{"DefaultFileSource", util::ThreadPriority::Low},
+                                                      assetFileSource, cachePath, maximumCacheSize)) {
 }
 
 DefaultFileSource::~DefaultFileSource() = default;
 
 void DefaultFileSource::setAPIBaseURL(const std::string& baseURL) {
     thread->invoke(&Impl::setAPIBaseURL, baseURL);
-    cachedBaseURL = baseURL;
+
+    {
+        std::lock_guard<std::mutex> lock(cachedBaseURLMutex);
+        cachedBaseURL = baseURL;
+    }
 }
 
-std::string DefaultFileSource::getAPIBaseURL() const {
+std::string DefaultFileSource::getAPIBaseURL() {
+    std::lock_guard<std::mutex> lock(cachedBaseURLMutex);
     return cachedBaseURL;
 }
 
 void DefaultFileSource::setAccessToken(const std::string& accessToken) {
     thread->invoke(&Impl::setAccessToken, accessToken);
-    cachedAccessToken = accessToken;
+
+    {
+        std::lock_guard<std::mutex> lock(cachedAccessTokenMutex);
+        cachedAccessToken = accessToken;
+    }
 }
 
-std::string DefaultFileSource::getAccessToken() const {
+std::string DefaultFileSource::getAccessToken() {
+    std::lock_guard<std::mutex> lock(cachedAccessTokenMutex);
     return cachedAccessToken;
 }
 
@@ -310,13 +321,7 @@ std::unique_ptr<AsyncRequest> DefaultFileSource::request(const Resource& resourc
         std::unique_ptr<AsyncRequest> workRequest;
     };
 
-    if (isAssetURL(resource.url)) {
-        return assetFileSource->request(resource, callback);
-    } else if (LocalFileSource::acceptsURL(resource.url)) {
-        return localFileSource->request(resource, callback);
-    } else {
-        return std::make_unique<DefaultFileRequest>(resource, callback, *thread);
-    }
+    return std::make_unique<DefaultFileRequest>(resource, callback, *thread);
 }
 
 void DefaultFileSource::listOfflineRegions(std::function<void (std::exception_ptr, optional<std::vector<OfflineRegion>>)> callback) {

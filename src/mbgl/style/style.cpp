@@ -16,7 +16,6 @@
 #include <mbgl/style/parser.hpp>
 #include <mbgl/style/transition_options.hpp>
 #include <mbgl/sprite/sprite_atlas.hpp>
-#include <mbgl/sprite/sprite_image_collection.hpp>
 #include <mbgl/sprite/sprite_loader.hpp>
 #include <mbgl/text/glyph_atlas.hpp>
 #include <mbgl/geometry/line_atlas.hpp>
@@ -36,6 +35,7 @@
 #include <mbgl/renderer/layers/render_raster_layer.hpp>
 #include <mbgl/renderer/layers/render_symbol_layer.hpp>
 #include <mbgl/renderer/style_diff.hpp>
+#include <mbgl/sprite/sprite_atlas.hpp>
 #include <mbgl/tile/tile.hpp>
 #include <mbgl/util/constants.hpp>
 #include <mbgl/util/exception.hpp>
@@ -74,7 +74,7 @@ Style::Style(Scheduler& scheduler_, FileSource& fileSource_, float pixelRatio)
       fileSource(fileSource_),
       glyphAtlas(std::make_unique<GlyphAtlas>(Size{ 2048, 2048 }, fileSource)),
       spriteLoader(std::make_unique<SpriteLoader>(pixelRatio)),
-      spriteAtlas(std::make_unique<SpriteAtlas>(Size{ 1024, 1024 }, pixelRatio)),
+      spriteAtlas(std::make_unique<SpriteAtlas>()),
       lineAtlas(std::make_unique<LineAtlas>(Size{ 256, 512 })),
       light(std::make_unique<Light>()),
       renderLight(light->impl),
@@ -508,22 +508,24 @@ bool Style::isLoaded() const {
 }
 
 void Style::addImage(std::unique_ptr<style::Image> image) {
-    addSpriteImage(spriteImages, std::move(image), [&](style::Image& added) {
-        spriteAtlas->addImage(added.impl);
-        observer->onUpdate(Update::Repaint);
-    });
+    std::string id = image->getID();
+    auto it = images.find(id);
+    if (it != images.end() && it->second->getImage().size != image->getImage().size) {
+        Log::Warning(Event::Sprite, "Can't change sprite dimensions for '%s'", id.c_str());
+        return;
+    }
+    spriteAtlas->addImage(image->impl);
+    images[id] = std::move(image);
 }
 
 void Style::removeImage(const std::string& id) {
-    removeSpriteImage(spriteImages, id, [&] () {
-        spriteAtlas->removeImage(id);
-        observer->onUpdate(Update::Repaint);
-    });
+    images.erase(id);
+    spriteAtlas->removeImage(id);
 }
 
 const style::Image* Style::getImage(const std::string& id) const {
-    auto it = spriteImages.find(id);
-    return it == spriteImages.end() ? nullptr : it->second.get();
+    auto it = images.find(id);
+    return it == images.end() ? nullptr : it->second.get();
 }
 
 RenderData Style::getRenderData(MapDebugOptions debugOptions, float angle) const {
@@ -535,8 +537,8 @@ RenderData Style::getRenderData(MapDebugOptions debugOptions, float angle) const
         }
     }
 
-    for (const auto& layerImpl : layerImpls) {
-        const RenderLayer* layer = getRenderLayer(layerImpl->id);
+    for (auto& layerImpl : layerImpls) {
+        RenderLayer* layer = getRenderLayer(layerImpl->id);
         assert(layer);
 
         if (!layer->needsRendering(zoomHistory.lastZoom)) {
@@ -546,7 +548,7 @@ RenderData Style::getRenderData(MapDebugOptions debugOptions, float angle) const
         if (const RenderBackgroundLayer* background = layer->as<RenderBackgroundLayer>()) {
             if (debugOptions & MapDebugOptions::Overdraw) {
                 // We want to skip glClear optimization in overdraw mode.
-                result.order.emplace_back(*layer);
+                result.order.emplace_back(*layer, nullptr);
                 continue;
             }
             const BackgroundPaintProperties::PossiblyEvaluated& paint = background->evaluated;
@@ -555,19 +557,19 @@ RenderData Style::getRenderData(MapDebugOptions debugOptions, float angle) const
                 result.backgroundColor = paint.get<BackgroundColor>() * paint.get<BackgroundOpacity>();
             } else {
                 // This is a textured background, or not the bottommost layer. We need to render it with a quad.
-                result.order.emplace_back(*layer);
+                result.order.emplace_back(*layer, nullptr);
             }
             continue;
         }
 
         if (layer->is<RenderCustomLayer>()) {
-            result.order.emplace_back(*layer);
+            result.order.emplace_back(*layer, nullptr);
             continue;
         }
 
         RenderSource* source = getRenderSource(layer->baseImpl->source);
         if (!source) {
-            Log::Warning(Event::Render, "can't find source for layer '%s'", layer->baseImpl->id.c_str());
+            Log::Warning(Event::Render, "can't find source for layer '%s'", layer->getID().c_str());
             continue;
         }
 
@@ -626,8 +628,8 @@ RenderData Style::getRenderData(MapDebugOptions debugOptions, float angle) const
                 tile.used = true;
             }
         }
-
-        result.order.emplace_back(*layer, std::move(sortedTilesForInsertion));
+        layer->setRenderTiles(std::move(sortedTilesForInsertion));
+        result.order.emplace_back(*layer, source);
     }
 
     return result;
@@ -737,8 +739,8 @@ void Style::onTileError(RenderSource& source, const OverscaledTileID& tileID, st
     observer->onResourceError(error);
 }
 
-void Style::onSpriteLoaded(std::vector<std::unique_ptr<Image>>&& images) {
-    for (auto& image : images) {
+void Style::onSpriteLoaded(std::vector<std::unique_ptr<Image>>&& images_) {
+    for (auto& image : images_) {
         addImage(std::move(image));
     }
     spriteAtlas->onSpriteLoaded();

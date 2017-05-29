@@ -127,6 +127,7 @@ public:
     RenderSource* getRenderSource(const std::string& id) const;
 
 private:
+    std::unordered_map<std::string, std::unique_ptr<style::Image>> images;
     std::vector<std::unique_ptr<Source>> sources;
     std::vector<std::unique_ptr<Layer>> layers;
     TransitionOptions transitionOptions;
@@ -152,7 +153,6 @@ private:
     void onGlyphsError(const FontStack&, const GlyphRange&, std::exception_ptr) override;
 
     // SpriteLoaderObserver implementation.
-    std::unordered_map<std::string, std::unique_ptr<style::Image>> spriteImages;
     void onSpriteLoaded(std::vector<std::unique_ptr<Image>>&&) override;
     void onSpriteError(std::exception_ptr) override;
 
