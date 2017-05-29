@@ -1,10 +1,12 @@
 #pragma once
 
-#include <mbgl/geometry/binpack.hpp>
 #include <mbgl/gl/texture.hpp>
 #include <mbgl/util/noncopyable.hpp>
 #include <mbgl/util/optional.hpp>
+#include <mbgl/util/rect.hpp>
 #include <mbgl/style/image.hpp>
+
+#include <mapbox/shelf-pack.hpp>
 
 #include <string>
 #include <set>
@@ -20,15 +22,32 @@ class Context;
 
 class SpriteAtlasElement {
 public:
-    SpriteAtlasElement(Rect<uint16_t>, const style::Image::Impl&, Size size, float pixelRatio);
+    SpriteAtlasElement(const mapbox::Bin&, const style::Image::Impl&);
 
-    Rect<uint16_t> pos;
     bool sdf;
+    float pixelRatio;
+    Rect<uint16_t> textureRect;
 
-    float relativePixelRatio;
-    std::array<float, 2> size;
-    std::array<float, 2> tl;
-    std::array<float, 2> br;
+    std::array<uint16_t, 2> tl() const {
+        return {{
+            textureRect.x,
+            textureRect.y
+        }};
+    }
+
+    std::array<uint16_t, 2> br() const {
+        return {{
+            static_cast<uint16_t>(textureRect.x + textureRect.w),
+            static_cast<uint16_t>(textureRect.y + textureRect.h)
+        }};
+    }
+
+    std::array<float, 2> displaySize() const {
+        return {{
+            textureRect.w / pixelRatio,
+            textureRect.h / pixelRatio,
+        }};
+    }
 };
 
 using IconMap = std::unordered_map<std::string, SpriteAtlasElement>;
@@ -42,14 +61,10 @@ public:
 
 class SpriteAtlas : public util::noncopyable {
 public:
-    SpriteAtlas(Size, float pixelRatio);
+    SpriteAtlas();
     ~SpriteAtlas();
 
     void onSpriteLoaded();
-
-    void markAsLoaded() {
-        loaded = true;
-    }
 
     bool isLoaded() const {
         return loaded;
@@ -61,10 +76,17 @@ public:
     void addImage(Immutable<style::Image::Impl>);
     void removeImage(const std::string&);
 
-    void getIcons(IconRequestor& requestor);
-    void removeRequestor(IconRequestor& requestor);
+    void getIcons(IconRequestor&, IconDependencies);
+    void removeRequestor(IconRequestor&);
 
+    // Ensure that the atlas contains the named image suitable for rendering as an icon, and
+    // return its metrics. The image will be padded on each side with a one pixel wide transparent
+    // strip, but the returned metrics are exclusive of this padding.
     optional<SpriteAtlasElement> getIcon(const std::string& name);
+
+    // Ensure that the atlas contains the named image suitable for rendering as an pattern, and
+    // return its metrics. The image will be padded on each side with a one pixel wide copy of
+    // pixels from the opposite side, but the returned metrics are exclusive of this padding.
     optional<SpriteAtlasElement> getPattern(const std::string& name);
 
     // Binds the atlas texture to the GPU, and uploads data if it is out of date.
@@ -74,8 +96,7 @@ public:
     // the texture is only bound when the data is out of date (=dirty).
     void upload(gl::Context&, gl::TextureUnit unit);
 
-    Size getSize() const { return size; }
-    float getPixelRatio() const { return pixelRatio; }
+    Size getPixelSize() const;
 
     // Only for use in tests.
     const PremultipliedImage& getAtlasImage() const {
@@ -83,8 +104,6 @@ public:
     }
 
 private:
-    const Size size;
-    const float pixelRatio;
     bool loaded = false;
 
     struct Entry {
@@ -94,20 +113,20 @@ private:
         // it must have two distinct entries in the texture. The one for the icon image has
         // a single pixel transparent border, and the one for the pattern image has a single
         // pixel border wrapped from the opposite side.
-        optional<Rect<uint16_t>> iconRect;
-        optional<Rect<uint16_t>> patternRect;
+        mapbox::Bin* iconBin = nullptr;
+        mapbox::Bin* patternBin = nullptr;
     };
 
-    optional<SpriteAtlasElement> getImage(const std::string& name, optional<Rect<uint16_t>> Entry::*rect);
-    void copy(const Entry&, optional<Rect<uint16_t>> Entry::*rect);
+    optional<SpriteAtlasElement> getImage(const std::string& name, mapbox::Bin* Entry::*bin);
+    void copy(const Entry&, mapbox::Bin* Entry::*bin);
     
     IconMap buildIconMap();
 
     std::unordered_map<std::string, Entry> entries;
-    BinPack<uint16_t> bin;
+    mapbox::ShelfPack shelfPack;
     PremultipliedImage image;
     mbgl::optional<gl::Texture> texture;
-    bool dirty;
+    bool dirty = true;
     
     std::set<IconRequestor*> requestors;
     IconMap icons;
