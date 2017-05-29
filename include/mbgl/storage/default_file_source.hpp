@@ -5,6 +5,7 @@
 #include <mbgl/util/constants.hpp>
 
 #include <vector>
+#include <mutex>
 
 namespace mbgl {
 
@@ -34,10 +35,10 @@ public:
     }
 
     void setAPIBaseURL(const std::string&);
-    std::string getAPIBaseURL() const;
+    std::string getAPIBaseURL();
 
     void setAccessToken(const std::string&);
-    std::string getAccessToken() const;
+    std::string getAccessToken();
 
     void setResourceTransform(std::function<std::string(Resource::Kind, std::string&&)>);
 
@@ -140,10 +141,14 @@ public:
     class Impl;
 
 private:
+    // Shared so destruction is done on this thread
+    const std::shared_ptr<FileSource> assetFileSource;
     const std::unique_ptr<util::Thread<Impl>> thread;
-    const std::unique_ptr<FileSource> assetFileSource;
-    const std::unique_ptr<FileSource> localFileSource;
+
+    std::mutex cachedBaseURLMutex;
     std::string cachedBaseURL = mbgl::util::API_BASE_URL;
+
+    std::mutex cachedAccessTokenMutex;
     std::string cachedAccessToken;
 };
 
