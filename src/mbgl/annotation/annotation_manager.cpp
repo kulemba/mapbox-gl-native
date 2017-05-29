@@ -4,7 +4,7 @@
 #include <mbgl/annotation/symbol_annotation_impl.hpp>
 #include <mbgl/annotation/line_annotation_impl.hpp>
 #include <mbgl/annotation/fill_annotation_impl.hpp>
-#include <mbgl/annotation/style_sourced_annotation_impl.hpp>
+#include <mbgl/sprite/sprite_image_collection.hpp>
 #include <mbgl/style/style.hpp>
 #include <mbgl/style/layers/symbol_layer.hpp>
 #include <mbgl/style/layers/symbol_layer_impl.hpp>
@@ -20,7 +20,7 @@ const std::string AnnotationManager::SourceID = "com.mapbox.annotations";
 const std::string AnnotationManager::PointLayerID = "com.mapbox.annotations.points";
 
 AnnotationManager::AnnotationManager(float pixelRatio)
-    : spriteAtlas({ 1024, 1024 }, pixelRatio) {
+        : spriteAtlas({ 1024, 1024 }, pixelRatio){
     // This is a special atlas, holding only images added via addIcon, so we always treat it as
     // loaded.
     spriteAtlas.markAsLoaded();
@@ -72,12 +72,6 @@ void AnnotationManager::add(const AnnotationID& id, const FillAnnotation& annota
     obsoleteShapeAnnotationLayers.erase(impl.layerID);
 }
 
-void AnnotationManager::add(const AnnotationID& id, const StyleSourcedAnnotation& annotation, const uint8_t maxZoom) {
-    ShapeAnnotationImpl& impl = *shapeAnnotations.emplace(id,
-        std::make_unique<StyleSourcedAnnotationImpl>(id, annotation, maxZoom)).first->second;
-    obsoleteShapeAnnotationLayers.erase(impl.layerID);
-}
-
 Update AnnotationManager::update(const AnnotationID& id, const SymbolAnnotation& annotation, const uint8_t maxZoom) {
     Update result = Update::Nothing;
 
@@ -115,16 +109,6 @@ Update AnnotationManager::update(const AnnotationID& id, const LineAnnotation& a
 }
 
 Update AnnotationManager::update(const AnnotationID& id, const FillAnnotation& annotation, const uint8_t maxZoom) {
-    auto it = shapeAnnotations.find(id);
-    if (it == shapeAnnotations.end()) {
-        assert(false); // Attempt to update a non-existent shape annotation
-        return Update::Nothing;
-    }
-    removeAndAdd(id, annotation, maxZoom);
-    return Update::AnnotationData | Update::AnnotationStyle;
-}
-
-Update AnnotationManager::update(const AnnotationID& id, const StyleSourcedAnnotation& annotation, const uint8_t maxZoom) {
     auto it = shapeAnnotations.find(id);
     if (it == shapeAnnotations.end()) {
         assert(false); // Attempt to update a non-existent shape annotation
@@ -207,16 +191,20 @@ void AnnotationManager::removeTile(AnnotationTile& tile) {
 }
 
 void AnnotationManager::addImage(const std::string& id, std::unique_ptr<style::Image> image) {
-    spriteAtlas.addImage(id, std::move(image));
+    addSpriteImage(spriteImages, id, std::move(image), [&](style::Image& added) {
+        spriteAtlas.addImage(id, std::make_unique<style::Image>(added));
+    });
 }
 
 void AnnotationManager::removeImage(const std::string& id) {
-    spriteAtlas.removeImage(id);
+    removeSpriteImage(spriteImages, id, [&] () {
+        spriteAtlas.removeImage(id);
+    });
 }
 
 double AnnotationManager::getTopOffsetPixelsForImage(const std::string& id) {
     const style::Image* image = spriteAtlas.getImage(id);
-    return image ? -(image->image.size.height / image->pixelRatio) / 2 : 0;
+    return image ? -(image->getImage().size.height / image->getPixelRatio()) / 2 : 0;
 }
 
 } // namespace mbgl
