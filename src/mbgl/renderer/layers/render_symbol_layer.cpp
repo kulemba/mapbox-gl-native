@@ -33,8 +33,8 @@ std::unique_ptr<SymbolLayout> RenderSymbolLayer::createLayout(const BucketParame
                                           glyphDependencies);
 }
 
-void RenderSymbolLayer::cascade(const CascadeParameters& parameters) {
-    unevaluated = impl().cascading.cascade(parameters, std::move(unevaluated));
+void RenderSymbolLayer::transition(const TransitionParameters& parameters) {
+    unevaluated = impl().paint.transition(parameters, std::move(unevaluated));
 }
 
 void RenderSymbolLayer::evaluate(const PropertyEvaluationParameters& parameters) {
@@ -54,8 +54,8 @@ bool RenderSymbolLayer::hasTransition() const {
     return unevaluated.hasTransition();
 }
 
-style::IconPaintProperties::Evaluated RenderSymbolLayer::iconPaintProperties() const {
-    return style::IconPaintProperties::Evaluated {
+style::IconPaintProperties::PossiblyEvaluated RenderSymbolLayer::iconPaintProperties() const {
+    return style::IconPaintProperties::PossiblyEvaluated {
             evaluated.get<style::IconOpacity>(),
             evaluated.get<style::IconColor>(),
             evaluated.get<style::IconHaloColor>(),
@@ -66,8 +66,8 @@ style::IconPaintProperties::Evaluated RenderSymbolLayer::iconPaintProperties() c
     };
 }
 
-style::TextPaintProperties::Evaluated RenderSymbolLayer::textPaintProperties() const {
-    return style::TextPaintProperties::Evaluated {
+style::TextPaintProperties::PossiblyEvaluated RenderSymbolLayer::textPaintProperties() const {
+    return style::TextPaintProperties::PossiblyEvaluated {
             evaluated.get<style::TextOpacity>(),
             evaluated.get<style::TextColor>(),
             evaluated.get<style::TextHaloColor>(),

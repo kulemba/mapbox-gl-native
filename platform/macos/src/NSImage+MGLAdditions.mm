@@ -23,14 +23,16 @@
 
     NSBitmapImageRep *rep = [[NSBitmapImageRep alloc] initWithCGImage:image];
     CGImageRelease(image);
-    if (self = [self initWithSize:NSMakeSize(styleImage->getWidth(), styleImage->getHeight())]) {
+    CGFloat w = styleImage->getImage().size.width / styleImage->getPixelRatio();
+    CGFloat h = styleImage->getImage().size.height / styleImage->getPixelRatio();
+    if (self = [self initWithSize:NSMakeSize(w, h)]) {
         [self addRepresentation:rep];
         [self setTemplate:styleImage->isSdf()];
     }
     return self;
 }
 
-- (std::unique_ptr<mbgl::style::Image>)mgl_styleImage {
+- (std::unique_ptr<mbgl::style::Image>)mgl_styleImageWithIdentifier:(NSString *)identifier {
     // Create a bitmap image representation from the image, respecting backing
     // scale factor and any resizing done on the image at runtime.
     // http://www.cocoabuilder.com/archive/cocoa/82430-nsimage-getting-raw-bitmap-data.html#82431
@@ -40,9 +42,10 @@
 
     mbgl::PremultipliedImage cPremultipliedImage({ static_cast<uint32_t>(rep.pixelsWide), static_cast<uint32_t>(rep.pixelsHigh) });
     std::copy(rep.bitmapData, rep.bitmapData + cPremultipliedImage.bytes(), cPremultipliedImage.data.get());
-    return std::make_unique<mbgl::style::Image>(std::move(cPremultipliedImage),
-                                               (float)(rep.pixelsWide / self.size.width),
-                                               [self isTemplate]);
+    return std::make_unique<mbgl::style::Image>([identifier UTF8String],
+                                                std::move(cPremultipliedImage),
+                                                (float)(rep.pixelsWide / self.size.width),
+                                                [self isTemplate]);
 }
 
 @end

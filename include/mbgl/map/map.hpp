@@ -59,15 +59,8 @@ public:
     void render(View&);
 
     // Styling
-    void addClass(const std::string&);
-    void removeClass(const std::string&);
-    void setClasses(const std::vector<std::string>&);
-
     style::TransitionOptions getTransitionOptions() const;
     void setTransitionOptions(const style::TransitionOptions&);
-
-    bool hasClass(const std::string&) const;
-    std::vector<std::string> getClasses() const;
 
     void setStyleURL(const std::string&, uint8_t = std::numeric_limits<uint8_t>::max());
     void setStyleJSON(const std::string&, uint8_t = std::numeric_limits<uint8_t>::max());
@@ -156,7 +149,7 @@ public:
     LatLng latLngForPixel(const ScreenCoordinate&) const;
 
     // Annotations
-    void addAnnotationImage(const std::string&, std::unique_ptr<style::Image>);
+    void addAnnotationImage(std::unique_ptr<style::Image>);
     void removeAnnotationImage(const std::string&);
     double getTopOffsetPixelsForAnnotationImage(const std::string&);
 
@@ -177,7 +170,7 @@ public:
     std::unique_ptr<style::Layer> removeLayer(const std::string& layerID);
 
     // Images
-    void addImage(const std::string&, std::unique_ptr<style::Image>);
+    void addImage(std::unique_ptr<style::Image>);
     void removeImage(const std::string&);
     const style::Image* getImage(const std::string&);
 

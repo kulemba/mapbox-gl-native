@@ -160,7 +160,6 @@ set(MBGL_CORE_FILES
     src/mbgl/renderer/bucket.hpp
     src/mbgl/renderer/bucket_parameters.cpp
     src/mbgl/renderer/bucket_parameters.hpp
-    src/mbgl/renderer/cascade_parameters.hpp
     src/mbgl/renderer/cross_faded_property_evaluator.cpp
     src/mbgl/renderer/cross_faded_property_evaluator.hpp
     src/mbgl/renderer/data_driven_property_evaluator.hpp
@@ -192,7 +191,7 @@ set(MBGL_CORE_FILES
     src/mbgl/renderer/tile_parameters.hpp
     src/mbgl/renderer/tile_pyramid.cpp
     src/mbgl/renderer/tile_pyramid.hpp
-    src/mbgl/renderer/transitioning_property.hpp
+    src/mbgl/renderer/transition_parameters.hpp
     src/mbgl/renderer/update_parameters.hpp
 
     # renderer/buckets
@@ -329,8 +328,6 @@ set(MBGL_CORE_FILES
     include/mbgl/style/transition_options.hpp
     include/mbgl/style/types.hpp
     include/mbgl/style/undefined.hpp
-    src/mbgl/style/class_dictionary.cpp
-    src/mbgl/style/class_dictionary.hpp
     src/mbgl/style/image.cpp
     src/mbgl/style/image_impl.cpp
     src/mbgl/style/image_impl.hpp
@@ -343,11 +340,11 @@ set(MBGL_CORE_FILES
     src/mbgl/style/light_impl.cpp
     src/mbgl/style/light_impl.hpp
     src/mbgl/style/light_observer.hpp
-    src/mbgl/style/light_properties.hpp
     src/mbgl/style/observer.hpp
     src/mbgl/style/paint_property.hpp
     src/mbgl/style/parser.cpp
     src/mbgl/style/parser.hpp
+    src/mbgl/style/properties.hpp
     src/mbgl/style/rapidjson_conversion.hpp
     src/mbgl/style/source.cpp
     src/mbgl/style/source_impl.cpp
@@ -596,6 +593,8 @@ set(MBGL_CORE_FILES
     src/mbgl/util/thread_context.cpp
     src/mbgl/util/thread_context.hpp
     src/mbgl/util/thread_local.hpp
+    src/mbgl/util/throttler.cpp
+    src/mbgl/util/throttler.hpp
     src/mbgl/util/tile_coordinate.hpp
     src/mbgl/util/tile_cover.cpp
     src/mbgl/util/tile_cover.hpp
@@ -605,7 +604,5 @@ set(MBGL_CORE_FILES
     src/mbgl/util/utf.hpp
     src/mbgl/util/version.cpp
     src/mbgl/util/version.hpp
-    src/mbgl/util/work_queue.cpp
-    src/mbgl/util/work_queue.hpp
     src/mbgl/util/work_request.cpp
 )
