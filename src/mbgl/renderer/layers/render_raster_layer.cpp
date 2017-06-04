@@ -1,6 +1,11 @@
 #include <mbgl/renderer/layers/render_raster_layer.hpp>
 #include <mbgl/renderer/bucket.hpp>
 #include <mbgl/style/layers/raster_layer_impl.hpp>
+#include <mbgl/gl/context.hpp>
+#include <mbgl/renderer/render_tile.hpp>
+#include <mbgl/tile/tile.hpp>
+#include <mbgl/renderer/sources/render_image_source.hpp>
+#include <mbgl/renderer/painter.hpp>
 
 namespace mbgl {
 
@@ -29,6 +34,26 @@ void RenderRasterLayer::evaluate(const PropertyEvaluationParameters& parameters)
 
 bool RenderRasterLayer::hasTransition() const {
     return unevaluated.hasTransition();
+}
+
+void RenderRasterLayer::uploadBuckets(gl::Context& context, RenderSource* source) {
+    RenderLayer::uploadBuckets(context, source);
+    if (renderTiles.empty()) {
+        RenderImageSource* imageSource = source->as<RenderImageSource>();
+        if (imageSource) {
+            imageSource->upload(context);
+        }
+    }
+}
+
+void RenderRasterLayer::render(Painter& painter, PaintParameters& parameters, RenderSource* source) {
+    RenderLayer::render(painter, parameters, source);
+    if (renderTiles.empty()) {
+        RenderImageSource* imageSource = source->as<RenderImageSource>();
+        if (imageSource) {
+            imageSource->render(painter, parameters, *this);
+        }
+    }
 }
 
 } // namespace mbgl
