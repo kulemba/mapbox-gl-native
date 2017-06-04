@@ -57,4 +57,9 @@ private:
     uint8_t maxZoomLimit;
 };
 
+template <>
+inline bool RenderSource::is<RenderVectorSource>() const {
+    return baseImpl->type == SourceType::Vector;
+}
+
 } // namespace mbgl
