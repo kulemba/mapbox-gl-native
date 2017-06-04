@@ -226,9 +226,7 @@ void Map::Impl::render(View& view) {
         return;
     }
 
-    TimePoint timePoint = mode == MapMode::Continuous
-        ? Clock::now()
-        : Clock::time_point::max();
+    TimePoint timePoint = Clock::now();
 
     transform.updateTransitions(timePoint);
 
@@ -621,11 +619,11 @@ void Map::resetZoom() {
 
 #pragma mark - Bounds
 
-LatLngBounds Map::getLatLngBounds() const {
+optional<LatLngBounds> Map::getLatLngBounds() const {
     return impl->transform.getState().getLatLngBounds();
 }
 
-void Map::setLatLngBounds(const LatLngBounds& bounds) {
+void Map::setLatLngBounds(optional<LatLngBounds> bounds) {
     impl->cameraMutated = true;
     impl->transform.setLatLngBounds(bounds);
     impl->onUpdate(Update::Repaint);
