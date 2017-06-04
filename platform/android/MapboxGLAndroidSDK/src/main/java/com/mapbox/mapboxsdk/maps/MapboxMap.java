@@ -41,6 +41,7 @@ import com.mapbox.mapboxsdk.location.LocationSource;
 import com.mapbox.mapboxsdk.maps.widgets.MyLocationViewSettings;
 import com.mapbox.mapboxsdk.style.layers.Filter;
 import com.mapbox.mapboxsdk.style.layers.Layer;
+import com.mapbox.mapboxsdk.style.light.Light;
 import com.mapbox.mapboxsdk.style.sources.Source;
 import com.mapbox.services.android.telemetry.location.LocationEngine;
 import com.mapbox.services.commons.geojson.Feature;
@@ -69,6 +70,7 @@ public final class MapboxMap {
   private final Transform transform;
   private final AnnotationManager annotationManager;
   private final MyLocationViewSettings myLocationViewSettings;
+  private final CameraChangeDispatcher cameraChangeDispatcher;
 
   private final OnRegisterTouchListener onRegisterTouchListener;
 
@@ -76,7 +78,7 @@ public final class MapboxMap {
 
   MapboxMap(NativeMapView map, Transform transform, UiSettings ui, TrackingSettings tracking,
             MyLocationViewSettings myLocationView, Projection projection, OnRegisterTouchListener listener,
-            AnnotationManager annotations) {
+            AnnotationManager annotations, CameraChangeDispatcher cameraChangeDispatcher) {
     this.nativeMapView = map;
     this.uiSettings = ui;
     this.trackingSettings = tracking;
@@ -85,6 +87,7 @@ public final class MapboxMap {
     this.annotationManager = annotations.bind(this);
     this.transform = transform;
     this.onRegisterTouchListener = listener;
+    this.cameraChangeDispatcher = cameraChangeDispatcher;
   }
 
   void initialise(@NonNull Context context, @NonNull MapboxMapOptions options) {
@@ -566,6 +569,20 @@ public final class MapboxMap {
   }
 
   //
+  //
+  //
+
+  /**
+   * Get the global light source used to change lighting conditions on extruded fill layers.
+   *
+   * @return the global light source
+   */
+  @Nullable
+  public Light getLight() {
+    return nativeMapView.getLight();
+  }
+
+  //
   // Camera API
   //
 
@@ -729,10 +746,38 @@ public final class MapboxMap {
   @UiThread
   public final void easeCamera(final CameraUpdate update, final int durationMs, final boolean easingInterpolator,
                                final MapboxMap.CancelableCallback callback) {
+    easeCamera(update, durationMs, easingInterpolator, callback, false);
+  }
+
+  /**
+   * Gradually move the camera by a specified duration in milliseconds, zoom will not be affected
+   * unless specified within {@link CameraUpdate}. A callback can be used to be notified when
+   * easing the camera stops. If {@link #getCameraPosition()} is called during the animation, it
+   * will return the current location of the camera in flight.
+   * <p>
+   * Note that this will cancel location tracking mode if enabled. You can change this behaviour by calling
+   * {@link TrackingSettings#setDismissTrackingModeForCameraPositionChange(boolean)} with false before invoking this
+   * method and calling it with true in the {@link CancelableCallback#onFinish()}.
+   * </p>
+   *
+   * @param update             The change that should be applied to the camera.
+   * @param durationMs         The duration of the animation in milliseconds. This must be strictly
+   *                           positive, otherwise an IllegalArgumentException will be thrown.
+   * @param easingInterpolator True for easing interpolator, false for linear.
+   * @param callback           An optional callback to be notified from the main thread when the animation
+   *                           stops. If the animation stops due to its natural completion, the callback
+   *                           will be notified with onFinish(). If the animation stops due to interruption
+   *                           by a later camera movement or a user gesture, onCancel() will be called.
+   *                           Do not update or ease the camera from within onCancel().
+   * @param isDismissable      true will allow animated camera changes dismiss a tracking mode.
+   */
+  @UiThread
+  public final void easeCamera(final CameraUpdate update, final int durationMs, final boolean easingInterpolator,
+                               final MapboxMap.CancelableCallback callback, final boolean isDismissable) {
     new Handler().post(new Runnable() {
       @Override
       public void run() {
-        transform.easeCamera(MapboxMap.this, update, durationMs, easingInterpolator, callback);
+        transform.easeCamera(MapboxMap.this, update, durationMs, easingInterpolator, callback, isDismissable);
       }
     });
   }
@@ -1595,8 +1640,49 @@ public final class MapboxMap {
    *                 To unset the callback, use null.
    */
   @UiThread
+  @Deprecated
   public void setOnCameraChangeListener(@Nullable OnCameraChangeListener listener) {
     transform.setOnCameraChangeListener(listener);
+  }
+
+  /**
+   * Sets a callback that is invoked when camera movement has ended.
+   *
+   * @param listener the listener to notify
+   */
+  @UiThread
+  public void setOnCameraIdleListener(@Nullable OnCameraIdleListener listener) {
+    cameraChangeDispatcher.setOnCameraIdleListener(listener);
+  }
+
+  /**
+   * Sets a callback that is invoked when camera movement was cancelled.
+   *
+   * @param listener the listener to notify
+   */
+  @UiThread
+  public void setOnCameraMoveCancelListener(@Nullable OnCameraMoveCanceledListener listener) {
+    cameraChangeDispatcher.setOnCameraMoveCanceledListener(listener);
+  }
+
+  /**
+   * Sets a callback that is invoked when camera movement has started.
+   *
+   * @param listener the listener to notify
+   */
+  @UiThread
+  public void setOnCameraMoveStartedistener(@Nullable OnCameraMoveStartedListener listener) {
+    cameraChangeDispatcher.setOnCameraMoveStartedListener(listener);
+  }
+
+  /**
+   * Sets a callback that is invoked when camera position changes.
+   *
+   * @param listener the listener to notify
+   */
+  @UiThread
+  public void setOnCameraMoveListener(@Nullable OnCameraMoveListener listener) {
+    cameraChangeDispatcher.setOnCameraMoveListener(listener);
   }
 
   /**
@@ -1913,7 +1999,12 @@ public final class MapboxMap {
 
   /**
    * Interface definition for a callback to be invoked when the camera changes position.
+   *
+   * @deprecated Replaced by {@link MapboxMap.OnCameraMoveStartedListener}, {@link MapboxMap.OnCameraMoveListener} and
+   * {@link MapboxMap.OnCameraIdleListener}. The order in which the deprecated onCameraChange method will be called in
+   * relation to the methods in the new camera change listeners is undefined.
    */
+  @Deprecated
   public interface OnCameraChangeListener {
     /**
      * Called after the camera position has changed. During an animation,
@@ -1923,6 +2014,56 @@ public final class MapboxMap {
      * @param position The CameraPosition at the end of the last camera change.
      */
     void onCameraChange(CameraPosition position);
+  }
+
+  /**
+   * Interface definition for a callback to be invoked for when the camera motion starts.
+   */
+  public interface OnCameraMoveStartedListener {
+    int REASON_API_GESTURE = 1;
+    int REASON_DEVELOPER_ANIMATION = 2;
+    int REASON_API_ANIMATION = 3;
+
+    /**
+     * Called when the camera starts moving after it has been idle or when the reason for camera motion has changed.
+     *
+     * @param reason the reason for the camera change
+     */
+    void onCameraMoveStarted(int reason);
+  }
+
+  /**
+   * Interface definition for a callback to be invoked for when the camera changes position.
+   */
+  public interface OnCameraMoveListener {
+    /**
+     * Called repeatedly as the camera continues to move after an onCameraMoveStarted call.
+     * This may be called as often as once every frame and should not perform expensive operations.
+     */
+    void onCameraMove();
+  }
+
+  /**
+   * Interface definition for a callback to be invoked for when the camera's motion has been stopped or when the camera
+   * starts moving for a new reason.
+   */
+  public interface OnCameraMoveCanceledListener {
+    /**
+     * Called when the developer explicitly calls the cancelTransitions() method or if the reason for camera motion has
+     * changed before the onCameraIdle had a chance to fire after the previous animation.
+     * Do not update or animate the camera from within this method.
+     */
+    void onCameraMoveCanceled();
+  }
+
+  /**
+   * Interface definition for a callback to be invoked for when camera movement has ended.
+   */
+  public interface OnCameraIdleListener {
+    /**
+     * Called when camera movement has ended.
+     */
+    void onCameraIdle();
   }
 
   /**
