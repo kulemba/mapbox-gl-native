@@ -8,6 +8,7 @@
 #include <mbgl/style/sources/vector_source.hpp>
 #include <mbgl/style/sources/raster_source.hpp>
 #include <mbgl/style/sources/geojson_source.hpp>
+#include <mbgl/style/sources/image_source.hpp>
 #include <mbgl/style/conversion/json.hpp>
 #include <mbgl/style/conversion/tileset.hpp>
 #include <mbgl/text/glyph.hpp>
@@ -111,8 +112,16 @@ OfflineRegionStatus OfflineDownload::getStatus() const {
         }
 
         case SourceType::GeoJSON: {
-            auto* geojsonSource = source->as<GeoJSONSource>();
-            if (geojsonSource->getURL()) {
+            const auto& geojsonSource = *source->as<GeoJSONSource>();
+            if (geojsonSource.getURL()) {
+                result.requiredResourceCount += 1;
+            }
+            break;
+        }
+
+        case SourceType::Image: {
+            const auto& imageSource = *source->as<ImageSource>();
+            if (imageSource.getURL()) {
                 result.requiredResourceCount += 1;
             }
             break;
@@ -187,10 +196,18 @@ void OfflineDownload::activateDownload() {
             }
 
             case SourceType::GeoJSON: {
-                const auto* geojsonSource = static_cast<const GeoJSONSource*>(source.get());
+                const auto& geojsonSource = *source->as<GeoJSONSource>();
+                if (geojsonSource.getURL()) {
+                    queueResource(Resource::source(*geojsonSource.getURL()));
+                }
+                break;
+            }
 
-                if (geojsonSource->getURL()) {
-                    queueResource(Resource::source(*geojsonSource->getURL()));
+            case SourceType::Image: {
+                const auto& imageSource = *source->as<ImageSource>();
+                auto imageUrl = imageSource.getURL();
+                if (imageUrl && !imageUrl->empty()) {
+                    queueResource(Resource::image(*imageUrl));
                 }
                 break;
             }
