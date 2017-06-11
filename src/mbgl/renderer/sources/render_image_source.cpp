@@ -54,8 +54,11 @@ void RenderImageSource::finishRender(Painter& painter) {
     }
 }
 
-std::unordered_map<std::string, std::vector<Feature>> RenderImageSource::queryRenderedFeatures(
-    const ScreenLineString&, const TransformState&, const RenderedQueryOptions&) const {
+std::unordered_map<std::string, std::vector<Feature>>
+RenderImageSource::queryRenderedFeatures(const ScreenLineString&,
+                                         const TransformState&,
+                                         const RenderStyle&,
+                                         const RenderedQueryOptions&) const {
     return {};
 }
 
@@ -69,7 +72,14 @@ void RenderImageSource::upload(gl::Context& context) {
     }
 }
 
-void RenderImageSource::updateTiles(const TileParameters& parameters) {
+void RenderImageSource::update(Immutable<style::Source::Impl> baseImpl_,
+                               const std::vector<Immutable<Layer::Impl>>&,
+                               const bool needsRendering,
+                               const bool,
+                               const TileParameters& parameters) {
+    std::swap(baseImpl, baseImpl_);
+
+    enabled = needsRendering;
 
     auto transformState = parameters.transformState;
     auto size = transformState.getSize();
