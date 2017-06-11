@@ -184,6 +184,9 @@ set(MBGL_CORE_FILES
     src/mbgl/renderer/render_source.cpp
     src/mbgl/renderer/render_source.hpp
     src/mbgl/renderer/render_source_observer.hpp
+    src/mbgl/renderer/render_style.cpp
+    src/mbgl/renderer/render_style.hpp
+    src/mbgl/renderer/render_style_observer.hpp
     src/mbgl/renderer/render_tile.cpp
     src/mbgl/renderer/render_tile.hpp
     src/mbgl/renderer/style_diff.cpp
@@ -328,6 +331,7 @@ set(MBGL_CORE_FILES
     include/mbgl/style/transition_options.hpp
     include/mbgl/style/types.hpp
     include/mbgl/style/undefined.hpp
+    src/mbgl/style/collection.hpp
     src/mbgl/style/image.cpp
     src/mbgl/style/image_impl.cpp
     src/mbgl/style/image_impl.hpp
@@ -353,7 +357,6 @@ set(MBGL_CORE_FILES
     src/mbgl/style/style.cpp
     src/mbgl/style/style.hpp
     src/mbgl/style/types.cpp
-    src/mbgl/style/update_batch.hpp
 
     # style/conversion
     include/mbgl/style/conversion/constant.hpp

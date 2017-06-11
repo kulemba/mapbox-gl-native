@@ -5,6 +5,7 @@
 #include <mbgl/tile/tile.hpp>
 #include <mbgl/tile/tile_cache.hpp>
 #include <mbgl/style/types.hpp>
+#include <mbgl/style/layer_impl.hpp>
 
 #include <mbgl/util/mat4.hpp>
 #include <mbgl/util/feature.hpp>
@@ -20,6 +21,7 @@ namespace mbgl {
 class Painter;
 class TransformState;
 class RenderTile;
+class RenderStyle;
 class RenderedQueryOptions;
 class SourceQueryOptions;
 class TileParameters;
@@ -31,23 +33,14 @@ public:
 
     bool isLoaded() const;
 
-    // Called when the camera has changed. May load new tiles, unload obsolete tiles, or
-    // trigger re-placement of existing complete tiles.
-    void updateTiles(const TileParameters&,
-                     SourceType type,
-                     uint16_t tileSize,
-                     Range<uint8_t> zoomRange,
-                     std::function<std::unique_ptr<Tile> (const OverscaledTileID&)> createTile);
-
-    // Removes all tiles (by putting them into the cache).
-    void removeTiles();
-
-    // Remove all tiles and clear the cache.
-    void invalidateTiles();
-
-    // Request that all loaded tiles re-run the layout operation on the existing source
-    // data with fresh style information.
-    void reloadTiles();
+    void update(const std::vector<Immutable<style::Layer::Impl>>&,
+                bool needsRendering,
+                bool needsRelayout,
+                const TileParameters&,
+                SourceType type,
+                uint16_t tileSize,
+                Range<uint8_t> zoomRange,
+                std::function<std::unique_ptr<Tile> (const OverscaledTileID&)> createTile);
 
     void startRender(const mat4& projMatrix,
                      const mat4& clipMatrix,
@@ -59,6 +52,7 @@ public:
     std::unordered_map<std::string, std::vector<Feature>>
     queryRenderedFeatures(const ScreenLineString& geometry,
                           const TransformState& transformState,
+                          const RenderStyle& style,
                           const RenderedQueryOptions& options) const;
 
     std::vector<Feature> querySourceFeatures(const SourceQueryOptions&) const;
