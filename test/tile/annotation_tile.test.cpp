@@ -5,13 +5,15 @@
 #include <mbgl/util/run_loop.hpp>
 #include <mbgl/map/transform.hpp>
 #include <mbgl/map/query.hpp>
-#include <mbgl/style/style.hpp>
+#include <mbgl/renderer/render_style.hpp>
 #include <mbgl/renderer/tile_parameters.hpp>
 #include <mbgl/map/query.hpp>
 #include <mbgl/text/collision_tile.hpp>
 #include <mbgl/geometry/feature_index.hpp>
 #include <mbgl/annotation/annotation_manager.hpp>
 #include <mbgl/annotation/annotation_tile.hpp>
+#include <mbgl/sprite/sprite_atlas.hpp>
+#include <mbgl/text/glyph_atlas.hpp>
 
 #include <memory>
 
@@ -24,7 +26,9 @@ public:
     util::RunLoop loop;
     ThreadPool threadPool { 1 };
     AnnotationManager annotationManager;
-    style::Style style { threadPool, fileSource, 1.0 };
+    RenderStyle style { threadPool, fileSource };
+    SpriteAtlas spriteAtlas;
+    GlyphAtlas glyphAtlas { { 512, 512, }, fileSource };
 
     TileParameters tileParameters {
         1.0,
@@ -34,7 +38,8 @@ public:
         fileSource,
         MapMode::Continuous,
         annotationManager,
-        style
+        spriteAtlas,
+        glyphAtlas
     };
 };
 
@@ -81,7 +86,7 @@ TEST(AnnotationTile, Issue8289) {
     TransformState transformState;
     RenderedQueryOptions options;
 
-    tile.queryRenderedFeatures(result, queryGeometry, transformState, options);
+    tile.queryRenderedFeatures(result, queryGeometry, transformState, test.style, options);
 
     EXPECT_TRUE(result.empty());
 }
