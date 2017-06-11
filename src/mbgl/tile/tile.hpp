@@ -22,6 +22,7 @@ class DebugBucket;
 class TransformState;
 class TileObserver;
 class PlacementConfig;
+class RenderStyle;
 class RenderedQueryOptions;
 class SourceQueryOptions;
 
@@ -47,12 +48,13 @@ public:
     virtual Bucket* getBucket(const style::Layer::Impl&) const = 0;
 
     virtual void setPlacementConfig(const PlacementConfig&) {}
-    virtual void redoLayout() {}
+    virtual void setLayers(const std::vector<Immutable<style::Layer::Impl>>&) {}
 
     virtual void queryRenderedFeatures(
             std::unordered_map<std::string, std::vector<Feature>>& result,
             const GeometryCoordinates& queryGeometry,
             const TransformState&,
+            const RenderStyle&,
             const RenderedQueryOptions& options);
 
     virtual void querySourceFeatures(
