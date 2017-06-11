@@ -3,6 +3,7 @@
 #include <mbgl/renderer/sources/render_geojson_source.hpp>
 #include <mbgl/renderer/sources/render_raster_source.hpp>
 #include <mbgl/renderer/sources/render_vector_source.hpp>
+#include <mbgl/renderer/tile_parameters.hpp>
 #include <mbgl/annotation/render_annotation_source.hpp>
 #include <mbgl/renderer/sources/render_image_source.hpp>
 #include <mbgl/tile/tile.hpp>
@@ -44,10 +45,6 @@ void RenderSource::setObserver(RenderSourceObserver* observer_) {
     observer = observer_;
 }
 
-void RenderSource::setImpl(Immutable<style::Source::Impl> impl) {
-    baseImpl = impl;
-}
-    
 void RenderSource::limitMaxZoom(uint8_t) {
 }
 
@@ -57,6 +54,10 @@ void RenderSource::onTileChanged(Tile& tile) {
 
 void RenderSource::onTileError(Tile& tile, std::exception_ptr error) {
     observer->onTileError(*this, tile.id, error);
+}
+
+bool RenderSource::isEnabled() const {
+    return enabled;
 }
 
 } // namespace mbgl
