@@ -22,8 +22,25 @@ bool RenderAnnotationSource::isLoaded() const {
     return tilePyramid.isLoaded();
 }
 
-void RenderAnnotationSource::invalidateTiles() {
-    tilePyramid.invalidateTiles();
+void RenderAnnotationSource::update(Immutable<style::Source::Impl> baseImpl_,
+                                    const std::vector<Immutable<Layer::Impl>>& layers,
+                                    const bool needsRendering,
+                                    const bool needsRelayout,
+                                    const TileParameters& parameters) {
+    std::swap(baseImpl, baseImpl_);
+
+    enabled = needsRendering;
+
+    tilePyramid.update(layers,
+                       needsRendering,
+                       needsRelayout,
+                       parameters,
+                       SourceType::Annotations,
+                       util::tileSize,
+                       { 0, 22 },
+                       [&] (const OverscaledTileID& tileID) {
+                           return std::make_unique<AnnotationTile>(tileID, parameters);
+                       });
 }
 
 void RenderAnnotationSource::startRender(algorithm::ClipIDGenerator& generator, const mat4& projMatrix, const mat4& clipMatrix, const TransformState& transform) {
@@ -39,29 +56,12 @@ std::map<UnwrappedTileID, RenderTile>& RenderAnnotationSource::getRenderTiles() 
     return tilePyramid.getRenderTiles();
 }
 
-void RenderAnnotationSource::updateTiles(const TileParameters& parameters) {
-    tilePyramid.updateTiles(parameters,
-                            SourceType::Annotations,
-                            util::tileSize,
-                            { 0, 22 },
-                            [&] (const OverscaledTileID& tileID) {
-                                return std::make_unique<AnnotationTile>(tileID, parameters);
-                            });
-}
-
-void RenderAnnotationSource::removeTiles() {
-    tilePyramid.removeTiles();
-}
-
-void RenderAnnotationSource::reloadTiles() {
-    tilePyramid.reloadTiles();
-}
-
 std::unordered_map<std::string, std::vector<Feature>>
 RenderAnnotationSource::queryRenderedFeatures(const ScreenLineString& geometry,
-                                          const TransformState& transformState,
-                                          const RenderedQueryOptions& options) const {
-    return tilePyramid.queryRenderedFeatures(geometry, transformState, options);
+                                              const TransformState& transformState,
+                                              const RenderStyle& style,
+                                              const RenderedQueryOptions& options) const {
+    return tilePyramid.queryRenderedFeatures(geometry, transformState, style, options);
 }
 
 std::vector<Feature> RenderAnnotationSource::querySourceFeatures(const SourceQueryOptions&) const {
