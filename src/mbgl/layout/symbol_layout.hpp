@@ -30,10 +30,11 @@ public:
     SymbolLayout(const BucketParameters&,
                  const std::vector<const RenderLayer*>&,
                  const GeometryTileLayer&,
-                 IconDependencies&,
+                 ImageDependencies&,
                  GlyphDependencies&);
 
-    void prepare(const GlyphPositionMap& glyphs, const IconMap& icons);
+    void prepare(const GlyphMap&, const GlyphPositions&,
+                 const ImageMap&, const ImagePositions&);
 
     std::unique_ptr<SymbolBucket> place(CollisionTile&);
 
@@ -54,7 +55,7 @@ private:
                     const SymbolFeature&,
                     const std::pair<Shaping, Shaping>& shapedTextOrientations,
                     optional<PositionedIcon> shapedIcon,
-                    const GlyphPositions& face);
+                    const GlyphPositionMap&);
 
     bool anchorIsTooClose(const std::u16string& text, const float repeatDistance, const Anchor&);
     std::map<std::u16string, std::vector<Anchor>> compareText;

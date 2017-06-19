@@ -22,7 +22,7 @@ SymbolQuad getIconQuad(const Anchor& anchor,
                        const float layoutTextSize,
                        const style::SymbolPlacementType placement, 
                        const Shaping& shapedText) {
-    const SpriteAtlasElement& image = shapedIcon.image();
+    const ImagePosition& image = shapedIcon.image();
 
     // If you have a 10px icon that isn't perfectly aligned to the pixel grid it will cover 11 actual
     // pixels. The quad needs to be padded to account for this, otherwise they'll look slightly clipped
@@ -307,18 +307,18 @@ SymbolQuads getGlyphQuads(Anchor& anchor,
                           const GeometryCoordinates& line,
                           const SymbolLayoutProperties::Evaluated& layout,
                           const style::SymbolPlacementType placement,
-                          const GlyphPositions& face) {
+                          const GlyphPositionMap& positions) {
     const float textRotate = layout.get<TextRotate>() * util::DEG2RAD;
     const bool keepUpright = layout.get<TextKeepUpright>();
 
     SymbolQuads quads;
 
     for (const PositionedGlyph &positionedGlyph: shapedText.positionedGlyphs) {
-        auto face_it = face.find(positionedGlyph.glyph);
-        if (face_it == face.end() || !face_it->second || !(*face_it->second).rect.hasArea())
+        auto positionsIt = positions.find(positionedGlyph.glyph);
+        if (positionsIt == positions.end())
             continue;
 
-        const Glyph& glyph = *face_it->second;
+        const GlyphPosition& glyph = positionsIt->second;
         const Rect<uint16_t>& rect = glyph.rect;
         const float centerX = (positionedGlyph.x + glyph.metrics.advance / 2.0f) * boxScale;
 

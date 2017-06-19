@@ -106,7 +106,7 @@ public:
                                                     const style::DataDrivenPropertyValue<float>& sizeProperty,
                                                     const float defaultValue);
 
-    virtual SymbolSizeAttributes::Bindings attributeBindings(const PossiblyEvaluatedPropertyValue<float> currentValue) const = 0;
+    virtual SymbolSizeAttributes::Bindings attributeBindings() const = 0;
     virtual void populateVertexVector(const GeometryTileFeature& feature) = 0;
     virtual UniformValues uniformValues(float currentZoom) const = 0;
     virtual void upload(gl::Context&) = 0;
@@ -132,8 +132,6 @@ Range<float> getCoveringStops(Stops s, float lowerZoom, float upperZoom) {
 
 class ConstantSymbolSizeBinder final : public SymbolSizeBinder {
 public:
-    using PropertyValue = variant<float, style::CameraFunction<float>>;
-    
     ConstantSymbolSizeBinder(const float /*tileZoom*/, const float& size, const float /*defaultValue*/)
       : layoutSize(size) {}
     
@@ -157,9 +155,10 @@ public:
         );
     }
     
-    SymbolSizeAttributes::Bindings attributeBindings(const PossiblyEvaluatedPropertyValue<float>) const override {
-        return SymbolSizeAttributes::Bindings { SymbolSizeAttributes::Attribute::ConstantBinding {{{0, 0, 0}}} };
+    SymbolSizeAttributes::Bindings attributeBindings() const override {
+        return SymbolSizeAttributes::Bindings { gl::DisabledAttribute() };
     }
+
     void upload(gl::Context&) override {}
     void populateVertexVector(const GeometryTileFeature&) override {};
     
@@ -211,14 +210,10 @@ public:
           defaultValue(defaultValue_) {
     }
 
-    SymbolSizeAttributes::Bindings attributeBindings(const PossiblyEvaluatedPropertyValue<float> currentValue) const override {
-        if (currentValue.isConstant()) {
-            return SymbolSizeAttributes::Bindings { SymbolSizeAttributes::Attribute::ConstantBinding {{{0, 0, 0}}} };
-        }
-        
-        return SymbolSizeAttributes::Bindings { SymbolSizeAttributes::Attribute::variableBinding(*buffer, 0, 1) };
+    SymbolSizeAttributes::Bindings attributeBindings() const override {
+        return SymbolSizeAttributes::Bindings { SymbolSizeAttributes::Attribute::binding(*buffer, 0, 1) };
     }
-    
+
     void populateVertexVector(const GeometryTileFeature& feature) override {
         const auto sizeVertex = Vertex {
             {{
@@ -268,12 +263,8 @@ public:
             return getCoveringStops(stops, tileZoom, tileZoom + 1); }))
     {}
 
-    SymbolSizeAttributes::Bindings attributeBindings(const PossiblyEvaluatedPropertyValue<float> currentValue) const override {
-        if (currentValue.isConstant()) {
-            return SymbolSizeAttributes::Bindings { SymbolSizeAttributes::Attribute::ConstantBinding {{{0, 0, 0}}} };
-        }
-        
-        return SymbolSizeAttributes::Bindings { SymbolSizeAttributes::Attribute::variableBinding(*buffer, 0) };
+    SymbolSizeAttributes::Bindings attributeBindings() const override {
+        return SymbolSizeAttributes::Bindings { SymbolSizeAttributes::Attribute::binding(*buffer, 0) };
     }
     
     void populateVertexVector(const GeometryTileFeature& feature) override {
@@ -324,7 +315,7 @@ template <class Shaders,
           class Primitive,
           class LayoutAttrs,
           class Uniforms,
-          class PaintProperties>
+          class PaintProps>
 class SymbolProgram {
 public:
     using LayoutAttributes = LayoutAttrs;
@@ -332,6 +323,7 @@ public:
     
     using LayoutAndSizeAttributes = gl::ConcatenateAttributes<LayoutAttributes, SymbolSizeAttributes>;
 
+    using PaintProperties = PaintProps;
     using PaintPropertyBinders = typename PaintProperties::Binders;
     using PaintAttributes = typename PaintPropertyBinders::Attributes;
     using Attributes = gl::ConcatenateAttributes<LayoutAndSizeAttributes, PaintAttributes>;
@@ -363,7 +355,6 @@ public:
               UniformValues&& uniformValues,
               const gl::VertexBuffer<LayoutVertex>& layoutVertexBuffer,
               const SymbolSizeBinder& symbolSizeBinder,
-              const PossiblyEvaluatedPropertyValue<float>& currentSizeValue,
               const gl::IndexBuffer<DrawMode>& indexBuffer,
               const gl::SegmentVector<Attributes>& segments,
               const PaintPropertyBinders& paintPropertyBinders,
@@ -377,9 +368,9 @@ public:
             std::move(colorMode),
             uniformValues
                 .concat(symbolSizeBinder.uniformValues(currentZoom))
-                .concat(paintPropertyBinders.uniformValues(currentZoom)),
-            LayoutAttributes::allVariableBindings(layoutVertexBuffer)
-                .concat(symbolSizeBinder.attributeBindings(currentSizeValue))
+                .concat(paintPropertyBinders.uniformValues(currentZoom, currentProperties)),
+            LayoutAttributes::bindings(layoutVertexBuffer)
+                .concat(symbolSizeBinder.attributeBindings())
                 .concat(paintPropertyBinders.attributeBindings(currentProperties)),
             indexBuffer,
             segments

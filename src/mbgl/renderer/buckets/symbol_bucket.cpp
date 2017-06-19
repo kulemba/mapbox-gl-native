@@ -3,6 +3,7 @@
 #include <mbgl/renderer/layers/render_symbol_layer.hpp>
 #include <mbgl/renderer/bucket_parameters.hpp>
 #include <mbgl/style/layers/symbol_layer_impl.hpp>
+#include <mbgl/text/glyph_atlas.hpp>
 
 namespace mbgl {
 

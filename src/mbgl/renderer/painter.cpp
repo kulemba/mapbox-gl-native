@@ -21,15 +21,11 @@
 #include <mbgl/style/layers/custom_layer_impl.hpp>
 #include <mbgl/renderer/layers/render_fill_extrusion_layer.hpp>
 
-#include <mbgl/sprite/sprite_atlas.hpp>
+#include <mbgl/renderer/image_manager.hpp>
 #include <mbgl/geometry/line_atlas.hpp>
-#include <mbgl/text/glyph_atlas.hpp>
 
 #include <mbgl/programs/program_parameters.hpp>
 #include <mbgl/programs/programs.hpp>
-
-#include <mbgl/algorithm/generate_clip_ids.hpp>
-#include <mbgl/algorithm/generate_clip_ids_impl.hpp>
 
 #include <mbgl/util/constants.hpp>
 #include <mbgl/util/mat3.hpp>
@@ -94,7 +90,7 @@ static gl::VertexVector<ExtrusionTextureLayoutVertex> extrusionTextureVertices()
 Painter::Painter(gl::Context& context_,
                  const TransformState& state_,
                  float pixelRatio,
-                 const std::string& programCacheDir)
+                 const optional<std::string>& programCacheDir)
     : context(context_),
       state(state_),
       tileVertexBuffer(context.createVertexBuffer(tileVertices())),
@@ -119,7 +115,7 @@ Painter::Painter(gl::Context& context_,
 Painter::~Painter() = default;
 
 bool Painter::needsAnimation() const {
-    return frameHistory.needsAnimation(util::DEFAULT_FADE_DURATION);
+    return frameHistory.needsAnimation(util::DEFAULT_TRANSITION_DURATION);
 }
 
 void Painter::cleanup() {
@@ -141,8 +137,7 @@ void Painter::render(RenderStyle& style, const FrameData& frame_, View& view) {
         view
     };
 
-    glyphAtlas = style.glyphAtlas.get();
-    spriteAtlas = style.spriteAtlas.get();
+    imageManager = style.imageManager.get();
     lineAtlas = style.lineAtlas.get();
 
     evaluatedLight = style.getRenderLight().getEvaluated();
@@ -164,7 +159,7 @@ void Painter::render(RenderStyle& style, const FrameData& frame_, View& view) {
     }
 
     frameHistory.record(frame.timePoint, state.getZoom(),
-        frame.mapMode == MapMode::Continuous ? util::DEFAULT_FADE_DURATION : Milliseconds(0));
+        frame.mapMode == MapMode::Continuous ? util::DEFAULT_TRANSITION_DURATION : Milliseconds(0));
 
 
     // - UPLOAD PASS -------------------------------------------------------------------------------
@@ -172,15 +167,9 @@ void Painter::render(RenderStyle& style, const FrameData& frame_, View& view) {
     {
         MBGL_DEBUG_GROUP(context, "upload");
 
-        spriteAtlas->upload(context, 0);
-
+        imageManager->upload(context, 0);
         lineAtlas->upload(context, 0);
-        glyphAtlas->upload(context, 0);
         frameHistory.upload(context, 0);
-
-        for (const auto& item : order) {
-            item.layer.uploadBuckets(context, item.source);
-        }
     }
 
     // - CLEAR -------------------------------------------------------------------------------------
@@ -202,14 +191,14 @@ void Painter::render(RenderStyle& style, const FrameData& frame_, View& view) {
         MBGL_DEBUG_GROUP(context, "clip");
 
         // Update all clipping IDs.
-        algorithm::ClipIDGenerator generator;
+        clipIDGenerator = algorithm::ClipIDGenerator();
         for (const auto& source : sources) {
-            source->startRender(generator, projMatrix, nearClippedProjMatrix, state);
+            source->startRender(*this);
         }
 
         MBGL_DEBUG_GROUP(context, "clipping masks");
 
-        for (const auto& stencil : generator.getStencils()) {
+        for (const auto& stencil : clipIDGenerator.getStencils()) {
             MBGL_DEBUG_GROUP(context, std::string{ "mask: " } + util::toString(stencil.first));
             renderClippingMask(stencil.first, stencil.second);
         }
