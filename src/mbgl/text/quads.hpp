@@ -1,6 +1,6 @@
 #pragma once
 
-#include <mbgl/text/glyph.hpp>
+#include <mbgl/text/glyph_atlas.hpp>
 #include <mbgl/style/types.hpp>
 #include <mbgl/style/layers/symbol_layer_properties.hpp>
 #include <mbgl/tile/geometry_tile_data.hpp>
@@ -65,6 +65,6 @@ SymbolQuads getGlyphQuads(Anchor& anchor,
                           const GeometryCoordinates& line,
                           const style::SymbolLayoutProperties::Evaluated&,
                           style::SymbolPlacementType placement,
-                          const GlyphPositions& face);
+                          const GlyphPositionMap& positions);
 
 } // namespace mbgl
