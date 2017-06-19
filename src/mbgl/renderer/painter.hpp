@@ -21,6 +21,8 @@
 #include <mbgl/util/constants.hpp>
 #include <mbgl/util/offscreen_texture.hpp>
 
+#include <mbgl/algorithm/generate_clip_ids.hpp>
+
 #include <array>
 #include <vector>
 #include <set>
@@ -30,9 +32,8 @@ namespace mbgl {
 
 class RenderStyle;
 class RenderTile;
-class SpriteAtlas;
+class ImageManager;
 class View;
-class GlyphAtlas;
 class LineAtlas;
 struct FrameData;
 class Tile;
@@ -69,7 +70,7 @@ struct FrameData {
 
 class Painter : private util::noncopyable {
 public:
-    Painter(gl::Context&, const TransformState&, float pixelRatio, const std::string& programCacheDir);
+    Painter(gl::Context&, const TransformState&, float pixelRatio, const optional<std::string>& programCacheDir);
     ~Painter();
 
     void render(RenderStyle&,
@@ -100,7 +101,6 @@ public:
 
     bool needsAnimation() const;
 
-private:
     template <class Iterator>
     void renderPass(PaintParameters&,
                     RenderPass,
@@ -123,8 +123,9 @@ private:
     }
 #endif
 
-private:
     gl::Context& context;
+
+    algorithm::ClipIDGenerator clipIDGenerator;
 
     mat4 projMatrix;
     mat4 nearClippedProjMatrix;
@@ -150,8 +151,7 @@ private:
     float depthRangeSize;
     const float depthEpsilon = 1.0f / (1 << 16);
 
-    SpriteAtlas* spriteAtlas = nullptr;
-    GlyphAtlas* glyphAtlas = nullptr;
+    ImageManager* imageManager = nullptr;
     LineAtlas* lineAtlas = nullptr;
 
     optional<OffscreenTexture> extrusionTexture;

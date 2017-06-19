@@ -50,18 +50,17 @@ public:
                                  const char* vertexSource_,
                                  const char* fragmentSource_) {
 #if MBGL_HAS_BINARY_PROGRAMS
-        if (!programParameters.cacheDir.empty() && context.supportsProgramBinaries()) {
+        optional<std::string> cachePath = programParameters.cachePath(name);
+        if (cachePath && context.supportsProgramBinaries()) {
             const std::string vertexSource =
                 shaders::vertexSource(programParameters, vertexSource_);
             const std::string fragmentSource =
                 shaders::fragmentSource(programParameters, fragmentSource_);
-            const std::string cachePath =
-                shaders::programCachePath(programParameters, name);
             const std::string identifier =
                 shaders::programIdentifier(vertexSource, fragmentSource_);
 
             try {
-                if (auto cachedBinaryProgram = util::readFile(cachePath)) {
+                if (auto cachedBinaryProgram = util::readFile(*cachePath)) {
                     const BinaryProgram binaryProgram(std::move(*cachedBinaryProgram));
                     if (binaryProgram.identifier() == identifier) {
                         return Program { context, binaryProgram };
@@ -82,8 +81,8 @@ public:
             try {
                 if (const auto binaryProgram =
                         result.template get<BinaryProgram>(context, identifier)) {
-                    util::write_file(cachePath, binaryProgram->serialize());
-                    Log::Warning(Event::OpenGL, "Caching program in: %s", cachePath.c_str());
+                    util::write_file(*cachePath, binaryProgram->serialize());
+                    Log::Warning(Event::OpenGL, "Caching program in: %s", (*cachePath).c_str());
                 }
             } catch (std::runtime_error& error) {
                 Log::Warning(Event::OpenGL, "Failed to cache program: %s", error.what());

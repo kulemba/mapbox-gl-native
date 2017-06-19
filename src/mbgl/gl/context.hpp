@@ -199,17 +199,19 @@ public:
     State<value::ActiveTexture> activeTexture;
     State<value::BindFramebuffer> bindFramebuffer;
     State<value::Viewport> viewport;
+    State<value::ScissorTest> scissorTest;
     std::array<State<value::BindTexture>, 2> texture;
     State<value::BindVertexArray, const Context&> vertexArrayObject { *this };
     State<value::Program> program;
     State<value::BindVertexBuffer> vertexBuffer;
     State<value::BindElementBuffer> elementBuffer;
 
+    State<value::PixelStorePack> pixelStorePack;
+    State<value::PixelStoreUnpack> pixelStoreUnpack;
+
 #if not MBGL_USE_GLES2
     State<value::PixelZoom> pixelZoom;
     State<value::RasterPos> rasterPos;
-    State<value::PixelStorePack> pixelStorePack;
-    State<value::PixelStoreUnpack> pixelStoreUnpack;
     State<value::PixelTransferDepth> pixelTransferDepth;
     State<value::PixelTransferStencil> pixelTransferStencil;
 #endif // MBGL_USE_GLES2

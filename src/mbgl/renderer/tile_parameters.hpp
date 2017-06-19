@@ -8,8 +8,8 @@ class TransformState;
 class Scheduler;
 class FileSource;
 class AnnotationManager;
-class SpriteAtlas;
-class GlyphAtlas;
+class ImageManager;
+class GlyphManager;
 
 class TileParameters {
 public:
@@ -20,8 +20,8 @@ public:
     FileSource& fileSource;
     const MapMode mode;
     AnnotationManager& annotationManager;
-    SpriteAtlas& spriteAtlas;
-    GlyphAtlas& glyphAtlas;
+    ImageManager& imageManager;
+    GlyphManager& glyphManager;
 };
 
 } // namespace mbgl

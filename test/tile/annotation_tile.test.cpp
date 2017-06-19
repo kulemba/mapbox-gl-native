@@ -12,8 +12,8 @@
 #include <mbgl/geometry/feature_index.hpp>
 #include <mbgl/annotation/annotation_manager.hpp>
 #include <mbgl/annotation/annotation_tile.hpp>
-#include <mbgl/sprite/sprite_atlas.hpp>
-#include <mbgl/text/glyph_atlas.hpp>
+#include <mbgl/renderer/image_manager.hpp>
+#include <mbgl/text/glyph_manager.hpp>
 
 #include <memory>
 
@@ -27,8 +27,8 @@ public:
     ThreadPool threadPool { 1 };
     AnnotationManager annotationManager;
     RenderStyle style { threadPool, fileSource };
-    SpriteAtlas spriteAtlas;
-    GlyphAtlas glyphAtlas { { 512, 512, }, fileSource };
+    ImageManager imageManager;
+    GlyphManager glyphManager { fileSource };
 
     TileParameters tileParameters {
         1.0,
@@ -38,8 +38,8 @@ public:
         fileSource,
         MapMode::Continuous,
         annotationManager,
-        spriteAtlas,
-        glyphAtlas
+        imageManager,
+        glyphManager
     };
 };
 
@@ -55,9 +55,9 @@ TEST(AnnotationTile, Issue8289) {
     // Simulate layout and placement of a symbol layer.
     tile.onLayout(GeometryTile::LayoutResult {
         {},
-            std::make_unique<FeatureIndex>(),
-            std::move(data),
-            0
+        std::make_unique<FeatureIndex>(),
+        std::move(data),
+        0
     });
 
     auto collisionTile = std::make_unique<CollisionTile>(PlacementConfig());
@@ -69,16 +69,18 @@ TEST(AnnotationTile, Issue8289) {
 
     tile.onPlacement(GeometryTile::PlacementResult {
         {},
-            std::move(collisionTile),
-            0
+        std::move(collisionTile),
+        {},
+        {},
+        0
     });
 
     // Simulate a second layout with empty data.
     tile.onLayout(GeometryTile::LayoutResult {
         {},
-            std::make_unique<FeatureIndex>(),
-            std::make_unique<AnnotationTileData>(),
-            0
+        std::make_unique<FeatureIndex>(),
+        std::make_unique<AnnotationTileData>(),
+        0
     });
 
     std::unordered_map<std::string, std::vector<Feature>> result;
