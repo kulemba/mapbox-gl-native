@@ -258,11 +258,9 @@ std::unique_ptr<uint8_t[]> Context::readFramebuffer(const Size size, const Textu
     const size_t stride = size.width * (format == TextureFormat::RGBA ? 4 : 1);
     auto data = std::make_unique<uint8_t[]>(stride * size.height);
 
-#if not MBGL_USE_GLES2
     // When reading data from the framebuffer, make sure that we are storing the values
     // tightly packed into the buffer to avoid buffer overruns.
     pixelStorePack = { 1 };
-#endif // MBGL_USE_GLES2
 
     MBGL_CHECK_ERROR(glReadPixels(0, 0, size.width, size.height, static_cast<GLenum>(format),
                                   GL_UNSIGNED_BYTE, data.get()));
@@ -399,6 +397,7 @@ Context::createFramebuffer(const Texture& color,
 UniqueTexture
 Context::createTexture(const Size size, const void* data, TextureFormat format, TextureUnit unit) {
     auto obj = createTexture();
+    pixelStoreUnpack = { 1 };
     updateTexture(obj, size, data, format, unit);
     // We are using clamp to edge here since OpenGL ES doesn't allow GL_REPEAT on NPOT textures.
     // We use those when the pixelRatio isn't a power of two, e.g. on iPhone 6 Plus.
@@ -468,8 +467,8 @@ void Context::reset() {
 }
 
 void Context::setDirtyState() {
-    // Note: does not set viewport/bindFramebuffer to dirty since they are handled separately in
-    // the view object.
+    // Note: does not set viewport/scissorTest/bindFramebuffer to dirty
+    // since they are handled separately in the view object.
     stencilFunc.setDirty();
     stencilMask.setDirty();
     stencilTest.setDirty();
@@ -489,12 +488,12 @@ void Context::setDirtyState() {
     program.setDirty();
     lineWidth.setDirty();
     activeTexture.setDirty();
+    pixelStorePack.setDirty();
+    pixelStoreUnpack.setDirty();
 #if not MBGL_USE_GLES2
     pointSize.setDirty();
     pixelZoom.setDirty();
     rasterPos.setDirty();
-    pixelStorePack.setDirty();
-    pixelStoreUnpack.setDirty();
     pixelTransferDepth.setDirty();
     pixelTransferStencil.setDirty();
 #endif // MBGL_USE_GLES2
