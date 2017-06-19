@@ -41,7 +41,6 @@ set(MBGL_CORE_FILES
 
     # geometry
     src/mbgl/geometry/anchor.hpp
-    src/mbgl/geometry/binpack.hpp
     src/mbgl/geometry/debug_font_data.hpp
     src/mbgl/geometry/feature_index.cpp
     src/mbgl/geometry/feature_index.hpp
@@ -148,6 +147,7 @@ set(MBGL_CORE_FILES
     src/mbgl/programs/line_program.cpp
     src/mbgl/programs/line_program.hpp
     src/mbgl/programs/program.hpp
+    src/mbgl/programs/program_parameters.cpp
     src/mbgl/programs/program_parameters.hpp
     src/mbgl/programs/programs.hpp
     src/mbgl/programs/raster_program.cpp
@@ -167,6 +167,10 @@ set(MBGL_CORE_FILES
     src/mbgl/renderer/frame_history.hpp
     src/mbgl/renderer/group_by_layout.cpp
     src/mbgl/renderer/group_by_layout.hpp
+    src/mbgl/renderer/image_atlas.cpp
+    src/mbgl/renderer/image_atlas.hpp
+    src/mbgl/renderer/image_manager.cpp
+    src/mbgl/renderer/image_manager.hpp
     src/mbgl/renderer/paint_parameters.hpp
     src/mbgl/renderer/paint_property_binder.hpp
     src/mbgl/renderer/paint_property_statistics.hpp
@@ -291,8 +295,6 @@ set(MBGL_CORE_FILES
     src/mbgl/shaders/symbol_sdf.hpp
 
     # sprite
-    src/mbgl/sprite/sprite_atlas.cpp
-    src/mbgl/sprite/sprite_atlas.hpp
     src/mbgl/sprite/sprite_loader.cpp
     src/mbgl/sprite/sprite_loader.hpp
     src/mbgl/sprite/sprite_loader_observer.hpp
@@ -473,7 +475,9 @@ set(MBGL_CORE_FILES
     src/mbgl/text/glyph.hpp
     src/mbgl/text/glyph_atlas.cpp
     src/mbgl/text/glyph_atlas.hpp
-    src/mbgl/text/glyph_atlas_observer.hpp
+    src/mbgl/text/glyph_manager.cpp
+    src/mbgl/text/glyph_manager.hpp
+    src/mbgl/text/glyph_manager_observer.hpp
     src/mbgl/text/glyph_pbf.cpp
     src/mbgl/text/glyph_pbf.hpp
     src/mbgl/text/glyph_range.hpp

@@ -5,12 +5,11 @@
 #include <mbgl/renderer/layers/render_symbol_layer.hpp>
 #include <mbgl/style/layers/symbol_layer_impl.hpp>
 #include <mbgl/text/glyph_atlas.hpp>
-#include <mbgl/sprite/sprite_atlas.hpp>
 #include <mbgl/programs/programs.hpp>
 #include <mbgl/programs/symbol_program.hpp>
 #include <mbgl/programs/collision_box_program.hpp>
 #include <mbgl/util/math.hpp>
-#include <mbgl/tile/tile.hpp>
+#include <mbgl/tile/geometry_tile.hpp>
 
 #include <cmath>
 
@@ -41,7 +40,7 @@ void Painter::renderSymbol(PaintParameters& parameters,
         // We clip symbols to their tile extent in still mode.
         const bool needsClipping = frame.mapMode == MapMode::Still;
 
-        program.draw(
+        program.get(paintProperties).draw(
             context,
             gl::Triangles(),
             values_.pitchAlignment == AlignmentType::Map
@@ -54,7 +53,6 @@ void Painter::renderSymbol(PaintParameters& parameters,
             std::move(uniformValues),
             *buffers.vertexBuffer,
             *symbolSizeBinder,
-            values_.layoutSize,
             *buffers.indexBuffer,
             buffers.segments,
             binders,
@@ -63,15 +61,21 @@ void Painter::renderSymbol(PaintParameters& parameters,
         );
     };
 
+    assert(dynamic_cast<GeometryTile*>(&tile.tile));
+    GeometryTile& geometryTile = static_cast<GeometryTile&>(tile.tile);
+
     if (bucket.hasIconData()) {
         auto values = layer.iconPropertyValues(layout);
         auto paintPropertyValues = layer.iconPaintProperties();
 
         const bool iconScaled = layout.get<IconSize>().constantOr(1.0) != 1.0 || bucket.iconsNeedLinear;
         const bool iconTransformed = values.rotationAlignment == AlignmentType::Map || state.getPitch() != 0;
-        spriteAtlas->bind(bucket.sdfIcons || state.isChanging() || iconScaled || iconTransformed, context, 0);
 
-        const Size texsize = spriteAtlas->getPixelSize();
+        context.bindTexture(*geometryTile.iconAtlasTexture, 0,
+            bucket.sdfIcons || state.isChanging() || iconScaled || iconTransformed
+                ? gl::TextureFilter::Linear : gl::TextureFilter::Nearest);
+
+        const Size texsize = geometryTile.iconAtlasTexture->size;
 
         if (bucket.sdfIcons) {
             if (values.hasHalo) {
@@ -105,12 +109,12 @@ void Painter::renderSymbol(PaintParameters& parameters,
     }
 
     if (bucket.hasTextData()) {
-        glyphAtlas->bind(context, 0);
+        context.bindTexture(*geometryTile.glyphAtlasTexture, 0, gl::TextureFilter::Linear);
 
         auto values = layer.textPropertyValues(layout);
         auto paintPropertyValues = layer.textPaintProperties();
 
-        const Size texsize = glyphAtlas->getSize();
+        const Size texsize = geometryTile.glyphAtlasTexture->size;
 
         if (values.hasHalo) {
             draw(parameters.programs.symbolGlyph,
