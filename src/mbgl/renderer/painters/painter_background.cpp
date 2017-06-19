@@ -1,10 +1,10 @@
 #include <mbgl/renderer/painter.hpp>
 #include <mbgl/renderer/paint_parameters.hpp>
 #include <mbgl/renderer/layers/render_background_layer.hpp>
+#include <mbgl/renderer/image_manager.hpp>
 #include <mbgl/style/layers/background_layer_impl.hpp>
 #include <mbgl/programs/programs.hpp>
 #include <mbgl/programs/fill_program.hpp>
-#include <mbgl/sprite/sprite_atlas.hpp>
 #include <mbgl/util/tile_cover.hpp>
 
 namespace mbgl {
@@ -24,16 +24,16 @@ void Painter::renderBackground(PaintParameters& parameters, const RenderBackgrou
     const FillProgram::PaintPropertyBinders paintAttibuteData(properties, 0);
 
     if (!background.get<BackgroundPattern>().to.empty()) {
-        optional<SpriteAtlasElement> imagePosA = spriteAtlas->getPattern(background.get<BackgroundPattern>().from);
-        optional<SpriteAtlasElement> imagePosB = spriteAtlas->getPattern(background.get<BackgroundPattern>().to);
+        optional<ImagePosition> imagePosA = imageManager->getPattern(background.get<BackgroundPattern>().from);
+        optional<ImagePosition> imagePosB = imageManager->getPattern(background.get<BackgroundPattern>().to);
 
         if (!imagePosA || !imagePosB)
             return;
 
-        spriteAtlas->bind(true, context, 0);
+        imageManager->bind(context, 0);
 
         for (const auto& tileID : util::tileCover(state, state.getIntegerZoom())) {
-            parameters.programs.fillPattern.draw(
+            parameters.programs.fillPattern.get(properties).draw(
                 context,
                 gl::Triangles(),
                 depthModeForSublayer(0, gl::DepthMode::ReadOnly),
@@ -42,7 +42,7 @@ void Painter::renderBackground(PaintParameters& parameters, const RenderBackgrou
                 FillPatternUniforms::values(
                     matrixForTile(tileID),
                     context.viewport.getCurrentValue().size,
-                    spriteAtlas->getPixelSize(),
+                    imageManager->getPixelSize(),
                     *imagePosA,
                     *imagePosB,
                     background.get<BackgroundPattern>(),
@@ -59,7 +59,7 @@ void Painter::renderBackground(PaintParameters& parameters, const RenderBackgrou
         }
     } else {
         for (const auto& tileID : util::tileCover(state, state.getIntegerZoom())) {
-            parameters.programs.fill.draw(
+            parameters.programs.fill.get(properties).draw(
                 context,
                 gl::Triangles(),
                 depthModeForSublayer(0, gl::DepthMode::ReadOnly),

@@ -66,8 +66,6 @@ enum class PrimitiveType {
     TriangleFan = 0x0006
 };
 
-#if not MBGL_USE_GLES2
-
 struct PixelStorageType {
     int32_t alignment;
 };
@@ -76,9 +74,27 @@ constexpr bool operator!=(const PixelStorageType& a, const PixelStorageType& b) 
     return a.alignment != b.alignment;
 }
 
-#endif // MBGL_USE_GLES2
-
 using BinaryProgramFormat = uint32_t;
+
+enum class UniformDataType : uint32_t {
+    Float = 0x1406,
+    FloatVec2 = 0x8B50,
+    FloatVec3 = 0x8B51,
+    FloatVec4 = 0x8B52,
+    Int = 0x1404,
+    IntVec2 = 0x8B53,
+    IntVec3 = 0x8B54,
+    IntVec4 = 0x8B55,
+    Bool = 0x8B56,
+    BoolVec2 = 0x8B57,
+    BoolVec3 = 0x8B58,
+    BoolVec4 = 0x8B59,
+    FloatMat2 = 0x8B5A,
+    FloatMat3 = 0x8B5B,
+    FloatMat4 = 0x8B5C,
+    Sampler2D = 0x8B5E,
+    SamplerCube = 0x8B60,
+};
 
 } // namespace gl
 } // namespace mbgl
