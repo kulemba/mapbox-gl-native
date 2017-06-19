@@ -5432,7 +5432,7 @@ public:
     /// context state with the anticipated values.
     void updateAssumedState() override {
         assumeFramebufferBinding(ImplicitFramebufferBinding);
-        assumeViewportSize(nativeView.framebufferSize);
+        assumeViewport(0, 0, nativeView.framebufferSize);
     }
 
     void bind() override {
@@ -5445,7 +5445,7 @@ public:
             updateAssumedState();
         } else {
             // Our framebuffer is still bound, but the viewport might have changed.
-            setViewportSize(nativeView.framebufferSize);
+            setViewport(0, 0, nativeView.framebufferSize);
         }
     }
 

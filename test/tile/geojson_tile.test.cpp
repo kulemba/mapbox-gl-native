@@ -10,8 +10,8 @@
 #include <mbgl/renderer/tile_parameters.hpp>
 #include <mbgl/style/layers/circle_layer.hpp>
 #include <mbgl/annotation/annotation_manager.hpp>
-#include <mbgl/sprite/sprite_atlas.hpp>
-#include <mbgl/text/glyph_atlas.hpp>
+#include <mbgl/renderer/image_manager.hpp>
+#include <mbgl/text/glyph_manager.hpp>
 
 #include <memory>
 
@@ -25,8 +25,8 @@ public:
     util::RunLoop loop;
     ThreadPool threadPool { 1 };
     AnnotationManager annotationManager;
-    SpriteAtlas spriteAtlas;
-    GlyphAtlas glyphAtlas { { 512, 512, }, fileSource };
+    ImageManager imageManager;
+    GlyphManager glyphManager { fileSource };
     Tileset tileset { { "https://example.com" }, { 0, 22 }, "none" };
 
     TileParameters tileParameters {
@@ -37,8 +37,8 @@ public:
         fileSource,
         MapMode::Continuous,
         annotationManager,
-        spriteAtlas,
-        glyphAtlas
+        imageManager,
+        glyphManager
     };
 };
 
