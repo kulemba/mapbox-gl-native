@@ -3,7 +3,6 @@
 #include <mbgl/tile/geometry_tile.hpp>
 #include <mbgl/text/collision_tile.hpp>
 #include <mbgl/layout/symbol_layout.hpp>
-#include <mbgl/sprite/sprite_atlas.hpp>
 #include <mbgl/renderer/bucket_parameters.hpp>
 #include <mbgl/renderer/group_by_layout.hpp>
 #include <mbgl/style/filter.hpp>
@@ -197,37 +196,37 @@ void GeometryTileWorker::coalesce() {
     self.invoke(&GeometryTileWorker::coalesced);
 }
 
-void GeometryTileWorker::onGlyphsAvailable(GlyphPositionMap newGlyphPositions) {
-    for (auto& newFontGlyphs : newGlyphPositions) {
+void GeometryTileWorker::onGlyphsAvailable(GlyphMap newGlyphMap) {
+    for (auto& newFontGlyphs : newGlyphMap) {
         const FontStack& fontStack = newFontGlyphs.first;
-        GlyphPositions& newPositions = newFontGlyphs.second;
+        Glyphs& newGlyphs = newFontGlyphs.second;
 
-        GlyphPositions& positions = glyphPositions[fontStack];
+        Glyphs& glyphs = glyphMap[fontStack];
         GlyphIDs& pendingGlyphIDs = pendingGlyphDependencies[fontStack];
 
-        for (auto& newPosition : newPositions) {
-            const GlyphID& glyphID = newPosition.first;
-            optional<Glyph>& glyph = newPosition.second;
+        for (auto& newGlyph : newGlyphs) {
+            const GlyphID& glyphID = newGlyph.first;
+            optional<Immutable<Glyph>>& glyph = newGlyph.second;
 
             if (pendingGlyphIDs.erase(glyphID)) {
-                positions.emplace(glyphID, std::move(glyph));
+                glyphs.emplace(glyphID, std::move(glyph));
             }
         }
     }
     symbolDependenciesChanged();
 }
 
-void GeometryTileWorker::onIconsAvailable(IconMap newIcons) {
-    icons = std::move(newIcons);
-    pendingIconDependencies.clear();
+void GeometryTileWorker::onImagesAvailable(ImageMap newImageMap) {
+    imageMap = std::move(newImageMap);
+    pendingImageDependencies.clear();
     symbolDependenciesChanged();
 }
 
 void GeometryTileWorker::requestNewGlyphs(const GlyphDependencies& glyphDependencies) {
     for (auto& fontDependencies : glyphDependencies) {
-        auto fontGlyphs = glyphPositions.find(fontDependencies.first);
+        auto fontGlyphs = glyphMap.find(fontDependencies.first);
         for (auto glyphID : fontDependencies.second) {
-            if (fontGlyphs == glyphPositions.end() || fontGlyphs->second.find(glyphID) == fontGlyphs->second.end()) {
+            if (fontGlyphs == glyphMap.end() || fontGlyphs->second.find(glyphID) == fontGlyphs->second.end()) {
                 pendingGlyphDependencies[fontDependencies.first].insert(glyphID);
             }
         }
@@ -237,10 +236,10 @@ void GeometryTileWorker::requestNewGlyphs(const GlyphDependencies& glyphDependen
     }
 }
 
-void GeometryTileWorker::requestNewIcons(const IconDependencies& iconDependencies) {
-    pendingIconDependencies = iconDependencies;
-    if (!pendingIconDependencies.empty()) {
-        parent.invoke(&GeometryTile::getIcons, pendingIconDependencies);
+void GeometryTileWorker::requestNewImages(const ImageDependencies& imageDependencies) {
+    pendingImageDependencies = imageDependencies;
+    if (!pendingImageDependencies.empty()) {
+        parent.invoke(&GeometryTile::getImages, pendingImageDependencies);
     }
 }
 
@@ -280,7 +279,7 @@ void GeometryTileWorker::redoLayout() {
     BucketParameters parameters { id, mode, pixelRatio };
 
     GlyphDependencies glyphDependencies;
-    IconDependencies iconDependencies;
+    ImageDependencies imageDependencies;
 
     // Create render layers and group by layout
     std::vector<std::unique_ptr<RenderLayer>> renderLayers = toRenderLayers(*layers, id.overscaledZ);
@@ -311,7 +310,7 @@ void GeometryTileWorker::redoLayout() {
 
         if (leader.is<RenderSymbolLayer>()) {
             symbolLayoutMap.emplace(leader.getID(),
-                leader.as<RenderSymbolLayer>()->createLayout(parameters, group, *geometryLayer, glyphDependencies, iconDependencies));
+                leader.as<RenderSymbolLayer>()->createLayout(parameters, group, *geometryLayer, glyphDependencies, imageDependencies));
         } else {
             const Filter& filter = leader.baseImpl->filter;
             const std::string& sourceLayerID = leader.baseImpl->sourceLayer;
@@ -347,7 +346,7 @@ void GeometryTileWorker::redoLayout() {
     }
 
     requestNewGlyphs(glyphDependencies);
-    requestNewIcons(iconDependencies);
+    requestNewImages(imageDependencies);
 
     parent.invoke(&GeometryTile::onLayout, GeometryTile::LayoutResult {
         std::move(buckets),
@@ -375,7 +374,7 @@ bool GeometryTileWorker::hasPendingSymbolDependencies() const {
             return true;
         }
     }
-    return !pendingIconDependencies.empty();
+    return !pendingImageDependencies.empty();
 }
 
 
@@ -387,14 +386,24 @@ void GeometryTileWorker::attemptPlacement() {
     auto collisionTile = std::make_unique<CollisionTile>(*placementConfig);
     std::unordered_map<std::string, std::shared_ptr<Bucket>> buckets;
 
+    optional<AlphaImage> glyphAtlasImage;
+    optional<PremultipliedImage> iconAtlasImage;
+
     for (auto& symbolLayout : symbolLayouts) {
         if (obsolete) {
             return;
         }
 
         if (symbolLayout->state == SymbolLayout::Pending) {
-            symbolLayout->prepare(glyphPositions, icons);
+            GlyphAtlas glyphAtlas = makeGlyphAtlas(glyphMap);
+            ImageAtlas imageAtlas = makeImageAtlas(imageMap);
+
+            symbolLayout->prepare(glyphMap, glyphAtlas.positions,
+                                  imageMap, imageAtlas.positions);
             symbolLayout->state = SymbolLayout::Placed;
+
+            glyphAtlasImage = std::move(glyphAtlas.image);
+            iconAtlasImage = std::move(imageAtlas.image);
         }
 
         if (!symbolLayout->hasSymbolInstances()) {
@@ -410,6 +419,8 @@ void GeometryTileWorker::attemptPlacement() {
     parent.invoke(&GeometryTile::onPlacement, GeometryTile::PlacementResult {
         std::move(buckets),
         std::move(collisionTile),
+        std::move(glyphAtlasImage),
+        std::move(iconAtlasImage),
         correlationID
     });
 }
