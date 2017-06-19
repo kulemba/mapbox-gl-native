@@ -2,7 +2,7 @@
 
 #include <mbgl/text/glyph.hpp>
 #include <mbgl/renderer/render_layer.hpp>
-#include <mbgl/sprite/sprite_atlas.hpp>
+#include <mbgl/style/image_impl.hpp>
 #include <mbgl/style/layers/symbol_layer_impl.hpp>
 #include <mbgl/style/layers/symbol_layer_properties.hpp>
 
@@ -40,14 +40,10 @@ public:
     // Layout
     AlignmentType pitchAlignment;
     AlignmentType rotationAlignment;
-    PossiblyEvaluatedPropertyValue<float> layoutSize;
 
     // Paint
     std::array<float, 2> translate;
     TranslateAnchorType translateAnchor;
-    float paintSize;
-
-    float sdfScale;   // Constant (1.0 or 24.0)
 
     bool hasHalo;
     bool hasFill;
@@ -76,7 +72,7 @@ public:
 
     std::unique_ptr<Bucket> createBucket(const BucketParameters&, const std::vector<const RenderLayer*>&) const override;
     std::unique_ptr<SymbolLayout> createLayout(const BucketParameters&, const std::vector<const RenderLayer*>&,
-                                               const GeometryTileLayer&, GlyphDependencies&, IconDependencies&) const;
+                                               const GeometryTileLayer&, GlyphDependencies&, ImageDependencies&) const;
 
     // Paint properties
     style::SymbolPaintProperties::Unevaluated unevaluated;

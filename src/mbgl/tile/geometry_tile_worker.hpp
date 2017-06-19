@@ -2,7 +2,7 @@
 
 #include <mbgl/map/mode.hpp>
 #include <mbgl/tile/tile_id.hpp>
-#include <mbgl/sprite/sprite_atlas.hpp>
+#include <mbgl/style/image_impl.hpp>
 #include <mbgl/text/glyph.hpp>
 #include <mbgl/text/placement_config.hpp>
 #include <mbgl/actor/actor_ref.hpp>
@@ -17,9 +17,7 @@ namespace mbgl {
 
 class GeometryTile;
 class GeometryTileData;
-class GlyphAtlas;
 class SymbolLayout;
-class RenderLayer;
 
 namespace style {
 class Layer;
@@ -39,8 +37,8 @@ public:
     void setData(std::unique_ptr<const GeometryTileData>, uint64_t correlationID);
     void setPlacementConfig(PlacementConfig, uint64_t correlationID);
     
-    void onGlyphsAvailable(GlyphPositionMap glyphs);
-    void onIconsAvailable(IconMap icons);
+    void onGlyphsAvailable(GlyphMap glyphs);
+    void onImagesAvailable(ImageMap images);
 
 private:
     void coalesced();
@@ -50,7 +48,7 @@ private:
     void coalesce();
 
     void requestNewGlyphs(const GlyphDependencies&);
-    void requestNewIcons(const IconDependencies&);
+    void requestNewImages(const ImageDependencies&);
    
     void symbolDependenciesChanged();
     bool hasPendingSymbolDependencies() const;
@@ -81,9 +79,9 @@ private:
 
     std::vector<std::unique_ptr<SymbolLayout>> symbolLayouts;
     GlyphDependencies pendingGlyphDependencies;
-    IconDependencies pendingIconDependencies;
-    GlyphPositionMap glyphPositions;
-    IconMap icons;
+    ImageDependencies pendingImageDependencies;
+    GlyphMap glyphMap;
+    ImageMap imageMap;
 };
 
 } // namespace mbgl
