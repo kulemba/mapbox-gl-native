@@ -19,9 +19,6 @@ set(MBGL_TEST_FILES
     test/api/render_missing.test.cpp
     test/api/repeated_render.test.cpp
 
-    # geometry
-    test/geometry/binpack.test.cpp
-
     # gl
     test/gl/bucket.test.cpp
     test/gl/object.test.cpp
@@ -44,9 +41,9 @@ set(MBGL_TEST_FILES
 
     # renderer
     test/renderer/group_by_layout.test.cpp
+    test/renderer/image_manager.test.cpp
 
     # sprite
-    test/sprite/sprite_atlas.test.cpp
     test/sprite/sprite_loader.test.cpp
     test/sprite/sprite_parser.test.cpp
 
@@ -107,7 +104,7 @@ set(MBGL_TEST_FILES
     test/style/style_parser.test.cpp
 
     # text
-    test/text/glyph_atlas.test.cpp
+    test/text/glyph_loader.test.cpp
     test/text/glyph_pbf.test.cpp
     test/text/quads.test.cpp
 
