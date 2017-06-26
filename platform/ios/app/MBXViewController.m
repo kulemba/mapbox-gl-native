@@ -72,6 +72,7 @@ typedef NS_ENUM(NSInteger, MBXSettingsRuntimeStylingRows) {
     MBXSettingsRuntimeStylingUpdateShapeSourceFeatures,
     MBXSettingsRuntimeStylingVectorSource,
     MBXSettingsRuntimeStylingRasterSource,
+    MBXSettingsRuntimeStylingImageSource,
     MBXSettingsRuntimeStylingCountryLabels,
     MBXSettingsRuntimeStylingRouteLine,
     MBXSettingsRuntimeStylingDDSPolygon,
@@ -345,6 +346,7 @@ typedef NS_ENUM(NSInteger, MBXSettingsMiscellaneousRows) {
                 @"Update Shape Source: Features",
                 @"Style Vector Source",
                 @"Style Raster Source",
+                @"Style Image Source",
                 [NSString stringWithFormat:@"Label Countries in %@", (_usingLocaleBasedCountryLabels ? @"Local Language" : [[NSLocale currentLocale] displayNameForKey:NSLocaleIdentifier value:[self bestLanguageForUser]])],
                 @"Add Route Line",
                 @"Dynamically Style Polygon",
@@ -584,6 +586,9 @@ typedef NS_ENUM(NSInteger, MBXSettingsMiscellaneousRows) {
                     break;
                 case MBXSettingsRuntimeStylingRasterSource:
                     [self styleRasterSource];
+                    break;
+                case MBXSettingsRuntimeStylingImageSource:
+                    [self styleImageSource];
                     break;
                 case MBXSettingsRuntimeStylingCountryLabels:
                     [self styleCountryLabelsLanguage];
@@ -1306,6 +1311,39 @@ typedef NS_ENUM(NSInteger, MBXSettingsMiscellaneousRows) {
 
     MGLRasterStyleLayer *rasterLayer = [[MGLRasterStyleLayer alloc] initWithIdentifier:@"style-raster-layer-id" source:rasterSource];
     [self.mapView.style addLayer:rasterLayer];
+}
+
+- (void)styleImageSource
+{
+    MGLCoordinateQuad coordinateQuad = {
+        { 46.437, -80.425 },
+        { 37.936, -80.425 },
+        { 37.936, -71.516 },
+        { 46.437, -71.516 } };
+
+    MGLImageSource *imageSource = [[MGLImageSource alloc] initWithIdentifier:@"style-image-source-id" coordinateQuad:coordinateQuad URL:[NSURL URLWithString:@"https://www.mapbox.com/mapbox-gl-js/assets/radar0.gif"]];
+
+    [self.mapView.style addSource:imageSource];
+    
+    MGLRasterStyleLayer *rasterLayer = [[MGLRasterStyleLayer alloc] initWithIdentifier:@"style-raster-image-layer-id" source:imageSource];
+    [self.mapView.style addLayer:rasterLayer];
+    
+    [NSTimer scheduledTimerWithTimeInterval:1.0
+                                     target:self
+                                   selector:@selector(updateAnimatedImageSource:)
+                                   userInfo:imageSource
+                                    repeats:YES];
+}
+
+
+- (void)updateAnimatedImageSource:(NSTimer *)timer {
+    static int radarSuffix = 0;
+    MGLImageSource *imageSource = (MGLImageSource *)timer.userInfo;
+    NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"https://www.mapbox.com/mapbox-gl-js/assets/radar%d.gif", radarSuffix++]];
+    [imageSource setValue:url forKey:@"URL"];
+    if (radarSuffix > 3) {
+        radarSuffix = 0;
+    }
 }
 
 -(void)styleCountryLabelsLanguage

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mbgl/style/style.hpp>
 #include <mbgl/style/transition_options.hpp>
 #include <mbgl/style/observer.hpp>
 #include <mbgl/style/source_observer.hpp>
@@ -24,20 +25,25 @@ namespace mbgl {
 
 class Scheduler;
 class FileSource;
+class AsyncRequest;
 class SpriteLoader;
 
 namespace style {
 
-class Style : public SpriteLoaderObserver,
-              public SourceObserver,
-              public LayerObserver,
-              public LightObserver,
-              public util::noncopyable {
+class Style::Impl : public SpriteLoaderObserver,
+                    public SourceObserver,
+                    public LayerObserver,
+                    public LightObserver,
+                    public util::noncopyable {
 public:
-    Style(Scheduler&, FileSource&, float pixelRatio);
-    ~Style() override;
+    Impl(Scheduler&, FileSource&, float pixelRatio);
+    ~Impl() override;
 
-    void setJSON(const std::string&);
+    void loadJSON(const std::string&);
+    void loadURL(const std::string&);
+
+    std::string getJSON() const;
+    std::string getURL() const;
 
     void setObserver(Observer*);
 
@@ -47,13 +53,17 @@ public:
         return lastError;
     }
 
-    std::vector<Source*> getSources();
+    std::vector<      Source*> getSources();
+    std::vector<const Source*> getSources() const;
     Source* getSource(const std::string& id) const;
+
     void addSource(std::unique_ptr<Source>);
     std::unique_ptr<Source> removeSource(const std::string& sourceID);
 
-    std::vector<Layer*> getLayers();
+    std::vector<      Layer*> getLayers();
+    std::vector<const Layer*> getLayers() const;
     Layer* getLayer(const std::string& id) const;
+
     Layer* addLayer(std::unique_ptr<Layer>,
                     optional<std::string> beforeLayerID = {});
     std::unique_ptr<Layer> removeLayer(const std::string& layerID);
@@ -82,15 +92,23 @@ public:
 
     void dumpDebugLogs() const;
 
+    bool mutated = false;
     bool loaded = false;
     bool spriteLoaded = false;
 
 private:
+    void parse(const std::string&);
+
     Scheduler& scheduler;
     FileSource& fileSource;
-    std::unique_ptr<SpriteLoader> spriteLoader;
-    std::string glyphURL;
 
+    std::string url;
+    std::string json;
+
+    std::unique_ptr<AsyncRequest> styleRequest;
+    std::unique_ptr<SpriteLoader> spriteLoader;
+
+    std::string glyphURL;
     Collection<style::Image> images;
     Collection<Source> sources;
     Collection<Layer> layers;
