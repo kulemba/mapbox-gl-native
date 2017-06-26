@@ -20,9 +20,11 @@
 #import "MGLPolyline.h"
 #import "MGLAnnotationImage.h"
 #import "MGLMapViewDelegate.h"
+#import "MGLImageSource.h"
 
 #import <mbgl/map/map.hpp>
 #import <mbgl/map/view.hpp>
+#import <mbgl/style/style.hpp>
 #import <mbgl/annotation/annotation.hpp>
 #import <mbgl/map/camera.hpp>
 #import <mbgl/storage/reachability.h>
@@ -238,7 +240,7 @@ public:
 
     // If the Style URL inspectable was not set, make sure to go through
     // -setStyleURL: to load the default style.
-    if (_mbglMap->getStyleURL().empty()) {
+    if (_mbglMap->getStyle().getURL().empty()) {
         self.styleURL = nil;
     }
 }
@@ -606,7 +608,7 @@ public:
 }
 
 - (nonnull NSURL *)styleURL {
-    NSString *styleURLString = @(_mbglMap->getStyleURL().c_str()).mgl_stringOrNilIfEmpty;
+    NSString *styleURLString = @(_mbglMap->getStyle().getURL().c_str()).mgl_stringOrNilIfEmpty;
     return styleURLString ? [NSURL URLWithString:styleURLString] : [MGLStyle streetsStyleURLWithVersion:MGLStyleDefaultVersion];
 }
 
@@ -628,12 +630,12 @@ public:
 
     styleURL = styleURL.mgl_URLByStandardizingScheme;
     self.style = nil;
-    _mbglMap->setStyleURL(styleURL.absoluteString.UTF8String);
+    _mbglMap->getStyle().loadURL(styleURL.absoluteString.UTF8String);
 }
 
 - (IBAction)reloadStyle:(__unused id)sender {
     NSURL *styleURL = self.styleURL;
-    _mbglMap->setStyleURL("");
+    _mbglMap->getStyle().loadURL("");
     self.styleURL = styleURL;
 }
 
@@ -936,20 +938,23 @@ public:
         return;
     }
 
-    self.style = [[MGLStyle alloc] initWithMapView:self];
+    self.style = [[MGLStyle alloc] initWithRawStyle:&_mbglMap->getStyle() mapView:self];
     if ([self.delegate respondsToSelector:@selector(mapView:didFinishLoadingStyle:)])
     {
         [self.delegate mapView:self didFinishLoadingStyle:self.style];
     }
 }
 
-- (void)sourceDidChange {
+- (void)sourceDidChange:(MGLSource *)source {
     if (!_mbglMap) {
         return;
     }
-
-    [self installAttributionView];
+    // Attribution only applies to tiled sources
+    if ([source isKindOfClass:[MGLTileSource class]]) {
+        [self installAttributionView];
+    }
     self.needsUpdateConstraints = YES;
+    self.needsDisplay = YES;
 }
 
 #pragma mark Printing
@@ -2847,8 +2852,10 @@ public:
         [nativeView mapViewDidFinishLoadingStyle];
     }
 
-    void onSourceChanged(mbgl::style::Source&) override {
-        [nativeView sourceDidChange];
+    void onSourceChanged(mbgl::style::Source& source) override {
+        NSString *identifier = @(source.getID().c_str());
+        MGLSource * nativeSource = [nativeView.style sourceWithIdentifier:identifier];
+        [nativeView sourceDidChange:nativeSource];
     }
 
     mbgl::gl::ProcAddress initializeExtension(const char* name) override {
