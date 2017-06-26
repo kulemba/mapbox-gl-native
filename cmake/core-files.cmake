@@ -312,6 +312,8 @@ set(MBGL_CORE_FILES
     include/mbgl/storage/resource.hpp
     include/mbgl/storage/response.hpp
     src/mbgl/storage/asset_file_source.hpp
+    src/mbgl/storage/file_source_request.cpp
+    src/mbgl/storage/file_source_request.hpp
     src/mbgl/storage/http_file_source.hpp
     src/mbgl/storage/local_file_source.hpp
     src/mbgl/storage/network_status.cpp
@@ -330,6 +332,7 @@ set(MBGL_CORE_FILES
     include/mbgl/style/position.hpp
     include/mbgl/style/property_value.hpp
     include/mbgl/style/source.hpp
+    include/mbgl/style/style.hpp
     include/mbgl/style/transition_options.hpp
     include/mbgl/style/types.hpp
     include/mbgl/style/undefined.hpp
@@ -357,7 +360,8 @@ set(MBGL_CORE_FILES
     src/mbgl/style/source_impl.hpp
     src/mbgl/style/source_observer.hpp
     src/mbgl/style/style.cpp
-    src/mbgl/style/style.hpp
+    src/mbgl/style/style_impl.cpp
+    src/mbgl/style/style_impl.hpp
     src/mbgl/style/types.cpp
 
     # style/conversion
@@ -511,6 +515,8 @@ set(MBGL_CORE_FILES
     src/mbgl/tile/tile_observer.hpp
     src/mbgl/tile/vector_tile.cpp
     src/mbgl/tile/vector_tile.hpp
+    src/mbgl/tile/vector_tile_data.cpp
+    src/mbgl/tile/vector_tile_data.hpp
 
     # util
     include/mbgl/util/any.hpp
@@ -601,10 +607,8 @@ set(MBGL_CORE_FILES
     src/mbgl/util/stopwatch.cpp
     src/mbgl/util/stopwatch.hpp
     src/mbgl/util/string.cpp
-    src/mbgl/util/thread.hpp
-    src/mbgl/util/thread_context.cpp
-    src/mbgl/util/thread_context.hpp
     src/mbgl/util/thread_local.hpp
+    src/mbgl/util/thread.hpp
     src/mbgl/util/throttler.cpp
     src/mbgl/util/throttler.hpp
     src/mbgl/util/tile_coordinate.hpp
