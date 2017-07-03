@@ -131,6 +131,9 @@ public:
      */
     void resume();
 
+    void addSupplementaryOfflineDatabase(Resource::Kind kind, optional<LatLngBounds> latLngBounds, const std::string& cachePath);
+    void removeSupplementaryOfflineDatabases(const std::string& cachePath);
+
     // For testing only.
     void put(const Resource&, const Response&);
 
