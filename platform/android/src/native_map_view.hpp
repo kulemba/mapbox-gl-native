@@ -79,12 +79,14 @@ public:
 
     jni::String getStyleUrl(jni::JNIEnv&);
 
-    void setStyleUrl(jni::JNIEnv&, jni::String);
+    void setStyleUrl(jni::JNIEnv&, jni::String, jni::jbyte);
 
     jni::String getStyleJson(jni::JNIEnv&);
 
-    void setStyleJson(jni::JNIEnv&, jni::String);
+    void setStyleJson(jni::JNIEnv&, jni::String, jni::jbyte);
 
+    jni::jbyte getMaxZoomLimit(jni::JNIEnv&);
+    
     void cancelTransitions(jni::JNIEnv&);
 
     void setGestureInProgress(jni::JNIEnv&, jni::jboolean);
