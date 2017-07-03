@@ -231,10 +231,14 @@ final class NativeMapView {
   }
 
   public void setStyleUrl(String url) {
+    setStyleUrl(url, (byte) 0xFF);
+  }
+
+  public void setStyleUrl(String url, byte maxZoomLimit) {
     if (isDestroyedOn("setStyleUrl")) {
       return;
     }
-    nativeSetStyleUrl(url);
+    nativeSetStyleUrl(url, maxZoomLimit);
   }
 
   public String getStyleUrl() {
@@ -245,10 +249,14 @@ final class NativeMapView {
   }
 
   public void setStyleJson(String newStyleJson) {
+    setStyleJson(newStyleJson, (byte) 0xFF);
+  }
+
+  public void setStyleJson(String newStyleJson, byte maxZoomLimit) {
     if (isDestroyedOn("setStyleJson")) {
       return;
     }
-    nativeSetStyleJson(newStyleJson);
+    nativeSetStyleJson(newStyleJson, maxZoomLimit);
   }
 
   public String getStyleJson() {
@@ -256,6 +264,13 @@ final class NativeMapView {
       return null;
     }
     return nativeGetStyleJson();
+  }
+
+  public byte getMaxZoomLimit() {
+    if (isDestroyedOn("getMaxZoomLimit")) {
+      return 0;
+    }
+    return nativeGetMaxZoomLimit();
   }
 
   public void cancelTransitions() {
@@ -982,13 +997,15 @@ final class NativeMapView {
 
   private native void nativeResizeFramebuffer(int fbWidth, int fbHeight);
 
-  private native void nativeSetStyleUrl(String url);
+  private native void nativeSetStyleUrl(String url, byte maxZoomLimit);
 
   private native String nativeGetStyleUrl();
 
-  private native void nativeSetStyleJson(String newStyleJson);
+  private native void nativeSetStyleJson(String newStyleJson, byte maxZoomLimit);
 
   private native String nativeGetStyleJson();
+
+  private native byte nativeGetMaxZoomLimit();
 
   private native void nativeCancelTransitions();
 
