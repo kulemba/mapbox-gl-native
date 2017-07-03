@@ -391,11 +391,15 @@ public class MapView extends FrameLayout {
    * @see Style
    */
   public void setStyleUrl(@NonNull String url) {
+    setStyleUrl(url, (byte) 0xFF);
+  }
+
+  public void setStyleUrl(@NonNull String url, byte maxZoomLimit) {
     if (destroyed) {
       return;
     }
 
-    nativeMapView.setStyleUrl(url);
+    nativeMapView.setStyleUrl(url, maxZoomLimit);
   }
 
   //
