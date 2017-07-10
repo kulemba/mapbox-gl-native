@@ -40,22 +40,21 @@ bool TilePyramid::isLoaded() const {
 }
 
 void TilePyramid::startRender(Painter& painter) {
-    for (auto& pair : renderTiles) {
-        pair.second.startRender(painter);
+    for (auto& tile : renderTiles) {
+        tile.startRender(painter);
     }
 }
 
 void TilePyramid::finishRender(Painter& painter) {
-    for (auto& pair : renderTiles) {
-        auto& tile = pair.second;
+    for (auto& tile : renderTiles) {
         if (tile.used) {
             painter.renderTileDebug(tile);
         }
     }
 }
 
-std::map<UnwrappedTileID, RenderTile>& TilePyramid::getRenderTiles() {
-    return renderTiles;
+std::vector<std::reference_wrapper<RenderTile>> TilePyramid::getRenderTiles() {
+    return { renderTiles.begin(), renderTiles.end() };
 }
 
 void TilePyramid::update(const std::vector<Immutable<style::Layer::Impl>>& layers,
@@ -89,14 +88,30 @@ void TilePyramid::update(const std::vector<Immutable<style::Layer::Impl>>& layer
     // Determine the overzooming/underzooming amounts and required tiles.
     int32_t overscaledZoom = util::coveringZoomLevel(parameters.transformState.getZoom(), type, tileSize);
     int32_t tileZoom = overscaledZoom;
+    int32_t panZoom = zoomRange.max;
 
     std::vector<UnwrappedTileID> idealTiles;
+    std::vector<UnwrappedTileID> panTiles;
+
     if (overscaledZoom >= zoomRange.min) {
         int32_t idealZoom = std::min<int32_t>(zoomRange.max, overscaledZoom);
 
         // Make sure we're not reparsing overzoomed raster tiles.
         if (type == SourceType::Raster) {
             tileZoom = idealZoom;
+
+            // FIXME: Prefetching is only enabled for raster
+            // tiles until we fix #7026.
+
+            // Request lower zoom level tiles (if configure to do so) in an attempt
+            // to show something on the screen faster at the cost of a little of bandwidth.
+            if (parameters.prefetchZoomDelta) {
+                panZoom = std::max<int32_t>(tileZoom - parameters.prefetchZoomDelta, zoomRange.min);
+            }
+
+            if (panZoom < tileZoom) {
+                panTiles = util::tileCover(parameters.transformState, panZoom);
+            }
         }
 
         idealTiles = util::tileCover(parameters.transformState, idealZoom);
@@ -109,8 +124,10 @@ void TilePyramid::update(const std::vector<Immutable<style::Layer::Impl>>& layer
     std::set<OverscaledTileID> retain;
 
     auto retainTileFn = [&](Tile& tile, Resource::Necessity necessity) -> void {
-        retain.emplace(tile.id);
-        tile.setNecessity(necessity);
+        if (retain.emplace(tile.id).second) {
+            tile.setNecessity(necessity);
+        }
+
         if (needsRelayout) {
             tile.setLayers(layers);
         }
@@ -134,10 +151,16 @@ void TilePyramid::update(const std::vector<Immutable<style::Layer::Impl>>& layer
         return tiles.emplace(tileID, std::move(tile)).first->second.get();
     };
     auto renderTileFn = [&](const UnwrappedTileID& tileID, Tile& tile) {
-        renderTiles.emplace(tileID, RenderTile{ tileID, tile });
+        renderTiles.emplace_back(tileID, tile);
     };
 
     renderTiles.clear();
+
+    if (!panTiles.empty()) {
+        algorithm::updateRenderables(getTileFn, createTileFn, retainTileFn,
+                [](const UnwrappedTileID&, Tile&) {}, panTiles, zoomRange, panZoom);
+    }
+
     algorithm::updateRenderables(getTileFn, createTileFn, retainTileFn, renderTileFn,
                                  idealTiles, zoomRange, tileZoom);
 
@@ -199,18 +222,14 @@ std::unordered_map<std::string, std::vector<Feature>> TilePyramid::queryRendered
 
     mapbox::geometry::box<double> box = mapbox::geometry::envelope(queryGeometry);
 
-
-    auto sortRenderTiles = [](const RenderTile& a, const RenderTile& b) {
+    std::vector<std::reference_wrapper<const RenderTile>> sortedTiles{ renderTiles.begin(),
+                                                                       renderTiles.end() };
+    std::sort(sortedTiles.begin(), sortedTiles.end(), [](const RenderTile& a, const RenderTile& b) {
         return std::tie(a.id.canonical.z, a.id.canonical.y, a.id.wrap, a.id.canonical.x) <
             std::tie(b.id.canonical.z, b.id.canonical.y, b.id.wrap, b.id.canonical.x);
-    };
-    std::vector<std::reference_wrapper<const RenderTile>> sortedTiles;
-    std::transform(renderTiles.cbegin(), renderTiles.cend(), std::back_inserter(sortedTiles),
-                   [](const auto& pair) { return std::ref(pair.second); });
-    std::sort(sortedTiles.begin(), sortedTiles.end(), sortRenderTiles);
+    });
 
-    for (const auto& renderTileRef : sortedTiles) {
-        const RenderTile& renderTile = renderTileRef.get();
+    for (const RenderTile& renderTile : sortedTiles) {
         GeometryCoordinate tileSpaceBoundsMin = TileCoordinate::toGeometryCoordinate(renderTile.id, box.min);
         if (tileSpaceBoundsMin.x >= util::EXTENT || tileSpaceBoundsMin.y >= util::EXTENT) {
             continue;
