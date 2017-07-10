@@ -3,7 +3,6 @@ package com.mapbox.mapboxsdk.maps;
 import android.content.Context;
 import android.graphics.PointF;
 import android.location.Location;
-import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.view.GestureDetectorCompat;
 import android.support.v4.view.ScaleGestureDetectorCompat;
@@ -57,6 +56,7 @@ final class MapGestureDetector {
   private boolean quickZoom = false;
   private boolean scrollInProgress = false;
   private boolean scaleGestureOccurred = false;
+  private boolean recentScaleGestureOccurred = false;
 
   MapGestureDetector(Context context, Transform transform, Projection projection, UiSettings uiSettings,
                      TrackingSettings trackingSettings, AnnotationManager annotationManager,
@@ -133,7 +133,12 @@ final class MapGestureDetector {
    * @param event the MotionEvent
    * @return True if touch event is handled
    */
-  boolean onTouchEvent(@NonNull MotionEvent event) {
+  boolean onTouchEvent(MotionEvent event) {
+    // framework can return null motion events in edge cases #9432
+    if (event == null) {
+      return false;
+    }
+
     // Check and ignore non touch or left clicks
     if ((event.getButtonState() != 0) && (event.getButtonState() != MotionEvent.BUTTON_PRIMARY)) {
       return false;
@@ -148,7 +153,7 @@ final class MapGestureDetector {
     switch (event.getActionMasked()) {
       case MotionEvent.ACTION_DOWN:
         // First pointer down, reset scaleGestureOccurred, used to avoid triggering a fling after a scale gesture #7666
-        scaleGestureOccurred = false;
+        recentScaleGestureOccurred = false;
         transform.setGestureInProgress(true);
         break;
 
@@ -274,7 +279,7 @@ final class MapGestureDetector {
           break;
         case MotionEvent.ACTION_UP:
           if (quickZoom) {
-            // insert here?
+            cameraChangeDispatcher.onCameraIdle();
             quickZoom = false;
             break;
           }
@@ -310,7 +315,7 @@ final class MapGestureDetector {
     @Override
     public boolean onSingleTapConfirmed(MotionEvent motionEvent) {
       PointF tapPoint = new PointF(motionEvent.getX(), motionEvent.getY());
-      boolean tapHandled = annotationManager.onTap(tapPoint, uiSettings.getPixelRatio());
+      boolean tapHandled = annotationManager.onTap(tapPoint);
 
       if (!tapHandled) {
         if (uiSettings.isDeselectMarkersOnTap()) {
@@ -341,12 +346,11 @@ final class MapGestureDetector {
 
     @Override
     public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-      if ((!trackingSettings.isScrollGestureCurrentlyEnabled()) || scaleGestureOccurred) {
+      if ((!trackingSettings.isScrollGestureCurrentlyEnabled()) || recentScaleGestureOccurred) {
         // don't allow a fling is scroll is disabled
         // and ignore when a scale gesture has occurred
         return false;
       }
-      cameraChangeDispatcher.onCameraMoveStarted(REASON_API_GESTURE);
 
       float screenDensity = uiSettings.getPixelRatio();
 
@@ -361,6 +365,8 @@ final class MapGestureDetector {
 
       // cancel any animation
       transform.cancelTransitions();
+
+      cameraChangeDispatcher.onCameraMoveStarted(REASON_API_GESTURE);
 
       // tilt results in a bigger translation, limiting input for #5281
       double tilt = transform.getTilt();
@@ -391,12 +397,17 @@ final class MapGestureDetector {
         return false;
       }
 
+      if (scaleGestureOccurred) {
+        return false;
+      }
+
       if (!scrollInProgress) {
         scrollInProgress = true;
 
         // Cancel any animation
         transform.cancelTransitions();
         cameraChangeDispatcher.onCameraMoveStarted(REASON_API_GESTURE);
+
         MapboxTelemetry.getInstance().pushEvent(MapboxEventWrapper.buildMapClickEvent(
           getLocationFromGesture(e1.getX(), e1.getY()),
           MapboxEvent.GESTURE_PAN_START, transform));
@@ -431,6 +442,7 @@ final class MapGestureDetector {
       }
 
       scaleGestureOccurred = true;
+      recentScaleGestureOccurred = true;
       beginTime = detector.getEventTime();
       MapboxTelemetry.getInstance().pushEvent(MapboxEventWrapper.buildMapClickEvent(
         getLocationFromGesture(detector.getFocusX(), detector.getFocusY()),
@@ -441,9 +453,11 @@ final class MapGestureDetector {
     // Called when fingers leave screen
     @Override
     public void onScaleEnd(ScaleGestureDetector detector) {
+      scaleGestureOccurred = false;
       beginTime = 0;
       scaleFactor = 1.0f;
       zoomStarted = false;
+      cameraChangeDispatcher.onCameraIdle();
     }
 
     // Called each time a finger moves
@@ -479,6 +493,9 @@ final class MapGestureDetector {
       }
 
       // Gesture is a quickzoom if there aren't two fingers
+      if (!quickZoom && !twoTap) {
+        cameraChangeDispatcher.onCameraMoveStarted(REASON_API_GESTURE);
+      }
       quickZoom = !twoTap;
 
       // make an assumption here; if the zoom center is specified by the gesture, it's NOT going
@@ -491,6 +508,7 @@ final class MapGestureDetector {
         // arround user provided focal point
         transform.zoomBy(Math.log(detector.getScaleFactor()) / Math.log(2), focalPoint.x, focalPoint.y);
       } else if (quickZoom) {
+        cameraChangeDispatcher.onCameraMove();
         // clamp scale factors we feed to core #7514
         float scaleFactor = MathUtils.clamp(detector.getScaleFactor(),
           MapboxConstants.MINIMUM_SCALE_FACTOR_CLAMP,
@@ -552,7 +570,7 @@ final class MapGestureDetector {
       // If rotate is large enough ignore a tap
       // Also is zoom already started, don't rotate
       totalAngle += detector.getRotationDegreesDelta();
-      if (!zoomStarted && ((totalAngle > 20.0f) || (totalAngle < -20.0f))) {
+      if (totalAngle > 20.0f || totalAngle < -20.0f) {
         started = true;
       }
 
