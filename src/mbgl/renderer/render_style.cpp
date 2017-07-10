@@ -86,13 +86,13 @@ void RenderStyle::update(const UpdateParameters& parameters) {
     const bool zoomChanged = zoomHistory.update(parameters.transformState.getZoom(), parameters.timePoint);
 
     const TransitionParameters transitionParameters {
-        parameters.mode == MapMode::Continuous ? parameters.timePoint : Clock::time_point::max(),
+        parameters.timePoint,
         parameters.mode == MapMode::Continuous ? parameters.transitionOptions : TransitionOptions()
     };
 
     const PropertyEvaluationParameters evaluationParameters {
         zoomHistory,
-        parameters.mode == MapMode::Continuous ? parameters.timePoint : Clock::time_point::max(),
+        parameters.timePoint,
         parameters.mode == MapMode::Continuous ? util::DEFAULT_TRANSITION_DURATION : Duration::zero()
     };
 
@@ -105,7 +105,8 @@ void RenderStyle::update(const UpdateParameters& parameters) {
         parameters.mode,
         parameters.annotationManager,
         *imageManager,
-        *glyphManager
+        *glyphManager,
+        parameters.prefetchZoomDelta
     };
 
     glyphManager->setURL(parameters.glyphURL);
@@ -309,16 +310,12 @@ RenderData RenderStyle::getRenderData(MapDebugOptions debugOptions, float angle)
             continue;
         }
 
-        auto& renderTiles = source->getRenderTiles();
         const bool symbolLayer = layer->is<RenderSymbolLayer>();
 
-        // Sort symbol tiles in opposite y position, so tiles with overlapping
-        // symbols are drawn on top of each other, with lower symbols being
-        // drawn on top of higher symbols.
-        std::vector<std::reference_wrapper<RenderTile>> sortedTiles;
-        std::transform(renderTiles.begin(), renderTiles.end(), std::back_inserter(sortedTiles),
-                [](auto& pair) { return std::ref(pair.second); });
+        auto sortedTiles = source->getRenderTiles();
         if (symbolLayer) {
+            // Sort symbol tiles in opposite y position, so tiles with overlapping symbols are drawn
+            // on top of each other, with lower symbols being drawn on top of higher symbols.
             std::sort(sortedTiles.begin(), sortedTiles.end(),
                       [angle](const RenderTile& a, const RenderTile& b) {
                 Point<float> pa(a.id.canonical.x, a.id.canonical.y);
@@ -329,6 +326,9 @@ RenderData RenderStyle::getRenderData(MapDebugOptions debugOptions, float angle)
 
                 return std::tie(par.y, par.x) < std::tie(pbr.y, pbr.x);
             });
+        } else {
+            std::sort(sortedTiles.begin(), sortedTiles.end(),
+                      [](const auto& a, const auto& b) { return a.get().id < b.get().id; });
         }
 
         std::vector<std::reference_wrapper<RenderTile>> sortedTilesForInsertion;
