@@ -69,7 +69,7 @@ public:
     void render(View&);
     void renderStill();
 
-    void loadStyleJSON(const std::string&);
+    void loadStyleJSON(const std::string&, uint8_t);
 
     Map& map;
     MapObserver& observer;
@@ -323,7 +323,7 @@ void Map::Impl::render(View& view) {
 
 #pragma mark - Style
 
-void Map::setStyleURL(const std::string& url) {
+void Map::setStyleURL(const std::string& url, uint8_t maxZoomLimit) {
     if (impl->styleURL == url) {
         return;
     }
@@ -339,7 +339,7 @@ void Map::setStyleURL(const std::string& url) {
 
     impl->style = std::make_unique<Style>(impl->scheduler, impl->fileSource, impl->pixelRatio);
 
-    impl->styleRequest = impl->fileSource.request(Resource::style(impl->styleURL), [this](Response res) {
+    impl->styleRequest = impl->fileSource.request(Resource::style(impl->styleURL), [this, maxZoomLimit](Response res) {
         // Once we get a fresh style, or the style is mutated, stop revalidating.
         if (res.isFresh() || impl->styleMutated) {
             impl->styleRequest.reset();
@@ -365,12 +365,12 @@ void Map::setStyleURL(const std::string& url) {
         } else if (res.notModified || res.noContent) {
             return;
         } else {
-            impl->loadStyleJSON(*res.data);
+            impl->loadStyleJSON(*res.data, maxZoomLimit);
         }
     });
 }
 
-void Map::setStyleJSON(const std::string& json) {
+void Map::setStyleJSON(const std::string& json, uint8_t maxZoomLimit) {
     if (impl->styleJSON == json) {
         return;
     }
@@ -385,12 +385,12 @@ void Map::setStyleJSON(const std::string& json) {
 
     impl->style = std::make_unique<Style>(impl->scheduler, impl->fileSource, impl->pixelRatio);
 
-    impl->loadStyleJSON(json);
+    impl->loadStyleJSON(json, maxZoomLimit);
 }
 
-void Map::Impl::loadStyleJSON(const std::string& json) {
+void Map::Impl::loadStyleJSON(const std::string& json, uint8_t maxZoomLimit) {
     style->setObserver(this);
-    style->setJSON(json);
+    style->setJSON(json, maxZoomLimit);
     styleJSON = json;
 
     if (!cameraMutated) {
