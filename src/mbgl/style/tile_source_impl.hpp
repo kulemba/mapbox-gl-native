@@ -35,6 +35,8 @@ public:
     optional<std::string> getAttribution() const override;
     optional<Tileset> getTileset() const;
 
+    void limitMaxZoom(uint8_t) final;
+    
 protected:
     const variant<std::string, Tileset> urlOrTileset;
     const uint16_t tileSize;
