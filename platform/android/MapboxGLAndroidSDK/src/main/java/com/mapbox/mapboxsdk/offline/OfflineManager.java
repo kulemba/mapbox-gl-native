@@ -256,10 +256,11 @@ public class OfflineManager {
     addSupplementaryOfflineDatabase(cachePath, resourceKind, null);
   }
 
-  /*
-  * Changing or bypassing this limit without permission from Mapbox is prohibited
-  * by the Mapbox Terms of Service.
-  */
+  /**
+   * Changing or bypassing this limit without permission from Mapbox is prohibited
+   * by the Mapbox Terms of Service.
+   * @param limit the new tile count limit.
+   */
   public native void setOfflineMapboxTileCountLimit(long limit);
 
   private native void initialize(FileSource fileSource);
