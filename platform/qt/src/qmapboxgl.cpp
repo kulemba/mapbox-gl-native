@@ -70,6 +70,19 @@ namespace {
 
 QThreadStorage<std::shared_ptr<mbgl::util::RunLoop>> loop;
 
+std::shared_ptr<mbgl::DefaultFileSource> sharedDefaultFileSource(
+        const std::string& cachePath, const std::string& assetRoot, uint64_t maximumCacheSize) {
+    static std::weak_ptr<mbgl::DefaultFileSource> weak;
+    auto fs = weak.lock();
+
+    if (!fs) {
+        weak = fs = std::make_shared<mbgl::DefaultFileSource>(
+                cachePath, assetRoot, maximumCacheSize);
+    }
+
+    return fs;
+}
+
 // Conversion helper functions.
 
 mbgl::Size sanitizedSize(const QSize& size) {
@@ -105,6 +118,11 @@ std::unique_ptr<mbgl::style::Image> toStyleImage(const QString &id, const QImage
 
     QMapboxGLSettings is used to configure QMapboxGL at the moment of its creation.
     Once created, the QMapboxGLSettings of a QMapboxGL can no longer be changed.
+
+    Cache-related settings are shared between all QMapboxGL instances because different
+    maps will share the same cache database file. The first map to configure cache properties
+    such as size and path will force the configuration to all newly instantiated QMapboxGL
+    objects.
 
     \since 4.7
 */
@@ -426,13 +444,13 @@ void QMapboxGLSettings::setApiBaseUrl(const QString& url)
 */
 
 /*!
-    Constructs a QMapboxGL object with \a settings and sets \a parent as the parent
+    Constructs a QMapboxGL object with \a settings and sets \a parent_ as the parent
     object. The \a settings cannot be changed after the object is constructed. The
     \a size represents the size of the viewport and the \a pixelRatio the initial pixel
     density of the screen.
 */
-QMapboxGL::QMapboxGL(QObject *parent, const QMapboxGLSettings &settings, const QSize& size, qreal pixelRatio)
-    : QObject(parent)
+QMapboxGL::QMapboxGL(QObject *parent_, const QMapboxGLSettings &settings, const QSize& size, qreal pixelRatio)
+    : QObject(parent_)
 {
     assert(!size.isEmpty());
 
@@ -755,7 +773,7 @@ void QMapboxGL::setTransitionOptions(qint64 duration, qint64 delay) {
     d_ptr->mapObj->getStyle().setTransitionOptions(mbgl::style::TransitionOptions{ convert(duration), convert(delay) });
 }
 
-mbgl::Annotation asMapboxGLAnnotation(const QMapbox::Annotation & annotation) {
+mbgl::optional<mbgl::Annotation> asMapboxGLAnnotation(const QMapbox::Annotation & annotation) {
     auto asMapboxGLGeometry = [](const QMapbox::ShapeAnnotationGeometry &geometry) {
         mbgl::ShapeAnnotationGeometry result;
         switch (geometry.type) {
@@ -778,19 +796,19 @@ mbgl::Annotation asMapboxGLAnnotation(const QMapbox::Annotation & annotation) {
     if (annotation.canConvert<QMapbox::SymbolAnnotation>()) {
         QMapbox::SymbolAnnotation symbolAnnotation = annotation.value<QMapbox::SymbolAnnotation>();
         QMapbox::Coordinate& pair = symbolAnnotation.geometry;
-        return mbgl::SymbolAnnotation { mbgl::Point<double> { pair.second, pair.first }, symbolAnnotation.icon.toStdString() };
+        return { mbgl::SymbolAnnotation { mbgl::Point<double> { pair.second, pair.first }, symbolAnnotation.icon.toStdString() } };
     } else if (annotation.canConvert<QMapbox::LineAnnotation>()) {
         QMapbox::LineAnnotation lineAnnotation = annotation.value<QMapbox::LineAnnotation>();
         auto color = mbgl::Color::parse(lineAnnotation.color.name().toStdString());
-        return mbgl::LineAnnotation { asMapboxGLGeometry(lineAnnotation.geometry), lineAnnotation.opacity, lineAnnotation.width, { *color } };
+        return { mbgl::LineAnnotation { asMapboxGLGeometry(lineAnnotation.geometry), lineAnnotation.opacity, lineAnnotation.width, { *color } } };
     } else if (annotation.canConvert<QMapbox::FillAnnotation>()) {
         QMapbox::FillAnnotation fillAnnotation = annotation.value<QMapbox::FillAnnotation>();
         auto color = mbgl::Color::parse(fillAnnotation.color.name().toStdString());
         if (fillAnnotation.outlineColor.canConvert<QColor>()) {
             auto outlineColor = mbgl::Color::parse(fillAnnotation.outlineColor.value<QColor>().name().toStdString());
-            return mbgl::FillAnnotation { asMapboxGLGeometry(fillAnnotation.geometry), fillAnnotation.opacity, { *color }, { *outlineColor } };
+            return { mbgl::FillAnnotation { asMapboxGLGeometry(fillAnnotation.geometry), fillAnnotation.opacity, { *color }, { *outlineColor } } };
         } else {
-            return mbgl::FillAnnotation { asMapboxGLGeometry(fillAnnotation.geometry), fillAnnotation.opacity, { *color }, {} };
+            return { mbgl::FillAnnotation { asMapboxGLGeometry(fillAnnotation.geometry), fillAnnotation.opacity, { *color }, {} } };
         }
     }
 
@@ -807,7 +825,7 @@ mbgl::Annotation asMapboxGLAnnotation(const QMapbox::Annotation & annotation) {
 */
 QMapbox::AnnotationID QMapboxGL::addAnnotation(const QMapbox::Annotation &annotation)
 {
-    return d_ptr->mapObj->addAnnotation(asMapboxGLAnnotation(annotation));
+    return d_ptr->mapObj->addAnnotation(*asMapboxGLAnnotation(annotation));
 }
 
 /*!
@@ -817,7 +835,7 @@ QMapbox::AnnotationID QMapboxGL::addAnnotation(const QMapbox::Annotation &annota
 */
 void QMapboxGL::updateAnnotation(QMapbox::AnnotationID id, const QMapbox::Annotation &annotation)
 {
-    d_ptr->mapObj->updateAnnotation(id, asMapboxGLAnnotation(annotation));
+    d_ptr->mapObj->updateAnnotation(id, *asMapboxGLAnnotation(annotation));
 }
 
 /*!
@@ -829,7 +847,7 @@ void QMapboxGL::removeAnnotation(QMapbox::AnnotationID id)
 }
 
 /*!
-    Sets a layout \a property \a value to an existing \a layer. The \a property string can be any
+    Sets a layout \a property \a value to an existing \a layer. The \a property_ string can be any
     as defined by the \l {https://www.mapbox.com/mapbox-gl-style-spec/} {Mapbox style specification}
     for layout properties.
 
@@ -863,7 +881,7 @@ void QMapboxGL::removeAnnotation(QMapbox::AnnotationID id)
         \li QVariantList
     \endtable
 */
-void QMapboxGL::setLayoutProperty(const QString& layer, const QString& property, const QVariant& value)
+void QMapboxGL::setLayoutProperty(const QString& layer, const QString& property_, const QVariant& value)
 {
     using namespace mbgl::style;
 
@@ -873,14 +891,14 @@ void QMapboxGL::setLayoutProperty(const QString& layer, const QString& property,
         return;
     }
 
-    if (conversion::setLayoutProperty(*layer_, property.toStdString(), value)) {
-        qWarning() << "Error setting layout property:" << layer << "-" << property;
+    if (conversion::setLayoutProperty(*layer_, property_.toStdString(), value)) {
+        qWarning() << "Error setting layout property:" << layer << "-" << property_;
         return;
     }
 }
 
 /*!
-    Sets a paint \a property \a value to an existing \a layer. The \a property string can be any
+    Sets a paint \a property_ \a value to an existing \a layer. The \a property string can be any
     as defined by the \l {https://www.mapbox.com/mapbox-gl-style-spec/} {Mapbox style specification}
     for paint properties.
 
@@ -929,7 +947,7 @@ void QMapboxGL::setLayoutProperty(const QString& layer, const QString& property,
         map->setPaintProperty("route","line-dasharray", lineDashArray);
     \endcode
 */
-void QMapboxGL::setPaintProperty(const QString& layer, const QString& property, const QVariant& value)
+void QMapboxGL::setPaintProperty(const QString& layer, const QString& property_, const QVariant& value)
 {
     using namespace mbgl::style;
 
@@ -939,8 +957,8 @@ void QMapboxGL::setPaintProperty(const QString& layer, const QString& property, 
         return;
     }
 
-    if (conversion::setPaintProperty(*layer_, property.toStdString(), value)) {
-        qWarning() << "Error setting paint property:" << layer << "-" << property;
+    if (conversion::setPaintProperty(*layer_, property_.toStdString(), value)) {
+        qWarning() << "Error setting paint property:" << layer << "-" << property_;
         return;
     }
 }
@@ -1009,7 +1027,7 @@ void QMapboxGL::resize(const QSize& size, const QSize& framebufferSize)
 }
 
 /*!
-    If Mapbox GL needs to rebind the default framebuffer, it will use the
+    If Mapbox GL needs to rebind the default \a fbo, it will use the
     ID supplied here.
 */
 void QMapboxGL::setFramebufferObject(quint32 fbo) {
@@ -1033,11 +1051,11 @@ void QMapboxGL::addAnnotationIcon(const QString &name, const QImage &icon)
 }
 
 /*!
-    Returns the amount of meters per pixel from a given \a latitude and \a zoom.
+    Returns the amount of meters per pixel from a given \a latitude_ and \a zoom_.
 */
-double QMapboxGL::metersPerPixelAtLatitude(double latitude, double zoom) const
+double QMapboxGL::metersPerPixelAtLatitude(double latitude_, double zoom_) const
 {
-    return mbgl::Projection::getMetersPerPixelAtLatitude(latitude, zoom);
+    return mbgl::Projection::getMetersPerPixelAtLatitude(latitude_, zoom_);
 }
 
 /*!
@@ -1408,10 +1426,10 @@ void QMapboxGL::setFilter(const QString& layer, const QVariant& filter)
 }
 
 /*!
-    Renders the map using OpenGL draw calls. If \a fbo is passed, it will
-    make sure to bind the framebuffer object before drawing; otherwise a
-    valid OpenGL context is expected with an appropriate OpenGL viewport state set
-    for the size of the canvas.
+    Renders the map using OpenGL draw calls. It will make sure to bind the
+    framebuffer object before drawing; otherwise a valid OpenGL context is
+    expected with an appropriate OpenGL viewport state set for the size of
+    the canvas.
 
     This function should be called only after the signal needsRendering() is
     emitted at least once.
@@ -1473,7 +1491,7 @@ QMapboxGLPrivate::QMapboxGLPrivate(QMapboxGL *q, const QMapboxGLSettings &settin
     : QObject(q)
     , size(size_)
     , q_ptr(q)
-    , fileSourceObj(std::make_unique<mbgl::DefaultFileSource>(
+    , fileSourceObj(sharedDefaultFileSource(
         settings.cacheDatabasePath().toStdString(),
         settings.assetPath().toStdString(),
         settings.cacheDatabaseMaximumSize()))
