@@ -2,9 +2,11 @@ export BUILDTYPE ?= Debug
 export WITH_CXX11ABI ?= $(shell scripts/check-cxx11abi.sh)
 
 ifeq ($(BUILDTYPE), Release)
+else ifeq ($(BUILDTYPE), RelWithDebInfo)
+else ifeq ($(BUILDTYPE), Sanitize)
 else ifeq ($(BUILDTYPE), Debug)
 else
-  $(error BUILDTYPE must be Debug or Release)
+  $(error BUILDTYPE must be Debug, Sanitize, Release or RelWithDebInfo)
 endif
 
 buildtype := $(shell echo "$(BUILDTYPE)" | tr "[A-Z]" "[a-z]")
@@ -260,7 +262,7 @@ darwin-update-examples:
 
 .PHONY: check-public-symbols
 check-public-symbols:
-	node platform/darwin/scripts/check-public-symbols.js macOS
+	node platform/darwin/scripts/check-public-symbols.js macOS iOS
 endif
 
 #### Linux targets #####################################################
@@ -297,8 +299,12 @@ benchmark: $(LINUX_BUILD)
 	$(NINJA) $(NINJA_ARGS) -j$(JOBS) -C $(LINUX_OUTPUT_PATH) mbgl-benchmark
 
 ifneq (,$(shell command -v gdb 2> /dev/null))
-  GDB = $(shell scripts/mason.sh PREFIX gdb VERSION 2017-04-08-aebcde5)/bin/gdb \
-        -batch -return-child-result -ex 'set print thread-events off' -ex 'run' -ex 'thread apply all bt' --args
+  GDB ?= $(shell scripts/mason.sh PREFIX gdb VERSION 2017-04-08-aebcde5)/bin/gdb \
+        	-batch -return-child-result \
+        	-ex 'set print thread-events off' \
+        	-ex 'set disable-randomization off' \
+        	-ex 'run' \
+        	-ex 'thread apply all bt' --args
 endif
 
 .PHONY: run-test
@@ -376,7 +382,7 @@ $(QT_BUILD): $(BUILD_DEPS)
 		-DWITH_QT_DECODERS=${WITH_QT_DECODERS} \
 		-DWITH_QT_I18N=${WITH_QT_I18N} \
 		-DWITH_QT_4=${WITH_QT_4} \
-		-DWITH_CXX11ABI=$(shell scripts/check-cxx11abi.sh) \
+		-DWITH_CXX11ABI=${WITH_CXX11ABI} \
 		-DWITH_COVERAGE=${WITH_COVERAGE})
 
 ifeq ($(HOST_PLATFORM), macos)
@@ -392,7 +398,7 @@ $(MACOS_QT_PROJ_PATH): $(BUILD_DEPS)
 		-DWITH_QT_DECODERS=${WITH_QT_DECODERS} \
 		-DWITH_QT_I18N=${WITH_QT_I18N} \
 		-DWITH_QT_4=${WITH_QT_4} \
-		-DWITH_CXX11ABI=$(shell scripts/check-cxx11abi.sh) \
+		-DWITH_CXX11ABI=${WITH_CXX11ABI} \
 		-DWITH_COVERAGE=${WITH_COVERAGE})
 
 .PHONY: qtproj
