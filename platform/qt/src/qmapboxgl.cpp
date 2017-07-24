@@ -1,5 +1,6 @@
 #include "qmapboxgl.hpp"
 #include "qmapboxgl_p.hpp"
+#include "qmapboxgl_renderer_frontend_p.hpp"
 
 #include "qt_conversion.hpp"
 #include "qt_geojson.hpp"
@@ -7,7 +8,6 @@
 #include <mbgl/annotation/annotation.hpp>
 #include <mbgl/map/camera.hpp>
 #include <mbgl/map/map.hpp>
-#include <mbgl/map/backend_scope.hpp>
 #include <mbgl/math/minmax.hpp>
 #include <mbgl/style/style.hpp>
 #include <mbgl/style/conversion.hpp>
@@ -17,6 +17,8 @@
 #include <mbgl/style/sources/geojson_source.hpp>
 #include <mbgl/style/transition_options.hpp>
 #include <mbgl/style/image.hpp>
+#include <mbgl/renderer/renderer.hpp>
+#include <mbgl/renderer/backend_scope.hpp>
 #include <mbgl/storage/network_status.hpp>
 #include <mbgl/util/color.hpp>
 #include <mbgl/util/constants.hpp>
@@ -778,16 +780,16 @@ mbgl::optional<mbgl::Annotation> asMapboxGLAnnotation(const QMapbox::Annotation 
         mbgl::ShapeAnnotationGeometry result;
         switch (geometry.type) {
         case QMapbox::ShapeAnnotationGeometry::LineStringType:
-            result = { asMapboxGLLineString(geometry.geometry.first().first()) };
+            result = asMapboxGLLineString(geometry.geometry.first().first());
             break;
         case QMapbox::ShapeAnnotationGeometry::PolygonType:
-            result = { asMapboxGLPolygon(geometry.geometry.first()) };
+            result = asMapboxGLPolygon(geometry.geometry.first());
             break;
         case QMapbox::ShapeAnnotationGeometry::MultiLineStringType:
-            result = { asMapboxGLMultiLineString(geometry.geometry.first()) };
+            result = asMapboxGLMultiLineString(geometry.geometry.first());
             break;
         case QMapbox::ShapeAnnotationGeometry::MultiPolygonType:
-            result = { asMapboxGLMultiPolygon(geometry.geometry) };
+            result = asMapboxGLMultiPolygon(geometry.geometry);
             break;
         }
         return result;
@@ -796,19 +798,19 @@ mbgl::optional<mbgl::Annotation> asMapboxGLAnnotation(const QMapbox::Annotation 
     if (annotation.canConvert<QMapbox::SymbolAnnotation>()) {
         QMapbox::SymbolAnnotation symbolAnnotation = annotation.value<QMapbox::SymbolAnnotation>();
         QMapbox::Coordinate& pair = symbolAnnotation.geometry;
-        return { mbgl::SymbolAnnotation { mbgl::Point<double> { pair.second, pair.first }, symbolAnnotation.icon.toStdString() } };
+        return { mbgl::SymbolAnnotation(mbgl::Point<double> { pair.second, pair.first }, symbolAnnotation.icon.toStdString()) };
     } else if (annotation.canConvert<QMapbox::LineAnnotation>()) {
         QMapbox::LineAnnotation lineAnnotation = annotation.value<QMapbox::LineAnnotation>();
         auto color = mbgl::Color::parse(lineAnnotation.color.name().toStdString());
-        return { mbgl::LineAnnotation { asMapboxGLGeometry(lineAnnotation.geometry), lineAnnotation.opacity, lineAnnotation.width, { *color } } };
+        return { mbgl::LineAnnotation(asMapboxGLGeometry(lineAnnotation.geometry), lineAnnotation.opacity, lineAnnotation.width, { *color }) };
     } else if (annotation.canConvert<QMapbox::FillAnnotation>()) {
         QMapbox::FillAnnotation fillAnnotation = annotation.value<QMapbox::FillAnnotation>();
         auto color = mbgl::Color::parse(fillAnnotation.color.name().toStdString());
         if (fillAnnotation.outlineColor.canConvert<QColor>()) {
             auto outlineColor = mbgl::Color::parse(fillAnnotation.outlineColor.value<QColor>().name().toStdString());
-            return { mbgl::FillAnnotation { asMapboxGLGeometry(fillAnnotation.geometry), fillAnnotation.opacity, { *color }, { *outlineColor } } };
+            return { mbgl::FillAnnotation(asMapboxGLGeometry(fillAnnotation.geometry), fillAnnotation.opacity, { *color }, { *outlineColor }) };
         } else {
-            return { mbgl::FillAnnotation { asMapboxGLGeometry(fillAnnotation.geometry), fillAnnotation.opacity, { *color }, {} } };
+            return { mbgl::FillAnnotation(asMapboxGLGeometry(fillAnnotation.geometry), fillAnnotation.opacity, { *color }, {}) };
         }
     }
 
@@ -1448,7 +1450,7 @@ void QMapboxGL::render()
     mbgl::BackendScope scope { *d_ptr, mbgl::BackendScope::ScopeType::Implicit };
 
     d_ptr->dirty = false;
-    d_ptr->mapObj->render(*d_ptr);
+    d_ptr->render();
 }
 
 /*!
@@ -1487,6 +1489,8 @@ void QMapboxGL::connectionEstablished()
     \a copyrightsHtml is a string with a HTML snippet.
 */
 
+class QMapboxGLRendererFrontend;
+
 QMapboxGLPrivate::QMapboxGLPrivate(QMapboxGL *q, const QMapboxGLSettings &settings, const QSize &size_, qreal pixelRatio)
     : QObject(q)
     , size(size_)
@@ -1497,11 +1501,18 @@ QMapboxGLPrivate::QMapboxGLPrivate(QMapboxGL *q, const QMapboxGLSettings &settin
         settings.cacheDatabaseMaximumSize()))
     , threadPool(mbgl::sharedThreadPool())
 {
+    // Setup and connect the renderer frontend
+    frontend = std::make_unique<QMapboxGLRendererFrontend>(
+            std::make_unique<mbgl::Renderer>(*this, pixelRatio, *fileSourceObj, *threadPool,
+                                             static_cast<mbgl::GLContextMode>(settings.contextMode())),
+            *this);
+    connect(frontend.get(), SIGNAL(updated()), this, SLOT(invalidate()));
+    
     mapObj = std::make_unique<mbgl::Map>(
+            *frontend,
             *this, sanitizedSize(size),
             pixelRatio, *fileSourceObj, *threadPool,
             mbgl::MapMode::Continuous,
-            static_cast<mbgl::GLContextMode>(settings.contextMode()),
             static_cast<mbgl::ConstrainMode>(settings.constrainMode()),
             static_cast<mbgl::ViewportMode>(settings.viewportMode()));
 
@@ -1539,6 +1550,11 @@ void QMapboxGLPrivate::invalidate()
         emit needsRendering();
         dirty = true;
     }
+}
+
+void QMapboxGLPrivate::render()
+{
+    frontend->render();
 }
 
 void QMapboxGLPrivate::onCameraWillChange(mbgl::MapObserver::CameraChangeMode mode)
