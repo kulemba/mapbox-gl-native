@@ -5,13 +5,8 @@
 #include <mbgl/style/sources/image_source_impl.hpp>
 
 namespace mbgl {
-class RenderLayer;
-class PaintParameters;
-class RasterBucket;
 
-namespace gl {
-class Context;
-} // namespace gl
+class RasterBucket;
 
 class RenderImageSource : public RenderSource {
 public:
@@ -20,9 +15,8 @@ public:
 
     bool isLoaded() const final;
 
-    void startRender(Painter&) final;
-    void render(Painter&, PaintParameters&, const RenderLayer&);
-    void finishRender(Painter&) final;
+    void startRender(PaintParameters&) final;
+    void finishRender(PaintParameters&) final;
 
     void update(Immutable<style::Source::Impl>,
                 const std::vector<Immutable<style::Layer::Impl>>&,
@@ -47,12 +41,13 @@ public:
     void dumpDebugLogs() const final;
 
 private:
+    friend class RenderRasterLayer;
+
     const style::ImageSource::Impl& impl() const;
 
     std::vector<UnwrappedTileID> tileIds;
     std::unique_ptr<RasterBucket> bucket;
     std::vector<mat4> matrices;
-    bool shouldRender;
 };
 
 template <>
