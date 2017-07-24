@@ -3,6 +3,7 @@
 #include <mbgl/test/stub_style_observer.hpp>
 #include <mbgl/test/stub_render_source_observer.hpp>
 
+#include <mbgl/style/style.hpp>
 #include <mbgl/style/source_impl.hpp>
 #include <mbgl/style/sources/raster_source.hpp>
 #include <mbgl/style/sources/vector_source.hpp>
@@ -47,7 +48,8 @@ public:
     Transform transform;
     TransformState transformState;
     ThreadPool threadPool { 1 };
-    AnnotationManager annotationManager;
+    Style style { loop, fileSource, 1 };
+    AnnotationManager annotationManager { style };
     ImageManager imageManager;
     GlyphManager glyphManager { fileSource };
 
@@ -531,11 +533,11 @@ TEST(Source, ImageSourceImageUpdate) {
 
     // Load initial, so the source state will be loaded=true
     source.loadDescription(test.fileSource);
-    UnassociatedImage rgba({ 1, 1 });
+    PremultipliedImage rgba({ 1, 1 });
     rgba.data[0] = 255;
     rgba.data[1] = 254;
     rgba.data[2] = 253;
-    rgba.data[3] = 128;
+    rgba.data[3] = 0;
 
     // Schedule an update
     test.loop.invoke([&] () {
