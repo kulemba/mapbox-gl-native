@@ -255,7 +255,21 @@ bool Context::supportsVertexArrays() const {
 
 #if MBGL_HAS_BINARY_PROGRAMS
 bool Context::supportsProgramBinaries() const {
-    return programBinary && programBinary->programBinary && programBinary->getProgramBinary;
+    if (!programBinary || !programBinary->programBinary || !programBinary->getProgramBinary) {
+        return false;
+    }
+
+    // Blacklist Adreno 3xx, 4xx, and 5xx GPUs due to known bugs:
+    // https://bugs.chromium.org/p/chromium/issues/detail?id=510637
+    // https://chromium.googlesource.com/chromium/src/gpu/+/master/config/gpu_driver_bug_list.json#2316
+    const std::string renderer = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
+    if (renderer.find("Adreno (TM) 3") != std::string::npos
+     || renderer.find("Adreno (TM) 4") != std::string::npos
+     || renderer.find("Adreno (TM) 5") != std::string::npos) {
+        return false;
+    }
+
+    return true;
 }
 
 optional<std::pair<BinaryProgramFormat, std::string>>
@@ -615,6 +629,13 @@ void Context::setDrawMode(const TriangleStrip&) {
 void Context::setDepthMode(const DepthMode& depth) {
     if (depth.func == DepthMode::Always && !depth.mask) {
         depthTest = false;
+
+        // Workaround for rendering errors on Adreno 2xx GPUs. Depth-related state should
+        // not matter when the depth test is disabled, but on these GPUs it apparently does.
+        // https://github.com/mapbox/mapbox-gl-native/issues/9164
+        depthFunc = depth.func;
+        depthMask = depth.mask;
+        depthRange = depth.range;
     } else {
         depthTest = true;
         depthFunc = depth.func;
