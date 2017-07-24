@@ -92,27 +92,35 @@ find_program(CCACHE_PROGRAM ccache)
 if(CCACHE_PROGRAM)
     set(C_LAUNCHER   "${CCACHE_PROGRAM}")
     set(CXX_LAUNCHER "${CCACHE_PROGRAM}")
-    configure_file(scripts/launch-c.in   launch-c)
-    configure_file(scripts/launch-cxx.in launch-cxx)
-    execute_process(COMMAND chmod a+rx "${CMAKE_BINARY_DIR}/launch-c" "${CMAKE_BINARY_DIR}/launch-cxx")
 
     if(CMAKE_GENERATOR STREQUAL "Xcode")
         # Set Xcode project attributes to route compilation and linking through our scripts
+        # Xcode doesn't include the path to the compiler/linker by default, so we'll have to add it.
+        configure_file(scripts/launch-c-xcode.in   launch-c   @ONLY)
+        configure_file(scripts/launch-cxx-xcode.in launch-cxx @ONLY)
+
         set(CMAKE_XCODE_ATTRIBUTE_CC         "${CMAKE_BINARY_DIR}/launch-c")
         set(CMAKE_XCODE_ATTRIBUTE_CXX        "${CMAKE_BINARY_DIR}/launch-cxx")
         set(CMAKE_XCODE_ATTRIBUTE_LD         "${CMAKE_BINARY_DIR}/launch-c")
         set(CMAKE_XCODE_ATTRIBUTE_LDPLUSPLUS "${CMAKE_BINARY_DIR}/launch-cxx")
     else()
         # Support Unix Makefiles and Ninja
+        configure_file(scripts/launch-c.in   launch-c   @ONLY)
+        configure_file(scripts/launch-cxx.in launch-cxx @ONLY)
+
         set(CMAKE_C_COMPILER_LAUNCHER        "${CMAKE_BINARY_DIR}/launch-c")
         set(CMAKE_CXX_COMPILER_LAUNCHER      "${CMAKE_BINARY_DIR}/launch-cxx")
     endif()
+
+    execute_process(COMMAND chmod a+rx "${CMAKE_BINARY_DIR}/launch-c" "${CMAKE_BINARY_DIR}/launch-cxx")
 
     if(CMAKE_CXX_COMPILER_ID MATCHES ".*Clang")
         # ccache splits up the compile steps, so we end up with unused arguments in some steps.
         # Clang also thinks that ccache isn't interactive, so we explicitly need to enable color.
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Qunused-arguments -fcolor-diagnostics")
     endif()
+else()
+    message(STATUS "Can't find ccache — consider installing ccache to improve recompilation performance")
 endif()
 
 if(NOT EXISTS ${CMAKE_SOURCE_DIR}/platform/${MBGL_PLATFORM}/config.cmake)

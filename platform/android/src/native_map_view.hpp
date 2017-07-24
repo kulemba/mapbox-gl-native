@@ -1,6 +1,6 @@
 #pragma once
 
-#include <mbgl/map/backend.hpp>
+#include <mbgl/renderer/renderer_backend.hpp>
 #include <mbgl/map/change.hpp>
 #include <mbgl/map/camera.hpp>
 #include <mbgl/map/map.hpp>
@@ -36,7 +36,9 @@
 namespace mbgl {
 namespace android {
 
-class NativeMapView : public View, public Backend {
+class AndroidRendererFrontend;
+
+class NativeMapView : public View, public RendererBackend, public MapObserver {
 public:
 
     static constexpr auto Name() { return "com/mapbox/mapboxsdk/maps/NativeMapView"; };
@@ -57,15 +59,14 @@ public:
 
     void bind() override;
 
-    // mbgl::Backend //
+    // mbgl::RendererBackend //
 
     void updateAssumedState() override;
-    void invalidate() override;
 
     // Deprecated //
     void notifyMapChange(mbgl::MapChange);
 
-    // mbgl::Backend (mbgl::MapObserver) //
+    // mbgl::RendererBackend (mbgl::MapObserver) //
     void onCameraWillChange(MapObserver::CameraChangeMode) override;
     void onCameraIsChanging() override;
     void onCameraDidChange(MapObserver::CameraChangeMode) override;
@@ -79,9 +80,10 @@ public:
     void onDidFinishLoadingStyle() override;
     void onSourceChanged(mbgl::style::Source&) override;
 
-    // JNI //
+    // Signal the view system, we want to redraw
+    void invalidate();
 
-    void destroy(jni::JNIEnv&);
+    // JNI //
 
     void render(jni::JNIEnv&);
 
@@ -90,14 +92,6 @@ public:
     void resizeView(jni::JNIEnv&, int, int);
 
     void resizeFramebuffer(jni::JNIEnv&, int, int);
-
-    void initializeDisplay(jni::JNIEnv&);
-
-    void terminateDisplay(jni::JNIEnv&);
-
-    void initializeContext(jni::JNIEnv&);
-
-    void terminateContext(jni::JNIEnv&);
 
     void createSurface(jni::JNIEnv&, jni::Object<>);
 
@@ -261,8 +255,12 @@ public:
 
     void removeImage(JNIEnv&, jni::String);
 
+    void setPrefetchesTiles(JNIEnv&, jni::jboolean);
+
+    jni::jboolean getPrefetchesTiles(JNIEnv&);
+
 protected:
-    // mbgl::Backend //
+    // mbgl::RendererBackend //
 
     gl::ProcAddress initializeExtension(const char*) override;
     void activate() override;
@@ -288,6 +286,8 @@ private:
     void updateFps();
 
 private:
+    std::unique_ptr<AndroidRendererFrontend> rendererFrontend;
+
     JavaVM *vm = nullptr;
     jni::UniqueWeakObject<NativeMapView> javaPeer;
 
@@ -327,8 +327,6 @@ private:
     std::shared_ptr<mbgl::ThreadPool> threadPool;
     std::unique_ptr<mbgl::Map> map;
     mbgl::EdgeInsets insets;
-
-    unsigned active = 0;
 };
 
 } // namespace android
