@@ -35,7 +35,7 @@ class Layer;
 class RenderStyle : public GlyphManagerObserver,
                     public RenderSourceObserver {
 public:
-    RenderStyle(Scheduler&, FileSource&, uint8_t);
+    RenderStyle(Scheduler&, FileSource&);
     ~RenderStyle() final;
 
     void setObserver(RenderStyleObserver*);
@@ -87,8 +87,6 @@ private:
 
     RenderStyleObserver* observer;
     ZoomHistory zoomHistory;
-                        
-    uint8_t maxZoomLimit = std::numeric_limits<uint8_t>::max();
 };
 
 } // namespace mbgl

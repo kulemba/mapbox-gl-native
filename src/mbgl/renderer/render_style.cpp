@@ -15,16 +15,16 @@
 #include <mbgl/renderer/layers/render_line_layer.hpp>
 #include <mbgl/renderer/layers/render_raster_layer.hpp>
 #include <mbgl/renderer/layers/render_symbol_layer.hpp>
+#include <mbgl/renderer/backend_scope.hpp>
 #include <mbgl/renderer/style_diff.hpp>
 #include <mbgl/renderer/image_manager.hpp>
+#include <mbgl/renderer/query.hpp>
 #include <mbgl/style/style.hpp>
 #include <mbgl/style/source_impl.hpp>
 #include <mbgl/style/transition_options.hpp>
 #include <mbgl/sprite/sprite_loader.hpp>
 #include <mbgl/text/glyph_manager.hpp>
 #include <mbgl/geometry/line_atlas.hpp>
-#include <mbgl/map/backend_scope.hpp>
-#include <mbgl/map/query.hpp>
 #include <mbgl/tile/tile.hpp>
 #include <mbgl/util/math.hpp>
 #include <mbgl/util/string.hpp>
@@ -36,7 +36,7 @@ using namespace style;
 
 RenderStyleObserver nullObserver;
 
-RenderStyle::RenderStyle(Scheduler& scheduler_, FileSource& fileSource_, uint8_t maxZoomLimit_)
+RenderStyle::RenderStyle(Scheduler& scheduler_, FileSource& fileSource_)
     : scheduler(scheduler_),
       fileSource(fileSource_),
       glyphManager(std::make_unique<GlyphManager>(fileSource)),
@@ -46,8 +46,7 @@ RenderStyle::RenderStyle(Scheduler& scheduler_, FileSource& fileSource_, uint8_t
       sourceImpls(makeMutable<std::vector<Immutable<style::Source::Impl>>>()),
       layerImpls(makeMutable<std::vector<Immutable<style::Layer::Impl>>>()),
       renderLight(makeMutable<Light::Impl>()),
-      observer(&nullObserver),
-      maxZoomLimit(maxZoomLimit_) {
+      observer(&nullObserver) {
     glyphManager->setObserver(this);
 }
 
@@ -144,9 +143,7 @@ void RenderStyle::update(const UpdateParameters& parameters) {
         imageManager->updateImage(entry.second.after);
     }
 
-    if (parameters.spriteLoaded && !imageManager->isLoaded()) {
-        imageManager->onSpriteLoaded();
-    }
+    imageManager->setLoaded(parameters.spriteLoaded);
 
 
     const LayerDifference layerDiff = diffLayers(layerImpls, parameters.layers);
@@ -194,7 +191,6 @@ void RenderStyle::update(const UpdateParameters& parameters) {
     // Create render sources for newly added sources.
     for (const auto& entry : sourceDiff.added) {
         std::unique_ptr<RenderSource> renderSource = RenderSource::create(entry.second);
-        renderSource->limitMaxZoom(maxZoomLimit);
         renderSource->setObserver(this);
         renderSources.emplace(entry.first, std::move(renderSource));
     }
@@ -227,11 +223,13 @@ void RenderStyle::update(const UpdateParameters& parameters) {
             filteredLayers.push_back(layer);
         }
 
-        renderSources.at(source->id)->update(source,
-                                             filteredLayers,
-                                             needsRendering,
-                                             needsRelayout,
-                                             tileParameters);
+        auto& renderSource = renderSources.at(source->id);
+        renderSource->limitMaxZoom(parameters.maxZoomLimit);
+        renderSource->update(source,
+                             filteredLayers,
+                             needsRendering,
+                             needsRelayout,
+                             tileParameters);
     }
 }
 

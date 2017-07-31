@@ -101,17 +101,12 @@ set(MBGL_CORE_FILES
     src/mbgl/layout/symbol_projection.hpp
 
     # map
-    include/mbgl/map/backend.hpp
-    include/mbgl/map/backend_scope.hpp
     include/mbgl/map/camera.hpp
     include/mbgl/map/change.hpp
     include/mbgl/map/map.hpp
     include/mbgl/map/map_observer.hpp
     include/mbgl/map/mode.hpp
-    include/mbgl/map/query.hpp
     include/mbgl/map/view.hpp
-    src/mbgl/map/backend.cpp
-    src/mbgl/map/backend_scope.cpp
     src/mbgl/map/map.cpp
     src/mbgl/map/transform.cpp
     src/mbgl/map/transform.hpp
@@ -160,6 +155,12 @@ set(MBGL_CORE_FILES
     src/mbgl/programs/uniforms.hpp
 
     # renderer
+    include/mbgl/renderer/backend_scope.hpp
+    include/mbgl/renderer/query.hpp
+    include/mbgl/renderer/renderer.hpp
+    include/mbgl/renderer/renderer_backend.hpp
+    include/mbgl/renderer/renderer_frontend.hpp
+    src/mbgl/renderer/backend_scope.cpp
     src/mbgl/renderer/bucket.hpp
     src/mbgl/renderer/bucket_parameters.cpp
     src/mbgl/renderer/bucket_parameters.hpp
@@ -174,11 +175,10 @@ set(MBGL_CORE_FILES
     src/mbgl/renderer/image_atlas.hpp
     src/mbgl/renderer/image_manager.cpp
     src/mbgl/renderer/image_manager.hpp
+    src/mbgl/renderer/paint_parameters.cpp
     src/mbgl/renderer/paint_parameters.hpp
     src/mbgl/renderer/paint_property_binder.hpp
     src/mbgl/renderer/paint_property_statistics.hpp
-    src/mbgl/renderer/painter.cpp
-    src/mbgl/renderer/painter.hpp
     src/mbgl/renderer/possibly_evaluated_property_value.hpp
     src/mbgl/renderer/property_evaluation_parameters.hpp
     src/mbgl/renderer/property_evaluator.hpp
@@ -191,11 +191,18 @@ set(MBGL_CORE_FILES
     src/mbgl/renderer/render_source.cpp
     src/mbgl/renderer/render_source.hpp
     src/mbgl/renderer/render_source_observer.hpp
+    src/mbgl/renderer/render_static_data.cpp
+    src/mbgl/renderer/render_static_data.hpp
     src/mbgl/renderer/render_style.cpp
     src/mbgl/renderer/render_style.hpp
     src/mbgl/renderer/render_style_observer.hpp
     src/mbgl/renderer/render_tile.cpp
     src/mbgl/renderer/render_tile.hpp
+    src/mbgl/renderer/renderer.cpp
+    src/mbgl/renderer/renderer_backend.cpp
+    src/mbgl/renderer/renderer_impl.cpp
+    src/mbgl/renderer/renderer_impl.hpp
+    src/mbgl/renderer/renderer_observer.hpp
     src/mbgl/renderer/style_diff.cpp
     src/mbgl/renderer/style_diff.hpp
     src/mbgl/renderer/tile_parameters.hpp
@@ -237,17 +244,6 @@ set(MBGL_CORE_FILES
     src/mbgl/renderer/layers/render_raster_layer.hpp
     src/mbgl/renderer/layers/render_symbol_layer.cpp
     src/mbgl/renderer/layers/render_symbol_layer.hpp
-
-    # renderer/painters
-    src/mbgl/renderer/painters/painter_background.cpp
-    src/mbgl/renderer/painters/painter_circle.cpp
-    src/mbgl/renderer/painters/painter_clipping.cpp
-    src/mbgl/renderer/painters/painter_debug.cpp
-    src/mbgl/renderer/painters/painter_fill.cpp
-    src/mbgl/renderer/painters/painter_fill_extrusion.cpp
-    src/mbgl/renderer/painters/painter_line.cpp
-    src/mbgl/renderer/painters/painter_raster.cpp
-    src/mbgl/renderer/painters/painter_symbol.cpp
 
     # renderer/sources
     src/mbgl/renderer/sources/render_geojson_source.cpp
@@ -578,7 +574,7 @@ set(MBGL_CORE_FILES
     src/mbgl/util/event.cpp
     src/mbgl/util/font_stack.cpp
     src/mbgl/util/geo.cpp
-    src/mbgl/util/geojson.cpp
+    src/mbgl/util/geojson_impl.cpp
     src/mbgl/util/grid_index.cpp
     src/mbgl/util/grid_index.hpp
     src/mbgl/util/http_header.cpp
