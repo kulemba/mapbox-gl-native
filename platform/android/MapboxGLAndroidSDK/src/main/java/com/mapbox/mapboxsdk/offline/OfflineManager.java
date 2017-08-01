@@ -1,5 +1,6 @@
 package com.mapbox.mapboxsdk.offline;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
@@ -43,6 +44,7 @@ public class OfflineManager {
   private Handler handler;
 
   // This object is implemented as a singleton
+  @SuppressLint("StaticFieldLeak")
   private static OfflineManager instance;
 
   // The application context
@@ -106,11 +108,11 @@ public class OfflineManager {
    */
   private OfflineManager(Context context) {
     this.context = context.getApplicationContext();
-    this.fileSource = FileSource.getInstance(context);
+    this.fileSource = FileSource.getInstance(this.context);
     initialize(fileSource);
 
     // Delete any existing previous ambient cache database
-    deleteAmbientDatabase(context);
+    deleteAmbientDatabase(this.context);
   }
 
   private void deleteAmbientDatabase(final Context context) {
@@ -123,10 +125,10 @@ public class OfflineManager {
           File file = new File(path);
           if (file.exists()) {
             file.delete();
-            Timber.d("Old ambient cache database deleted to save space: " + path);
+            Timber.d("Old ambient cache database deleted to save space: %s", path);
           }
         } catch (Exception exception) {
-          Timber.e("Failed to delete old ambient cache database: ", exception);
+          Timber.e(exception, "Failed to delete old ambient cache database: ");
         }
       }
     }).start();

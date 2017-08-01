@@ -10,6 +10,7 @@ set(MBGL_BENCHMARK_FILES
 
     # parse
     benchmark/parse/filter.benchmark.cpp
+    benchmark/parse/tile_mask.benchmark.cpp
     benchmark/parse/vector_tile.benchmark.cpp
 
     # src
@@ -17,8 +18,6 @@ set(MBGL_BENCHMARK_FILES
 
     # src/mbgl/benchmark
     benchmark/src/mbgl/benchmark/benchmark.cpp
-    benchmark/src/mbgl/benchmark/util.cpp
-    benchmark/src/mbgl/benchmark/util.hpp
 
     # util
     benchmark/util/dtoa.benchmark.cpp
