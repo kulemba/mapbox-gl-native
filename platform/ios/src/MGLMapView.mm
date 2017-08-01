@@ -6,7 +6,6 @@
 #import <OpenGLES/EAGL.h>
 
 #include <mbgl/map/map.hpp>
-#include <mbgl/map/view.hpp>
 #include <mbgl/annotation/annotation.hpp>
 #include <mbgl/map/camera.hpp>
 #include <mbgl/map/mode.hpp>
@@ -470,7 +469,7 @@ public:
     _mbglThreadPool = mbgl::sharedThreadPool();
     
     auto renderer = std::make_unique<mbgl::Renderer>(*_mbglView, scaleFactor, *mbglFileSource, *_mbglThreadPool, mbgl::GLContextMode::Unique);
-    _rendererFrontend = std::make_unique<MGLRenderFrontend>(std::move(renderer), self, _mbglView);
+    _rendererFrontend = std::make_unique<MGLRenderFrontend>(std::move(renderer), self, *_mbglView);
     _mbglMap = new mbgl::Map(*_rendererFrontend, *_mbglView, self.size, scaleFactor, *mbglFileSource, *_mbglThreadPool, mbgl::MapMode::Continuous, mbgl::ConstrainMode::None, mbgl::ViewportMode::Default);
 
     // start paused if in IB
@@ -5432,7 +5431,7 @@ public:
     return _annotationViewReuseQueueByIdentifier[identifier];
 }
 
-class MBGLView : public mbgl::View, public mbgl::RendererBackend, public mbgl::MapObserver
+class MBGLView : public mbgl::RendererBackend, public mbgl::MapObserver
 {
 public:
     MBGLView(MGLMapView* nativeView_) : nativeView(nativeView_) {
@@ -5542,10 +5541,6 @@ public:
         CFRelease(str);
 
         return reinterpret_cast<mbgl::gl::ProcAddress>(symbol);
-    }
-    
-    mbgl::BackendScope::ScopeType getScopeType() const override {
-        return mbgl::BackendScope::ScopeType::Implicit;
     }
 
     void activate() override
