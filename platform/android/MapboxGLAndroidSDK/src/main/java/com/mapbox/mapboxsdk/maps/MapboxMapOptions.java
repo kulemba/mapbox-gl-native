@@ -79,6 +79,8 @@ public class MapboxMapOptions implements Parcelable {
   private int[] myLocationBackgroundPadding;
   private int myLocationAccuracyTintColor;
   private int myLocationAccuracyAlpha;
+  private float myLocationAccuracyThreshold;
+  private boolean prefetchesTiles = true;
 
   private String apiBaseUrl;
 
@@ -148,10 +150,12 @@ public class MapboxMapOptions implements Parcelable {
     myLocationBackgroundPadding = in.createIntArray();
     myLocationAccuracyAlpha = in.readInt();
     myLocationAccuracyTintColor = in.readInt();
+    myLocationAccuracyThreshold = in.readFloat();
 
     style = in.readString();
     apiBaseUrl = in.readString();
     textureMode = in.readByte() != 0;
+    prefetchesTiles = in.readByte() != 0;
   }
 
   static Bitmap getBitmapFromDrawable(Drawable drawable) {
@@ -291,8 +295,12 @@ public class MapboxMapOptions implements Parcelable {
       mapboxMapOptions.myLocationAccuracyTint(
         typedArray.getColor(R.styleable.mapbox_MapView_mapbox_myLocationAccuracyTintColor,
           ColorUtils.getPrimaryColor(context)));
+      mapboxMapOptions.myLocationAccuracyThreshold(
+        typedArray.getFloat(R.styleable.mapbox_MapView_mapbox_myLocationAccuracyThreshold, 0));
       mapboxMapOptions.textureMode(
         typedArray.getBoolean(R.styleable.mapbox_MapView_mapbox_renderTextureMode, false));
+      mapboxMapOptions.setPrefetchesTiles(
+        typedArray.getBoolean(R.styleable.mapbox_MapView_mapbox_enableTilePrefetch, true));
     } finally {
       typedArray.recycle();
     }
@@ -681,6 +689,17 @@ public class MapboxMapOptions implements Parcelable {
   }
 
   /**
+   * Set accuracy circle threshold. Circle won't be displayed if accuracy is below set value.
+   *
+   * @param myLocationAccuracyThreshold Value of accuracy (in meters), below which circle won't be displayed
+   * @return This
+   */
+  public MapboxMapOptions myLocationAccuracyThreshold(float myLocationAccuracyThreshold) {
+    this.myLocationAccuracyThreshold = myLocationAccuracyThreshold;
+    return this;
+  }
+
+  /**
    * Enable TextureView as rendered surface.
    * <p>
    * Since the 4.2.0 release we replaced our TextureView with an SurfaceView implemenation.
@@ -694,6 +713,30 @@ public class MapboxMapOptions implements Parcelable {
   public MapboxMapOptions textureMode(boolean textureMode) {
     this.textureMode = textureMode;
     return this;
+  }
+
+  /**
+   * Enable tile pre-fetching. Loads tiles at a lower zoom-level to pre-render
+   * a low resolution preview while more detailed tiles are loaded.
+   *
+   * Enabled by default
+   *
+   * @param enable true to enable
+   *
+   * @return This
+   */
+  public MapboxMapOptions setPrefetchesTiles(boolean enable) {
+    this.prefetchesTiles = enable;
+    return this;
+  }
+
+  /**
+   * Check whether tile pre-fetching is enabled.
+   *
+   * @return true if enabled
+   */
+  public boolean getPrefetchesTiles() {
+    return prefetchesTiles;
   }
 
   /**
@@ -988,6 +1031,15 @@ public class MapboxMapOptions implements Parcelable {
   }
 
   /**
+   * Returns current accuracy threshold value (in meters).
+   *
+   * @return Value of accuracy threshold (in meters), below which circle won't be displayed
+   */
+  public float getMyLocationAccuracyThreshold() {
+    return myLocationAccuracyThreshold;
+  }
+
+  /**
    * Get the current configured debug state for a map view.
    *
    * @return True indicates debug is enabled.
@@ -1065,10 +1117,12 @@ public class MapboxMapOptions implements Parcelable {
     dest.writeIntArray(myLocationBackgroundPadding);
     dest.writeInt(myLocationAccuracyAlpha);
     dest.writeInt(myLocationAccuracyTintColor);
+    dest.writeFloat(myLocationAccuracyThreshold);
 
     dest.writeString(style);
     dest.writeString(apiBaseUrl);
     dest.writeByte((byte) (textureMode ? 1 : 0));
+    dest.writeByte((byte) (prefetchesTiles ? 1 : 0));
   }
 
   @Override
@@ -1153,6 +1207,9 @@ public class MapboxMapOptions implements Parcelable {
     if (myLocationAccuracyAlpha != options.myLocationAccuracyAlpha) {
       return false;
     }
+    if (myLocationAccuracyThreshold != options.myLocationAccuracyThreshold) {
+      return false;
+    }
     if (cameraPosition != null ? !cameraPosition.equals(options.cameraPosition) : options.cameraPosition != null) {
       return false;
     }
@@ -1187,6 +1244,9 @@ public class MapboxMapOptions implements Parcelable {
       return false;
     }
     if (apiBaseUrl != null ? !apiBaseUrl.equals(options.apiBaseUrl) : options.apiBaseUrl != null) {
+      return false;
+    }
+    if (prefetchesTiles != options.prefetchesTiles) {
       return false;
     }
     return false;
@@ -1230,9 +1290,12 @@ public class MapboxMapOptions implements Parcelable {
     result = 31 * result + Arrays.hashCode(myLocationBackgroundPadding);
     result = 31 * result + myLocationAccuracyTintColor;
     result = 31 * result + myLocationAccuracyAlpha;
+    result = 31 * result + (myLocationAccuracyThreshold != +0.0f
+      ? Float.floatToIntBits(myLocationAccuracyThreshold) : 0);
     result = 31 * result + (apiBaseUrl != null ? apiBaseUrl.hashCode() : 0);
     result = 31 * result + (textureMode ? 1 : 0);
     result = 31 * result + (style != null ? style.hashCode() : 0);
+    result = 31 * result + (prefetchesTiles ? 1 : 0);
     return result;
   }
 }
