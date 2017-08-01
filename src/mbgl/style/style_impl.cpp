@@ -38,6 +38,7 @@ Style::Impl::Impl(Scheduler& scheduler_, FileSource& fileSource_, float pixelRat
 Style::Impl::~Impl() = default;
 
 void Style::Impl::loadJSON(const std::string& json_, uint8_t maxZoomLimit_) {
+    lastError = nullptr;
     observer->onStyleLoading();
 
     maxZoomLimit = maxZoomLimit_;
@@ -46,6 +47,7 @@ void Style::Impl::loadJSON(const std::string& json_, uint8_t maxZoomLimit_) {
 }
 
 void Style::Impl::loadURL(const std::string& url_, uint8_t maxZoomLimit_) {
+    lastError = nullptr;
     observer->onStyleLoading();
 
     maxZoomLimit = maxZoomLimit_;
