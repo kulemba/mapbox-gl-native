@@ -7,6 +7,7 @@
 #include <boost/algorithm/string.hpp>
 
 #include <algorithm>
+#include <cmath>
 
 namespace mbgl {
 
@@ -72,7 +73,7 @@ float determineAverageLineWidth(const std::u16string& logicalInput,
         }
     }
     
-    int32_t targetLineCount = std::fmax(1, std::ceil(totalWidth / maxWidth));
+    int32_t targetLineCount = ::fmax(1, std::ceil(totalWidth / maxWidth));
     return totalWidth / targetLineCount;
 }
 
@@ -199,9 +200,8 @@ void shapeLines(Shaping& shaping,
                           const std::vector<std::u16string>& lines,
                           const float spacing,
                           const float lineHeight,
-                          const float horizontalAlign,
-                          const float verticalAlign,
-                          const float justify,
+                          const style::TextAnchorType textAnchor,
+                          const style::TextJustifyType textJustify,
                           const float verticalHeight,
                           const WritingModeType writingMode,
                           const Glyphs& glyphs) {
@@ -213,6 +213,10 @@ void shapeLines(Shaping& shaping,
     float y = yOffset;
     
     float maxLineLength = 0;
+
+    const float justify = textJustify == style::TextJustifyType::Right ? 1 :
+        textJustify == style::TextJustifyType::Left ? 0 :
+        0.5;
     
     for (std::u16string line : lines) {
         // Collapse whitespace so it doesn't throw off justification
@@ -253,11 +257,48 @@ void shapeLines(Shaping& shaping,
         x = 0;
         y += lineHeight;
     }
-    
-    align(shaping, justify, horizontalAlign, verticalAlign, maxLineLength, lineHeight,
-          lines.size());
+
+    float horizontalAlign = 0.5;
+    float verticalAlign = 0.5;
+
+    switch (textAnchor) {
+        case style::TextAnchorType::Top:
+        case style::TextAnchorType::Bottom:
+        case style::TextAnchorType::Center:
+            break;
+        case style::TextAnchorType::Right:
+        case style::TextAnchorType::TopRight:
+        case style::TextAnchorType::BottomRight:
+            horizontalAlign = 1;
+            break;
+        case style::TextAnchorType::Left:
+        case style::TextAnchorType::TopLeft:
+        case style::TextAnchorType::BottomLeft:
+            horizontalAlign = 0;
+            break;
+    }
+
+    switch (textAnchor) {
+        case style::TextAnchorType::Left:
+        case style::TextAnchorType::Right:
+        case style::TextAnchorType::Center:
+            break;
+        case style::TextAnchorType::Bottom:
+        case style::TextAnchorType::BottomLeft:
+        case style::TextAnchorType::BottomRight:
+            verticalAlign = 1;
+            break;
+        case style::TextAnchorType::Top:
+        case style::TextAnchorType::TopLeft:
+        case style::TextAnchorType::TopRight:
+            verticalAlign = 0;
+            break;
+    }
+
+    align(shaping, justify, horizontalAlign, verticalAlign,
+          maxLineLength, lineHeight, lines.size());
     const uint32_t height = lines.size() * lineHeight;
-    
+
     // Calculate the bounding box
     shaping.top += -verticalAlign * height;
     shaping.bottom = shaping.top + height;
@@ -268,9 +309,8 @@ void shapeLines(Shaping& shaping,
 const Shaping getShaping(const std::u16string& logicalInput,
                          const float maxWidth,
                          const float lineHeight,
-                         const float horizontalAlign,
-                         const float verticalAlign,
-                         const float justify,
+                         const style::TextAnchorType textAnchor,
+                         const style::TextJustifyType textJustify,
                          const float spacing,
                          const Point<float>& translate,
                          const float verticalHeight,
@@ -283,8 +323,8 @@ const Shaping getShaping(const std::u16string& logicalInput,
     bidi.processText(logicalInput,
                      determineLineBreaks(logicalInput, spacing, maxWidth, writingMode, glyphs));
     
-    shapeLines(shaping, reorderedLines, spacing, lineHeight, horizontalAlign, verticalAlign,
-               justify, verticalHeight, writingMode, glyphs);
+    shapeLines(shaping, reorderedLines, spacing, lineHeight, textAnchor,
+               textJustify, verticalHeight, writingMode, glyphs);
     
     return shaping;
 }
