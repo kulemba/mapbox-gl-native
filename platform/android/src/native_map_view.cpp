@@ -78,6 +78,7 @@ NativeMapView::NativeMapView(jni::JNIEnv& _env,
 
     // Create a renderer frontend
     rendererFrontend = std::make_unique<AndroidRendererFrontend>(std::move(renderer),
+                                                                 *this,
                                                                  [this] { this->invalidate(); });
 
     // Create the core map
@@ -106,7 +107,7 @@ NativeMapView::~NativeMapView() {
 }
 
 /**
- * From mbgl::View
+ * From mbgl::RendererBackend
  */
 void NativeMapView::bind() {
     setFramebufferBinding(0);
@@ -274,7 +275,7 @@ void NativeMapView::render(jni::JNIEnv& env) {
         framebufferSizeChanged = false;
     }
 
-    rendererFrontend->render(*this);
+    rendererFrontend->render();
 
     if(snapshot){
          snapshot = false;
