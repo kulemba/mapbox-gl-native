@@ -1,6 +1,4 @@
 add_executable(mbgl-benchmark
-    platform/default/mbgl/renderer/async_renderer_frontend.cpp
-    platform/default/mbgl/renderer/async_renderer_frontend.hpp
     ${MBGL_BENCHMARK_FILES}
 )
 
@@ -19,6 +17,7 @@ target_link_libraries(mbgl-benchmark
     PRIVATE mbgl-core
 )
 
+target_add_mason_package(mbgl-benchmark PRIVATE boost)
 target_add_mason_package(mbgl-benchmark PRIVATE benchmark)
 target_add_mason_package(mbgl-benchmark PRIVATE rapidjson)
 target_add_mason_package(mbgl-benchmark PRIVATE protozero)

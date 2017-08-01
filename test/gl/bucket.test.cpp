@@ -12,6 +12,26 @@
 
 #include <mbgl/map/mode.hpp>
 
+namespace mbgl {
+
+template <class Attributes>
+bool operator==(const Segment<Attributes>& lhs, const Segment<Attributes>& rhs) {
+    return std::tie(lhs.vertexOffset, lhs.indexOffset, lhs.vertexLength, lhs.indexLength) ==
+           std::tie(rhs.vertexOffset, rhs.indexOffset, rhs.vertexLength, rhs.indexLength);
+}
+
+namespace gl {
+namespace detail {
+
+template <class A1, class A2>
+bool operator==(const Vertex<A1, A2>& lhs, const Vertex<A1, A2>& rhs) {
+    return std::tie(lhs.a1, lhs.a2) == std::tie(rhs.a1, rhs.a2);
+}
+
+} // namespace detail
+} // namespace gl
+} // namespace mbgl
+
 using namespace mbgl;
 
 namespace {
@@ -114,3 +134,142 @@ TEST(Buckets, RasterBucket) {
     bucket.clear();
     ASSERT_TRUE(bucket.needsUpload());
 }
+
+TEST(Buckets, RasterBucketMaskEmpty) {
+    RasterBucket bucket{ nullptr };
+    bucket.setMask({});
+    EXPECT_EQ((std::vector<RasterLayoutVertex>{}), bucket.vertices.vector());
+    EXPECT_EQ((std::vector<uint16_t>{}), bucket.indices.vector());
+    SegmentVector<RasterAttributes> expectedSegments;
+    expectedSegments.emplace_back(0, 0, 0, 0);
+    EXPECT_EQ(expectedSegments, bucket.segments);
+}
+
+TEST(Buckets, RasterBucketMaskNoChildren) {
+    RasterBucket bucket{ nullptr };
+    bucket.setMask({ CanonicalTileID{ 0, 0, 0 } });
+
+    // A mask of 0/0/0 doesn't produce buffers since we're instead using the global shared buffers.
+    EXPECT_EQ((std::vector<RasterLayoutVertex>{}), bucket.vertices.vector());
+    EXPECT_EQ((std::vector<uint16_t>{}), bucket.indices.vector());
+    EXPECT_EQ((SegmentVector<RasterAttributes>{}), bucket.segments);
+}
+
+ TEST(Buckets, RasterBucketMaskTwoChildren) {
+     RasterBucket bucket{ nullptr };
+     bucket.setMask(
+         { CanonicalTileID{ 1, 0, 0 }, CanonicalTileID{ 1, 1, 1 } });
+
+     EXPECT_EQ(
+         (std::vector<RasterLayoutVertex>{
+             // 1/0/1
+             RasterProgram::layoutVertex({ 0, 0 }, { 0, 0 }),
+             RasterProgram::layoutVertex({ 4096, 0 }, { 4096, 0 }),
+             RasterProgram::layoutVertex({ 0, 4096 }, { 0, 4096 }),
+             RasterProgram::layoutVertex({ 4096, 4096 }, { 4096, 4096 }),
+
+             // 1/1/1
+             RasterProgram::layoutVertex({ 4096, 4096 }, { 4096, 4096 }),
+             RasterProgram::layoutVertex({ 8192, 4096 }, { 8192, 4096 }),
+             RasterProgram::layoutVertex({ 4096, 8192 }, { 4096, 8192 }),
+             RasterProgram::layoutVertex({ 8192, 8192 }, { 8192, 8192 }),
+         }),
+         bucket.vertices.vector());
+
+     EXPECT_EQ(
+         (std::vector<uint16_t>{
+             // 1/0/1
+             0, 1, 2,
+             1, 2, 3,
+
+             // 1/1/1
+             4, 5, 6,
+             5, 6, 7,
+         }),
+         bucket.indices.vector());
+
+
+     SegmentVector<RasterAttributes> expectedSegments;
+     expectedSegments.emplace_back(0, 0, 8, 12);
+     EXPECT_EQ(expectedSegments, bucket.segments);
+ }
+
+ TEST(Buckets, RasterBucketMaskComplex) {
+     RasterBucket bucket{ nullptr };
+     bucket.setMask(
+         { CanonicalTileID{ 1, 0, 1 }, CanonicalTileID{ 1, 1, 0 }, CanonicalTileID{ 2, 2, 3 },
+           CanonicalTileID{ 2, 3, 2 }, CanonicalTileID{ 3, 6, 7 }, CanonicalTileID{ 3, 7, 6 } });
+
+     EXPECT_EQ(
+         (std::vector<RasterLayoutVertex>{
+             // 1/0/1
+             RasterProgram::layoutVertex({ 0, 4096 }, { 0, 4096 }),
+             RasterProgram::layoutVertex({ 4096, 4096 }, { 4096, 4096 }),
+             RasterProgram::layoutVertex({ 0, 8192 }, { 0, 8192 }),
+             RasterProgram::layoutVertex({ 4096, 8192 }, { 4096, 8192 }),
+
+             // 1/1/0
+             RasterProgram::layoutVertex({ 4096, 0 }, { 4096, 0 }),
+             RasterProgram::layoutVertex({ 8192, 0 }, { 8192, 0 }),
+             RasterProgram::layoutVertex({ 4096, 4096 }, { 4096, 4096 }),
+             RasterProgram::layoutVertex({ 8192, 4096 }, { 8192, 4096 }),
+
+             // 2/2/3
+             RasterProgram::layoutVertex({ 4096, 6144 }, { 4096, 6144 }),
+             RasterProgram::layoutVertex({ 6144, 6144 }, { 6144, 6144 }),
+             RasterProgram::layoutVertex({ 4096, 8192 }, { 4096, 8192 }),
+             RasterProgram::layoutVertex({ 6144, 8192 }, { 6144, 8192 }),
+
+             // 2/3/2
+             RasterProgram::layoutVertex({ 6144, 4096 }, { 6144, 4096 }),
+             RasterProgram::layoutVertex({ 8192, 4096 }, { 8192, 4096 }),
+             RasterProgram::layoutVertex({ 6144, 6144 }, { 6144, 6144 }),
+             RasterProgram::layoutVertex({ 8192, 6144 }, { 8192, 6144 }),
+
+             // 3/6/7
+             RasterProgram::layoutVertex({ 6144, 7168 }, { 6144, 7168 }),
+             RasterProgram::layoutVertex({ 7168, 7168 }, { 7168, 7168 }),
+             RasterProgram::layoutVertex({ 6144, 8192 }, { 6144, 8192 }),
+             RasterProgram::layoutVertex({ 7168, 8192 }, { 7168, 8192 }),
+
+             // 3/7/6
+             RasterProgram::layoutVertex({ 7168, 6144 }, { 7168, 6144 }),
+             RasterProgram::layoutVertex({ 8192, 6144 }, { 8192, 6144 }),
+             RasterProgram::layoutVertex({ 7168, 7168 }, { 7168, 7168 }),
+             RasterProgram::layoutVertex({ 8192, 7168 }, { 8192, 7168 }),
+         }),
+         bucket.vertices.vector());
+
+     EXPECT_EQ(
+         (std::vector<uint16_t>{
+             // 1/0/1
+             0, 1, 2,
+             1, 2, 3,
+
+             // 1/1/0
+             4, 5, 6,
+             5, 6, 7,
+
+             // 2/2/3
+             8, 9, 10,
+             9, 10, 11,
+
+             // 2/3/2
+             12, 13, 14,
+             13, 14, 15,
+
+             // 3/6/7
+             16, 17, 18,
+             17, 18, 19,
+
+             // 3/7/6
+             20, 21, 22,
+             21, 22, 23,
+         }),
+         bucket.indices.vector());
+
+
+     SegmentVector<RasterAttributes> expectedSegments;
+     expectedSegments.emplace_back(0, 0, 24, 36);
+     EXPECT_EQ(expectedSegments, bucket.segments);
+ }
