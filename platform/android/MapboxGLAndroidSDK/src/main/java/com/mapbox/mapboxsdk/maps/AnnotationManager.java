@@ -26,6 +26,8 @@ import com.mapbox.services.commons.geojson.Feature;
 import java.util.ArrayList;
 import java.util.List;
 
+import timber.log.Timber;
+
 /**
  * Responsible for managing and tracking state of Annotations linked to Map. All events related to
  * annotations that occur on {@link MapboxMap} are forwarded to this class.
@@ -40,6 +42,7 @@ import java.util.List;
 class AnnotationManager {
 
   private static final String LAYER_ID_SHAPE_ANNOTATIONS = "com.mapbox.annotations.shape.";
+  private static final long NO_ANNOTATION_ID = -1;
 
   private final MapView mapView;
   private final IconManager iconManager;
@@ -178,6 +181,10 @@ class AnnotationManager {
   }
 
   void updateMarker(@NonNull Marker updatedMarker, @NonNull MapboxMap mapboxMap) {
+    if (!isAddedToMap(updatedMarker)) {
+      logNonAdded(updatedMarker);
+      return;
+    }
     markers.update(updatedMarker, mapboxMap);
   }
 
@@ -227,6 +234,10 @@ class AnnotationManager {
   }
 
   void updatePolygon(Polygon polygon) {
+    if (!isAddedToMap(polygon)) {
+      logNonAdded(polygon);
+      return;
+    }
     polygons.update(polygon);
   }
 
@@ -253,6 +264,10 @@ class AnnotationManager {
   }
 
   void updatePolyline(Polyline polyline) {
+    if (!isAddedToMap(polyline)) {
+      logNonAdded(polyline);
+      return;
+    }
     polylines.update(polyline);
   }
 
@@ -362,20 +377,30 @@ class AnnotationManager {
     }
   }
 
+  private boolean isAddedToMap(Annotation annotation) {
+    return annotation != null && annotation.getId() != -1 && annotationsArray.indexOfKey(annotation.getId()) > -1;
+  }
+
+  private void logNonAdded(Annotation annotation) {
+    Timber.w("Attempting to update non-added %s with value %s", annotation.getClass().getCanonicalName(), annotation);
+  }
+
   //
   // Click event
   //
 
   boolean onTap(PointF tapPoint) {
-    ShapeAnnotationHit shapeAnnotationHit = getShapeAnnotationHitFromTap(tapPoint);
-    long shapeAnnotationId = new ShapeAnnotationHitResolver(mapboxMap).execute(shapeAnnotationHit);
-    if (shapeAnnotationId >= 0) {
-      handleClickForShapeAnnotation(shapeAnnotationId);
+    if (!shapeAnnotationIds.isEmpty()) {
+      ShapeAnnotationHit shapeAnnotationHit = getShapeAnnotationHitFromTap(tapPoint);
+      long shapeAnnotationId = new ShapeAnnotationHitResolver(mapboxMap).execute(shapeAnnotationHit);
+      if (shapeAnnotationId != NO_ANNOTATION_ID) {
+        handleClickForShapeAnnotation(shapeAnnotationId);
+      }
     }
 
     MarkerHit markerHit = getMarkerHitFromTouchArea(tapPoint);
     long markerId = new MarkerHitResolver(mapboxMap).execute(markerHit);
-    return markerId >= 0 && isClickHandledForMarker(markerId);
+    return markerId != NO_ANNOTATION_ID && isClickHandledForMarker(markerId);
   }
 
   private ShapeAnnotationHit getShapeAnnotationHitFromTap(PointF tapPoint) {
@@ -445,8 +470,21 @@ class AnnotationManager {
     }
 
     public long execute(ShapeAnnotationHit shapeHit) {
+      long foundAnnotationId = NO_ANNOTATION_ID;
       List<Feature> features = mapboxMap.queryRenderedFeatures(shapeHit.tapPoint, shapeHit.layerIds);
-      return features.isEmpty() ? -1 : Long.valueOf(features.get(0).getId());
+      if (!features.isEmpty()) {
+        foundAnnotationId = getIdFromFeature(features.get(0));
+      }
+      return foundAnnotationId;
+    }
+
+    private long getIdFromFeature(Feature feature) {
+      try {
+        return Long.valueOf(feature.getId());
+      } catch (NumberFormatException exception) {
+        Timber.e(exception, "Couldn't parse feature id to a long, with id: %s", feature.getId());
+        return NO_ANNOTATION_ID;
+      }
     }
   }
 
@@ -463,7 +501,7 @@ class AnnotationManager {
     private RectF hitRectMarker = new RectF();
     private RectF highestSurfaceIntersection = new RectF();
 
-    private long closestMarkerId = -1;
+    private long closestMarkerId = NO_ANNOTATION_ID;
 
     MarkerHitResolver(@NonNull MapboxMap mapboxMap) {
       this.markerViewManager = mapboxMap.getMarkerViewManager();
