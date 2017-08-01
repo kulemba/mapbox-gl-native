@@ -35,7 +35,7 @@ Renderer::Impl::Impl(RendererBackend& backend_,
 }
 
 Renderer::Impl::~Impl() {
-    BackendScope guard { backend, backend.getScopeType()};
+    BackendScope guard { backend };
     renderStyle.reset();
     staticData.reset();
 };
@@ -44,11 +44,11 @@ void Renderer::Impl::setObserver(RendererObserver* observer_) {
     observer = observer_ ? observer_ : &nullObserver();
 }
 
-void Renderer::Impl::render(View& view, const UpdateParameters& updateParameters) {
+void Renderer::Impl::render(const UpdateParameters& updateParameters) {
     // Don't load/render anyting in still mode until explicitly requested.
     if (updateParameters.mode == MapMode::Still && !updateParameters.stillImageRequest) return;
-
-    BackendScope guard { backend, backend.getScopeType() };
+    
+    assert(BackendScope::exists());
 
     renderStyle->update(updateParameters);
     transformState = updateParameters.transformState;
@@ -61,7 +61,7 @@ void Renderer::Impl::render(View& view, const UpdateParameters& updateParameters
         backend.getContext(),
         pixelRatio,
         contextMode,
-        view,
+        backend,
         updateParameters,
         *renderStyle,
         *staticData,
@@ -137,7 +137,7 @@ void Renderer::Impl::doRender(PaintParameters& parameters) {
     // tiles whatsoever.
     {
         MBGL_DEBUG_GROUP(parameters.context, "clear");
-        parameters.view.bind();
+        parameters.backend.bind();
         parameters.context.clear((parameters.debugOptions & MapDebugOptions::Overdraw)
                         ? Color::black()
                         : renderData.backgroundColor,
@@ -348,7 +348,7 @@ void Renderer::Impl::onResourceError(std::exception_ptr ptr) {
 }
 
 void Renderer::Impl::onLowMemory() {
-    BackendScope guard { backend, backend.getScopeType() };
+    BackendScope guard { backend };
     backend.getContext().performCleanup();
     renderStyle->onLowMemory();
     observer->onInvalidate();
