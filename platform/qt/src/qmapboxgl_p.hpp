@@ -4,7 +4,6 @@
 #include "qmapboxgl_renderer_frontend_p.hpp"
 
 #include <mbgl/map/map.hpp>
-#include <mbgl/map/view.hpp>
 #include <mbgl/renderer/renderer_backend.hpp>
 #include <mbgl/util/default_thread_pool.hpp>
 #include <mbgl/storage/default_file_source.hpp>
@@ -13,7 +12,7 @@
 #include <QObject>
 #include <QSize>
 
-class QMapboxGLPrivate : public QObject, public mbgl::View, public mbgl::RendererBackend, public mbgl::MapObserver
+class QMapboxGLPrivate : public QObject, public mbgl::RendererBackend, public mbgl::MapObserver
 {
     Q_OBJECT
 
@@ -23,17 +22,11 @@ public:
 
     mbgl::Size framebufferSize() const;
 
-
-    // mbgl::View implementation.
-    void bind() final;
-
     // mbgl::RendererBackend implementation.
+    void bind() final;
     void updateAssumedState() final;
     void activate() final {}
     void deactivate() final {}
-    mbgl::BackendScope::ScopeType getScopeType() const final {
-        return mbgl::BackendScope::ScopeType::Implicit;
-    }
 
     // mbgl::MapObserver implementation.
     void onCameraWillChange(mbgl::MapObserver::CameraChangeMode) final;
