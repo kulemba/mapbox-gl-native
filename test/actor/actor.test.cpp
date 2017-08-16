@@ -308,31 +308,31 @@ TEST(Actor, Ask) {
 
 TEST(Actor, NoSelfActorRef) {
     // Not all actors need a reference to self
-
+    
     // Trivially constructable
     struct Trivial {};
-
+    
     ThreadPool pool { 2 };
     Actor<Trivial> trivial(pool);
-
-
+    
+    
     // With arguments
     struct WithArguments {
         std::promise<void> promise;
-
+        
         WithArguments(std::promise<void> promise_)
-                : promise(std::move(promise_)) {
+        : promise(std::move(promise_)) {
         }
-
+        
         void receive() {
             promise.set_value();
         }
     };
-
+    
     std::promise<void> promise;
     auto future = promise.get_future();
     Actor<WithArguments> withArguments(pool, std::move(promise));
-
+    
     withArguments.invoke(&WithArguments::receive);
     future.wait();
 }
