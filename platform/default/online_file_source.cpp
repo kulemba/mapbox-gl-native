@@ -320,6 +320,14 @@ void OnlineFileRequest::completed(Response response) {
         resource.priorModified = response.modified;
     }
 
+    if (response.notModified && resource.priorData) {
+        // When the priorData field is set, it indicates that we had to revalidate the request and
+        // that the requestor hasn't gotten data yet. If we get a 304 response, this means that we
+        // have send the cached data to give the requestor a chance to actually obtain the data.
+        response.data = std::move(resource.priorData);
+        response.notModified = false;
+    }
+
     bool isExpired = false;
 
     if (response.expires) {
@@ -375,7 +383,7 @@ ActorRef<OnlineFileRequest> OnlineFileRequest::actor() {
     if (!mailbox) {
         // Lazy constructed because this can be costly and
         // the ResourceTransform is not used by many apps.
-        mailbox = std::make_shared<Mailbox>(*util::RunLoop::Get());
+        mailbox = std::make_shared<Mailbox>(*Scheduler::GetCurrent());
     }
 
     return ActorRef<OnlineFileRequest>(*this, mailbox);
