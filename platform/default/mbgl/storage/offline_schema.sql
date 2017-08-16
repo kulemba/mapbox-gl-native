@@ -8,6 +8,7 @@ CREATE TABLE resources (                   -- Generic table for style, source, s
   data BLOB,
   compressed INTEGER NOT NULL DEFAULT 0,
   accessed INTEGER NOT NULL,
+  must_revalidate INTEGER NOT NULL DEFAULT 0,
   UNIQUE (url)
 );
 
@@ -30,6 +31,7 @@ CREATE TABLE tiles (
   data BLOB,
   compressed INTEGER NOT NULL DEFAULT 0,
   accessed INTEGER NOT NULL,
+  must_revalidate INTEGER NOT NULL DEFAULT 0,
   UNIQUE (url_template_id, pixel_ratio, z, x, y)
 );
 
