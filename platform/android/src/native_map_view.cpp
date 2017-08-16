@@ -720,6 +720,11 @@ void NativeMapView::addAnnotationIcon(JNIEnv& env, jni::String symbol, jint w, j
         symbolName, std::move(premultipliedImage), float(scale)));
 }
 
+void NativeMapView::removeAnnotationIcon(JNIEnv& env, jni::String symbol) {
+    const std::string symbolName = jni::Make<std::string>(env, symbol);
+    map->removeAnnotationImage(symbolName);
+}
+
 jdouble NativeMapView::getTopOffsetPixelsForAnnotationSymbol(JNIEnv& env, jni::String symbolName) {
     return map->getTopOffsetPixelsForAnnotationImage(jni::Make<std::string>(env, symbolName));
 }
@@ -1528,6 +1533,7 @@ void NativeMapView::registerNative(jni::JNIEnv& env) {
             METHOD(&NativeMapView::updatePolygon, "nativeUpdatePolygon"),
             METHOD(&NativeMapView::removeAnnotations, "nativeRemoveAnnotations"),
             METHOD(&NativeMapView::addAnnotationIcon, "nativeAddAnnotationIcon"),
+            METHOD(&NativeMapView::removeAnnotationIcon, "nativeRemoveAnnotationIcon"),
             METHOD(&NativeMapView::getTopOffsetPixelsForAnnotationSymbol, "nativeGetTopOffsetPixelsForAnnotationSymbol"),
             METHOD(&NativeMapView::getTransitionDuration, "nativeGetTransitionDuration"),
             METHOD(&NativeMapView::setTransitionDuration, "nativeSetTransitionDuration"),

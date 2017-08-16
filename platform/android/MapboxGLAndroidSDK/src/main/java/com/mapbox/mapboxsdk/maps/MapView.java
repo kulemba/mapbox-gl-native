@@ -585,7 +585,7 @@ public class MapView extends FrameLayout {
       try {
         onMapChangedListener.onMapChanged(rawChange);
       } catch (RuntimeException err) {
-        Timber.e("Exception (%s) in MapView.OnMapChangedListener: %s", err.getClass(), err.getMessage());
+        Timber.e(err, "Exception in MapView.OnMapChangedListener");
       }
     }
   }
