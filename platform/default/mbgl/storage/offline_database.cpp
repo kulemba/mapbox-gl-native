@@ -51,7 +51,8 @@ void OfflineDatabase::ensureSchema() {
             case 2: migrateToVersion3(); // fall through
             case 3: // no-op and fall through
             case 4: migrateToVersion5(); // fall through
-            case 5: checkURLTemplateIndexing(); return;
+            case 5: migrateToVersion6(); // fall through
+            case 6: checkURLTemplateIndexing(); return;
             default: throw std::runtime_error("unknown schema version");
             }
 
@@ -85,7 +86,7 @@ void OfflineDatabase::ensureSchema() {
         db->exec("PRAGMA journal_mode = DELETE");
         db->exec("PRAGMA synchronous = FULL");
         db->exec(schema);
-        db->exec("PRAGMA user_version = 5");
+        db->exec("PRAGMA user_version = 6");
     } catch (...) {
         Log::Error(Event::Database, "Unexpected error creating database schema: %s", util::toString(std::current_exception()).c_str());
         throw;
@@ -126,6 +127,14 @@ void OfflineDatabase::migrateToVersion5() {
     db->exec("PRAGMA journal_mode = DELETE");
     db->exec("PRAGMA synchronous = FULL");
     db->exec("PRAGMA user_version = 5");
+}
+
+void OfflineDatabase::migrateToVersion6() {
+    mapbox::sqlite::Transaction transaction(*db);
+    db->exec("ALTER TABLE resources ADD COLUMN must_revalidate INTEGER NOT NULL DEFAULT 0");
+    db->exec("ALTER TABLE tiles ADD COLUMN must_revalidate INTEGER NOT NULL DEFAULT 0");
+    db->exec("PRAGMA user_version = 6");
+    transaction.commit();
 }
 
 OfflineDatabase::Statement OfflineDatabase::getStatement(const char * sql) {
@@ -219,8 +228,8 @@ optional<std::pair<Response, uint64_t>> OfflineDatabase::getResource(const Resou
 
     // clang-format off
     Statement stmt = getStatement(
-        //        0      1        2       3        4
-        "SELECT etag, expires, modified, data, compressed "
+        //        0      1            2            3       4      5
+        "SELECT etag, expires, must_revalidate, modified, data, compressed "
         "FROM resources "
         "WHERE url = ?");
     // clang-format on
@@ -234,14 +243,15 @@ optional<std::pair<Response, uint64_t>> OfflineDatabase::getResource(const Resou
     Response response;
     uint64_t size = 0;
 
-    response.etag     = stmt->get<optional<std::string>>(0);
-    response.expires  = stmt->get<optional<Timestamp>>(1);
-    response.modified = stmt->get<optional<Timestamp>>(2);
+    response.etag           = stmt->get<optional<std::string>>(0);
+    response.expires        = stmt->get<optional<Timestamp>>(1);
+    response.mustRevalidate = stmt->get<bool>(2);
+    response.modified       = stmt->get<optional<Timestamp>>(3);
 
-    optional<std::string> data = stmt->get<optional<std::string>>(3);
+    optional<std::string> data = stmt->get<optional<std::string>>(4);
     if (!data) {
         response.noContent = true;
-    } else if (stmt->get<int>(4)) {
+    } else if (stmt->get<bool>(5)) {
         response.data = std::make_shared<std::string>(util::decompress(*data));
         size = data->length();
     } else {
@@ -273,14 +283,16 @@ bool OfflineDatabase::putResource(const Resource& resource,
         // clang-format off
         Statement update = getStatement(
             "UPDATE resources "
-            "SET accessed = ?1, "
-            "    expires  = ?2 "
-            "WHERE url    = ?3 ");
+            "SET accessed         = ?1, "
+            "    expires          = ?2, "
+            "    must_revalidate  = ?3 "
+            "WHERE url    = ?4 ");
         // clang-format on
 
         update->bind(1, util::now());
         update->bind(2, response.expires);
-        update->bind(3, resource.url);
+        update->bind(3, response.mustRevalidate);
+        update->bind(4, resource.url);
         update->run();
         return false;
     }
@@ -294,29 +306,31 @@ bool OfflineDatabase::putResource(const Resource& resource,
     // clang-format off
     Statement update = getStatement(
         "UPDATE resources "
-        "SET kind       = ?1, "
-        "    etag       = ?2, "
-        "    expires    = ?3, "
-        "    modified   = ?4, "
-        "    accessed   = ?5, "
-        "    data       = ?6, "
-        "    compressed = ?7 "
-        "WHERE url      = ?8 ");
+        "SET kind            = ?1, "
+        "    etag            = ?2, "
+        "    expires         = ?3, "
+        "    must_revalidate = ?4, "
+        "    modified        = ?5, "
+        "    accessed        = ?6, "
+        "    data            = ?7, "
+        "    compressed      = ?8 "
+        "WHERE url           = ?9 ");
     // clang-format on
 
     update->bind(1, int(resource.kind));
     update->bind(2, response.etag);
     update->bind(3, response.expires);
-    update->bind(4, response.modified);
-    update->bind(5, util::now());
-    update->bind(8, resource.url);
+    update->bind(4, response.mustRevalidate);
+    update->bind(5, response.modified);
+    update->bind(6, util::now());
+    update->bind(9, resource.url);
 
     if (response.noContent) {
-        update->bind(6, nullptr);
-        update->bind(7, false);
+        update->bind(7, nullptr);
+        update->bind(8, false);
     } else {
-        update->bindBlob(6, data.data(), data.size(), false);
-        update->bind(7, compressed);
+        update->bindBlob(7, data.data(), data.size(), false);
+        update->bind(8, compressed);
     }
 
     update->run();
@@ -327,23 +341,24 @@ bool OfflineDatabase::putResource(const Resource& resource,
 
     // clang-format off
     Statement insert = getStatement(
-        "INSERT INTO resources (url, kind, etag, expires, modified, accessed, data, compressed) "
-        "VALUES                (?1,  ?2,   ?3,   ?4,      ?5,       ?6,       ?7,   ?8) ");
+        "INSERT INTO resources (url, kind, etag, expires, must_revalidate, modified, accessed, data, compressed) "
+        "VALUES                (?1,  ?2,   ?3,   ?4,      ?5,              ?6,       ?7,       ?8,   ?9) ");
     // clang-format on
 
     insert->bind(1, resource.url);
     insert->bind(2, int(resource.kind));
     insert->bind(3, response.etag);
     insert->bind(4, response.expires);
-    insert->bind(5, response.modified);
-    insert->bind(6, util::now());
+    insert->bind(5, response.mustRevalidate);
+    insert->bind(6, response.modified);
+    insert->bind(7, util::now());
 
     if (response.noContent) {
-        insert->bind(7, nullptr);
-        insert->bind(8, false);
+        insert->bind(8, nullptr);
+        insert->bind(9, false);
     } else {
-        insert->bindBlob(7, data.data(), data.size(), false);
-        insert->bind(8, compressed);
+        insert->bindBlob(8, data.data(), data.size(), false);
+        insert->bind(9, compressed);
     }
 
     insert->run();
@@ -390,16 +405,16 @@ optional<std::pair<Response, uint64_t>> OfflineDatabase::getTile(const Resource:
 
     // clang-format off
     Statement stmt = getStatement(nonIndexedURLTemplates ?
-        //        0      1        2       3        4
-        "SELECT etag, expires, modified, data, compressed "
+        //        0      1           2,            3,      4,      5
+        "SELECT etag, expires, must_revalidate, modified, data, compressed "
         "FROM tiles "
         "WHERE url_template = ?1 "
         "  AND pixel_ratio  = ?2 "
         "  AND x            = ?3 "
         "  AND y            = ?4 "
         "  AND z            = ?5 ":
-        //        0      1        2       3        4
-        "SELECT etag, expires, modified, data, compressed "
+        //        0      1           2,            3,      4,      5
+        "SELECT etag, expires, must_revalidate, modified, data, compressed "
         "FROM tiles "
         "INNER JOIN url_templates "
         "ON url_template_id = url_templates.id "
@@ -423,14 +438,15 @@ optional<std::pair<Response, uint64_t>> OfflineDatabase::getTile(const Resource:
     Response response;
     uint64_t size = 0;
 
-    response.etag     = stmt->get<optional<std::string>>(0);
-    response.expires  = stmt->get<optional<Timestamp>>(1);
-    response.modified = stmt->get<optional<Timestamp>>(2);
+    response.etag            = stmt->get<optional<std::string>>(0);
+    response.expires         = stmt->get<optional<Timestamp>>(1);
+    response.mustRevalidate  = stmt->get<bool>(2);
+    response.modified        = stmt->get<optional<Timestamp>>(3);
 
-    optional<std::string> data = stmt->get<optional<std::string>>(3);
+    optional<std::string> data = stmt->get<optional<std::string>>(4);
     if (!data) {
         response.noContent = true;
-    } else if (stmt->get<int>(4)) {
+    } else if (stmt->get<bool>(5)) {
         response.data = std::make_shared<std::string>(util::decompress(*data));
         size = data->length();
     } else {
@@ -474,33 +490,36 @@ bool OfflineDatabase::putTile(const Resource::TileData& tile,
         // clang-format off
         Statement update = getStatement(nonIndexedURLTemplates ?
             "UPDATE tiles "
-            "SET accessed       = ?1, "
-            "    expires        = ?2 "
-            "WHERE url_template = ?3 "
-            "  AND pixel_ratio  = ?4 "
-            "  AND x            = ?5 "
-            "  AND y            = ?6 "
-            "  AND z            = ?7 ":
+            "SET accessed        = ?1, "
+            "    expires         = ?2, "
+            "    must_revalidate = ?3 "
+            "WHERE url_template  = ?4 "
+            "  AND pixel_ratio   = ?5 "
+            "  AND x             = ?6 "
+            "  AND y             = ?7 "
+            "  AND z             = ?8 ":
             "UPDATE tiles "
-            "SET accessed           = ?1, "
-            "    expires            = ?2 "
+            "SET accessed        = ?1, "
+            "    expires         = ?2, "
+            "    must_revalidate = ?3 "
             "WHERE url_template_id  = ( "
             "    SELECT id "
             "    FROM url_templates "
-            "    WHERE url_template = ?3 ) "
-            "  AND pixel_ratio      = ?4 "
-            "  AND x                = ?5 "
-            "  AND y                = ?6 "
-            "  AND z                = ?7 ");
+            "    WHERE url_template = ?4 ) "
+            "  AND pixel_ratio   = ?5 "
+            "  AND x             = ?6 "
+            "  AND y             = ?7 "
+            "  AND z             = ?8 ");
         // clang-format on
 
         update->bind(1, util::now());
         update->bind(2, response.expires);
-        update->bind(3, tile.urlTemplate);
-        update->bind(4, tile.pixelRatio);
-        update->bind(5, tile.x);
-        update->bind(6, tile.y);
-        update->bind(7, tile.z);
+        update->bind(3, response.mustRevalidate);
+        update->bind(4, tile.urlTemplate);
+        update->bind(5, tile.pixelRatio);
+        update->bind(6, tile.x);
+        update->bind(7, tile.y);
+        update->bind(8, tile.z);
         update->run();
         return false;
     }
@@ -514,50 +533,53 @@ bool OfflineDatabase::putTile(const Resource::TileData& tile,
     // clang-format off
     Statement update = getStatement(nonIndexedURLTemplates ?
         "UPDATE tiles "
-        "SET modified       = ?1, "
-        "    etag           = ?2, "
-        "    expires        = ?3, "
-        "    accessed       = ?4, "
-        "    data           = ?5, "
-        "    compressed     = ?6 "
-        "WHERE url_template = ?7 "
-        "  AND pixel_ratio  = ?8 "
-        "  AND x            = ?9 "
-        "  AND y            = ?10 "
-        "  AND z            = ?11 ":
+        "SET modified        = ?1, "
+        "    etag            = ?2, "
+        "    expires         = ?3, "
+        "    must_revalidate = ?4, "
+        "    accessed        = ?5, "
+        "    data            = ?6, "
+        "    compressed      = ?7 "
+        "WHERE url_template  = ?8 "
+        "  AND pixel_ratio   = ?9 "
+        "  AND x             = ?10 "
+        "  AND y             = ?11 "
+        "  AND z             = ?12 ":
         "UPDATE tiles "
-        "SET modified           = ?1, "
-        "    etag               = ?2, "
-        "    expires            = ?3, "
-        "    accessed           = ?4, "
-        "    data               = ?5, "
-        "    compressed         = ?6 "
+        "SET modified        = ?1, "
+        "    etag            = ?2, "
+        "    expires         = ?3, "
+        "    must_revalidate = ?4, "
+        "    accessed        = ?5, "
+        "    data            = ?6, "
+        "    compressed      = ?7 "
         "WHERE url_template_id  = ( "
         "    SELECT id "
         "    FROM url_templates "
-        "    WHERE url_template = ?7 ) "
-        "  AND pixel_ratio      = ?8 "
-        "  AND x                = ?9 "
-        "  AND y                = ?10 "
-        "  AND z                = ?11 ");
+        "    WHERE url_template = ?8 ) "
+        "  AND pixel_ratio   = ?9 "
+        "  AND x             = ?10 "
+        "  AND y             = ?11 "
+        "  AND z             = ?12 ");
     // clang-format on
 
     update->bind(1, response.modified);
     update->bind(2, response.etag);
     update->bind(3, response.expires);
-    update->bind(4, util::now());
-    update->bind(7, tile.urlTemplate);
-    update->bind(8, tile.pixelRatio);
-    update->bind(9, tile.x);
-    update->bind(10, tile.y);
-    update->bind(11, tile.z);
+    update->bind(4, response.mustRevalidate);
+    update->bind(5, util::now());
+    update->bind(8, tile.urlTemplate);
+    update->bind(9, tile.pixelRatio);
+    update->bind(10, tile.x);
+    update->bind(11, tile.y);
+    update->bind(12, tile.z);
 
     if (response.noContent) {
-        update->bind(5, nullptr);
-        update->bind(6, false);
+        update->bind(6, nullptr);
+        update->bind(7, false);
     } else {
-        update->bindBlob(5, data.data(), data.size(), false);
-        update->bind(6, compressed);
+        update->bindBlob(6, data.data(), data.size(), false);
+        update->bind(7, compressed);
     }
 
     update->run();
@@ -580,14 +602,14 @@ bool OfflineDatabase::putTile(const Resource::TileData& tile,
 
     // clang-format off
     Statement insert = getStatement(nonIndexedURLTemplates ?
-        "INSERT INTO tiles (url_template, pixel_ratio, x,  y,  z,  modified,  etag,  expires,  accessed,  data, compressed) "
-        "VALUES            (?1,           ?2,          ?3, ?4, ?5, ?6,        ?7,    ?8,       ?9,        ?10,  ?11) ":
-        "INSERT INTO tiles (url_template_id, pixel_ratio, x,  y,  z,  modified,  etag,  expires,  accessed,  data, compressed) "
+        "INSERT INTO tiles (url_template, pixel_ratio, x,  y,  z,  modified, must_revalidate, etag, expires, accessed,  data, compressed) "
+        "VALUES            (?1,           ?2,          ?3, ?4, ?5, ?6,       ?7,              ?8,   ?9,      ?10,       ?11,  ?12)":
+        "INSERT INTO tiles (url_template_id, pixel_ratio, x,  y,  z,  modified, must_revalidate, etag, expires, accessed,  data, compressed) "
         "VALUES            (( "
         "                   SELECT id "
         "                   FROM url_templates "
         "                   WHERE url_template = ?1 ), "
-        "                                    ?2,          ?3, ?4, ?5, ?6,        ?7,    ?8,       ?9,        ?10,  ?11) ");
+        "                                    ?2,          ?3, ?4, ?5, ?6,       ?7,              ?8,   ?9,      ?10,       ?11,  ?12) ");
     // clang-format on
 
     insert->bind(1, tile.urlTemplate);
@@ -596,16 +618,17 @@ bool OfflineDatabase::putTile(const Resource::TileData& tile,
     insert->bind(4, tile.y);
     insert->bind(5, tile.z);
     insert->bind(6, response.modified);
-    insert->bind(7, response.etag);
-    insert->bind(8, response.expires);
-    insert->bind(9, util::now());
+    insert->bind(7, response.mustRevalidate);
+    insert->bind(8, response.etag);
+    insert->bind(9, response.expires);
+    insert->bind(10, util::now());
 
     if (response.noContent) {
-        insert->bind(10, nullptr);
-        insert->bind(11, false);
+        insert->bind(11, nullptr);
+        insert->bind(12, false);
     } else {
-        insert->bindBlob(10, data.data(), data.size(), false);
-        insert->bind(11, compressed);
+        insert->bindBlob(11, data.data(), data.size(), false);
+        insert->bind(12, compressed);
     }
 
     insert->run();
