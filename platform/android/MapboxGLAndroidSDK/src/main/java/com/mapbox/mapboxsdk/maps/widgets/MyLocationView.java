@@ -49,7 +49,10 @@ import timber.log.Timber;
  * <p>
  * Use {@link MyLocationViewSettings} to manipulate the state of this view.
  * </p>
+ * @deprecated use location layer plugin from
+ * https://github.com/mapbox/mapbox-plugins-android/tree/master/plugins/locationlayer instead.
  */
+@Deprecated
 public class MyLocationView extends View {
 
   private static final int UNDEFINED_TINT_COLOR = -1;
@@ -77,7 +80,7 @@ public class MyLocationView extends View {
   private ValueAnimator locationChangeAnimator;
   private ValueAnimator accuracyAnimator;
   private ValueAnimator directionAnimator;
-  private boolean locationChangeAnimationEnabled;
+  private boolean locationChangeAnimationEnabled = true;
 
   private ValueAnimator.AnimatorUpdateListener invalidateSelfOnUpdateListener =
     new ValueAnimator.AnimatorUpdateListener() {
