@@ -19,7 +19,6 @@
 namespace mbgl {
 
 class GeometryTileData;
-class RenderStyle;
 class RenderLayer;
 class SourceQueryOptions;
 class TileParameters;
@@ -41,10 +40,10 @@ public:
     void setLayers(const std::vector<Immutable<style::Layer::Impl>>&) override;
     
     void onGlyphsAvailable(GlyphMap) override;
-    void onImagesAvailable(ImageMap) override;
+    void onImagesAvailable(ImageMap, uint64_t imageCorrelationID) override;
     
     void getGlyphs(GlyphDependencies);
-    void getImages(ImageDependencies);
+    void getImages(ImageRequestPair);
 
     void upload(gl::Context&) override;
     Bucket* getBucket(const style::Layer::Impl&) const override;
@@ -56,7 +55,7 @@ public:
             std::unordered_map<std::string, std::vector<Feature>>& result,
             const GeometryCoordinates& queryGeometry,
             const TransformState&,
-            const RenderStyle&,
+            const std::vector<const RenderLayer*>& layers,
             const RenderedQueryOptions& options) override;
 
     void querySourceFeatures(
@@ -143,6 +142,7 @@ private:
     
     util::Throttler placementThrottler;
     float lastYStretch;
+    const MapMode mode;
 
 public:
     optional<gl::Texture> glyphAtlasTexture;
