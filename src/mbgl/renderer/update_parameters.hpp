@@ -13,8 +13,6 @@
 
 namespace mbgl {
 
-class Scheduler;
-class FileSource;
 class AnnotationManager;
 
 class UpdateParameters {
@@ -35,8 +33,6 @@ public:
     const Immutable<std::vector<Immutable<style::Layer::Impl>>> layers;
     const uint8_t maxZoomLimit;
 
-    Scheduler& scheduler;
-    FileSource& fileSource;
     AnnotationManager& annotationManager;
 
     const uint8_t prefetchZoomDelta;
