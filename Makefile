@@ -108,7 +108,7 @@ run-test-%: test
 run-benchmark: run-benchmark-.
 
 run-benchmark-%: benchmark
-	$(MACOS_OUTPUT_PATH)/$(BUILDTYPE)/mbgl-benchmark --benchmark_filter=$*
+	$(MACOS_OUTPUT_PATH)/$(BUILDTYPE)/mbgl-benchmark --benchmark_filter=$* ${BENCHMARK_ARGS}
 
 .PHONY: node-benchmark
 node-benchmark: $(MACOS_PROJ_PATH)
@@ -439,6 +439,12 @@ qt-docs:
 test-node: node
 	npm test
 	npm run test-suite
+
+.PHONY: test-node-recycle-map
+test-node-recycle-map: node
+	npm test
+	npm run test-render -- --recycle-map
+	npm run test-query
 
 #### Android targets ###########################################################
 
