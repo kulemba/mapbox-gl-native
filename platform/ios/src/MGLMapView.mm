@@ -4488,7 +4488,7 @@ public:
     CLLocation *newLocation = locations.lastObject;
     _distanceFromOldUserLocation = [newLocation distanceFromLocation:oldLocation];
 
-    if ( ! _showsUserLocation || ! newLocation || ! CLLocationCoordinate2DIsValid(newLocation.coordinate) || ([newLocation.timestamp compare:oldLocation.timestamp] == NSOrderedAscending)) return;
+    if ( ! _showsUserLocation || ! newLocation || ! CLLocationCoordinate2DIsValid(newLocation.coordinate)) return;
 
     if (! oldLocation || ! CLLocationCoordinate2DIsValid(oldLocation.coordinate) || [newLocation distanceFromLocation:oldLocation]
         || oldLocation.course != newLocation.course)
@@ -4737,8 +4737,6 @@ public:
         && self.userTrackingState != MGLUserTrackingStateBegan)
     {
         [self _setDirection:headingDirection animated:YES];
-    } else {
-        [self updateUserLocationAnnotationView];
     }
 }
 
