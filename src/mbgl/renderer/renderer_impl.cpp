@@ -68,8 +68,15 @@ void Renderer::Impl::setObserver(RendererObserver* observer_) {
 }
 
 void Renderer::Impl::render(const UpdateParameters& updateParameters) {
-    // Don't load/render anyting in still mode until explicitly requested.
-    if (updateParameters.mode == MapMode::Still && !updateParameters.stillImageRequest) return;
+    if (updateParameters.mode == MapMode::Still) {
+        // Don't load/render anyting in still mode until explicitly requested.
+        if (!updateParameters.stillImageRequest) {
+            return;
+        }
+
+        // Reset zoom history state.
+        zoomHistory.first = true;
+    }
     
     assert(BackendScope::exists());
     
@@ -186,6 +193,8 @@ void Renderer::Impl::render(const UpdateParameters& updateParameters) {
         renderSources.emplace(entry.first, std::move(renderSource));
     }
 
+    const bool hasImageDiff = !(imageDiff.added.empty() && imageDiff.removed.empty() && imageDiff.changed.empty());
+
     // Update all sources.
     for (const auto& source : *sourceImpls) {
         std::vector<Immutable<Layer::Impl>> filteredLayers;
@@ -203,11 +212,7 @@ void Renderer::Impl::render(const UpdateParameters& updateParameters) {
                 needsRendering = true;
             }
 
-            if (!needsRelayout && (
-                hasLayoutDifference(layerDiff, layer->id) ||
-                !imageDiff.added.empty() ||
-                !imageDiff.removed.empty() ||
-                !imageDiff.changed.empty())) {
+            if (!needsRelayout && (hasImageDiff || hasLayoutDifference(layerDiff, layer->id))) {
                 needsRelayout = true;
             }
 
@@ -541,9 +546,9 @@ void Renderer::Impl::render(const UpdateParameters& updateParameters) {
     {
         MBGL_DEBUG_GROUP(parameters.context, "cleanup");
 
-        parameters.context.activeTexture = 1;
+        parameters.context.activeTextureUnit = 1;
         parameters.context.texture[1] = 0;
-        parameters.context.activeTexture = 0;
+        parameters.context.activeTextureUnit = 0;
         parameters.context.texture[0] = 0;
 
         parameters.context.bindVertexArray = 0;
