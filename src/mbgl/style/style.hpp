@@ -55,7 +55,7 @@ public:
     Style(Scheduler&, FileSource&, float pixelRatio);
     ~Style() override;
 
-    void setJSON(const std::string&);
+    void setJSON(const std::string&, uint8_t);
 
     void setObserver(Observer*);
 
@@ -181,6 +181,8 @@ private:
 
     UpdateBatch updateBatch;
     ZoomHistory zoomHistory;
+                  
+    uint8_t maxZoomLimit = std::numeric_limits<uint8_t>::max();
 
     void removeRenderLayer(const std::string& layerID);
 
