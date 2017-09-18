@@ -53,6 +53,7 @@ void NodeMap::Init(v8::Local<v8::Object> target) {
     Nan::SetPrototypeMethod(tpl, "cancel", Cancel);
 
     Nan::SetPrototypeMethod(tpl, "addSource", AddSource);
+    Nan::SetPrototypeMethod(tpl, "removeSource", RemoveSource);
     Nan::SetPrototypeMethod(tpl, "addLayer", AddLayer);
     Nan::SetPrototypeMethod(tpl, "removeLayer", RemoveLayer);
     Nan::SetPrototypeMethod(tpl, "addImage", AddImage);
@@ -151,19 +152,6 @@ void NodeMap::New(const Nan::FunctionCallbackInfo<v8::Value>& info) {
     info.GetReturnValue().Set(info.This());
 }
 
-std::string StringifyStyle(v8::Local<v8::Value> styleHandle) {
-    Nan::HandleScope scope;
-
-    v8::Local<v8::Object> JSON = Nan::To<v8::Object>(
-        Nan::Get(
-            Nan::GetCurrentContext()->Global(),
-            Nan::New("JSON").ToLocalChecked()
-        ).ToLocalChecked()
-    ).ToLocalChecked();
-
-    return *Nan::Utf8String(Nan::MakeCallback(JSON, "stringify", 1, &styleHandle));
-}
-
 /**
  * Load a stylesheet
  *
@@ -197,7 +185,8 @@ void NodeMap::Load(const Nan::FunctionCallbackInfo<v8::Value>& info) {
     std::string style;
 
     if (info[0]->IsObject()) {
-        style = StringifyStyle(info[0]);
+        Nan::JSON JSON;
+        style = *Nan::Utf8String(JSON.Stringify(info[0]->ToObject()).ToLocalChecked());
     } else if (info[0]->IsString()) {
         style = *Nan::Utf8String(info[0]);
     } else {
@@ -545,6 +534,10 @@ void NodeMap::AddSource(const Nan::FunctionCallbackInfo<v8::Value>& info) {
         return Nan::ThrowTypeError("First argument must be a string");
     }
 
+    if (!info[1]->IsObject()) {
+        return Nan::ThrowTypeError("Second argument must be an object");
+    }
+
     Error error;
     mbgl::optional<std::unique_ptr<Source>> source = convert<std::unique_ptr<Source>>(info[1], error, *Nan::Utf8String(info[0]));
     if (!source) {
@@ -553,6 +546,24 @@ void NodeMap::AddSource(const Nan::FunctionCallbackInfo<v8::Value>& info) {
     }
 
     nodeMap->map->getStyle().addSource(std::move(*source));
+}
+
+void NodeMap::RemoveSource(const Nan::FunctionCallbackInfo<v8::Value>& info) {
+    using namespace mbgl::style;
+    using namespace mbgl::style::conversion;
+
+    auto nodeMap = Nan::ObjectWrap::Unwrap<NodeMap>(info.Holder());
+    if (!nodeMap->map) return Nan::ThrowError(releasedMessage());
+
+    if (info.Length() != 1) {
+        return Nan::ThrowTypeError("One argument required");
+    }
+
+    if (!info[0]->IsString()) {
+        return Nan::ThrowTypeError("First argument must be a string");
+    }
+
+    nodeMap->map->getStyle().removeSource(*Nan::Utf8String(info[0]));
 }
 
 void NodeMap::AddLayer(const Nan::FunctionCallbackInfo<v8::Value>& info) {
