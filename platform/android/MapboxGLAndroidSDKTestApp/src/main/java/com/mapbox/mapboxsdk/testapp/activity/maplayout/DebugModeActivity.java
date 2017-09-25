@@ -26,13 +26,14 @@ import com.mapbox.mapboxsdk.style.layers.Property;
 import com.mapbox.mapboxsdk.testapp.R;
 
 import java.util.List;
+import java.util.Locale;
 
 import timber.log.Timber;
 
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.visibility;
 
 /**
- * Test Activity showcasing the different debug modes and allows to cycle between the default map styles.
+ * Test activity showcasing the different debug modes and allows to cycle between the default map styles.
  */
 public class DebugModeActivity extends AppCompatActivity implements OnMapReadyCallback {
 
@@ -104,6 +105,17 @@ public class DebugModeActivity extends AppCompatActivity implements OnMapReadyCa
 
     setupNavigationView(mapboxMap.getLayers());
     setupZoomView();
+    setFpsView();
+  }
+
+  private void setFpsView() {
+    final TextView fpsView = (TextView) findViewById(R.id.fpsView);
+    mapboxMap.setOnFpsChangedListener(new MapboxMap.OnFpsChangedListener() {
+      @Override
+      public void onFpsChanged(double fps) {
+        fpsView.setText(String.format(Locale.US,"FPS: %4.2f", fps));
+      }
+    });
   }
 
   private void setupNavigationView(List<Layer> layerList) {
