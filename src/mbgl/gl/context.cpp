@@ -87,7 +87,9 @@ static_assert(std::is_same<BinaryProgramFormat, GLenum>::value, "OpenGL type mis
 Context::Context() = default;
 
 Context::~Context() {
-    reset();
+    if (cleanupOnDestruction) {
+        reset();
+    }
 }
 
 void Context::initializeExtensions(const std::function<gl::ProcAddress(const char*)>& getProcAddress) {
@@ -457,6 +459,9 @@ Framebuffer Context::createFramebuffer(const Texture& color) {
 Framebuffer
 Context::createFramebuffer(const Texture& color,
                            const Renderbuffer<RenderbufferType::DepthComponent>& depthTarget) {
+    if (color.size != depthTarget.size) {
+        throw std::runtime_error("Renderbuffer size mismatch");
+    }
     auto fbo = createFramebuffer();
     bindFramebuffer = fbo;
     MBGL_CHECK_ERROR(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color.texture, 0));
