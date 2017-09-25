@@ -236,6 +236,10 @@ public:
         }
     }
     
+    void setOnlineStatus(const bool status) {
+        onlineFileSource.setOnlineStatus(status);
+    }
+
     void put(const Resource& resource, const Response& response) {
         offlineDatabase->put(resource, response);
     }
@@ -376,6 +380,10 @@ void DefaultFileSource::resume() {
 }
     
 // For testing only:
+
+void DefaultFileSource::setOnlineStatus(const bool status) {
+    impl->actor().invoke(&Impl::setOnlineStatus, status);
+}
 
 void DefaultFileSource::put(const Resource& resource, const Response& response) {
     impl->actor().invoke(&Impl::put, resource, response);
