@@ -75,6 +75,7 @@ public final class MapboxMap {
   private final OnRegisterTouchListener onRegisterTouchListener;
 
   private MapboxMap.OnFpsChangedListener onFpsChangedListener;
+  private PointF focalPoint;
 
   MapboxMap(NativeMapView map, Transform transform, UiSettings ui, TrackingSettings tracking,
             MyLocationViewSettings myLocationView, Projection projection, OnRegisterTouchListener listener,
@@ -610,6 +611,47 @@ public final class MapboxMap {
   //
   // Camera API
   //
+
+  /**
+   * Moves the center of the screen to a latitude and longitude specified by a LatLng object. This centers the
+   * camera on the LatLng object.
+   *
+   * @param latLng Target location to change to
+   */
+  public void setLatLng(@NonNull LatLng latLng) {
+    nativeMapView.setLatLng(latLng);
+  }
+
+  /**
+   * Moves the camera viewpoint to a particular zoom level.
+   *
+   * @param zoom Zoom level to change to
+   */
+  public void setZoom(@FloatRange(from = MapboxConstants.MINIMUM_ZOOM, to = MapboxConstants.MAXIMUM_ZOOM) double zoom) {
+    if (focalPoint == null) {
+      focalPoint = new PointF(nativeMapView.getWidth() / 2, nativeMapView.getHeight() / 2);
+    }
+    nativeMapView.setZoom(zoom, focalPoint, 0);
+  }
+
+  /**
+   * Moves the camera viewpoint angle to a particular angle in degrees.
+   *
+   * @param tilt Tilt angle to change to
+   */
+  public void setTilt(@FloatRange(from = MapboxConstants.MINIMUM_TILT, to = MapboxConstants.MAXIMUM_TILT) double tilt) {
+    nativeMapView.setPitch(tilt, 0);
+  }
+
+  /**
+   * Moves the camera viewpoint direction to a particular angle in degrees.
+   *
+   * @param bearing Direction angle to change to
+   */
+  public void setBearing(@FloatRange(from = MapboxConstants.MINIMUM_DIRECTION, to = MapboxConstants.MAXIMUM_DIRECTION)
+                           double bearing) {
+    nativeMapView.setBearing(bearing);
+  }
 
   /**
    * Cancels ongoing animations.
@@ -1174,8 +1216,11 @@ public final class MapboxMap {
    *
    * @param markerOptions A marker options object that defines how to render the marker
    * @return The {@code Marker} that was added to the map
+   * @deprecated Use a {@link com.mapbox.mapboxsdk.style.layers.SymbolLayer} instead. An example of converting Android
+   * SDK views to be used as a symbol see https://github.com/mapbox/mapbox-gl-native/blob/68f32bc104422207c64da8d90e8411b138d87f04/platform/android/MapboxGLAndroidSDKTestApp/src/main/java/com/mapbox/mapboxsdk/testapp/activity/style/SymbolGeneratorActivity.java
    */
   @NonNull
+  @Deprecated
   public MarkerView addMarker(@NonNull BaseMarkerViewOptions markerOptions) {
     return annotationManager.addMarker(markerOptions, this, null);
   }
@@ -1190,7 +1235,10 @@ public final class MapboxMap {
    * @param markerOptions             A marker options object that defines how to render the marker
    * @param onMarkerViewAddedListener Callback invoked when the View has been added to the map
    * @return The {@code Marker} that was added to the map
+   * @deprecated Use a {@link com.mapbox.mapboxsdk.style.layers.SymbolLayer} instead. An example of converting Android
+   * SDK views to be used as a symbol see https://github.com/mapbox/mapbox-gl-native/blob/68f32bc104422207c64da8d90e8411b138d87f04/platform/android/MapboxGLAndroidSDKTestApp/src/main/java/com/mapbox/mapboxsdk/testapp/activity/style/SymbolGeneratorActivity.java
    */
+  @Deprecated
   @NonNull
   public MarkerView addMarker(@NonNull BaseMarkerViewOptions markerOptions,
                               final MarkerViewManager.OnMarkerViewAddedListener onMarkerViewAddedListener) {
@@ -1206,8 +1254,11 @@ public final class MapboxMap {
    *
    * @param markerViewOptions A list of markerView options objects that defines how to render the markers
    * @return A list of the {@code MarkerView}s that were added to the map
+   * @deprecated Use a {@link com.mapbox.mapboxsdk.style.layers.SymbolLayer} instead. An example of converting Android
+   * SDK views to be used as a symbol see https://github.com/mapbox/mapbox-gl-native/blob/68f32bc104422207c64da8d90e8411b138d87f04/platform/android/MapboxGLAndroidSDKTestApp/src/main/java/com/mapbox/mapboxsdk/testapp/activity/style/SymbolGeneratorActivity.java
    */
   @NonNull
+  @Deprecated
   public List<MarkerView> addMarkerViews(@NonNull List<? extends
     BaseMarkerViewOptions> markerViewOptions) {
     return annotationManager.addMarkerViews(markerViewOptions, this);
@@ -1218,8 +1269,11 @@ public final class MapboxMap {
    *
    * @param rect the rectangular area on the map to query for markerViews
    * @return A list of the markerViews that were found in the rectangle
+   * @deprecated Use a {@link com.mapbox.mapboxsdk.style.layers.SymbolLayer} instead. An example of converting Android
+   * SDK views to be used as a symbol see https://github.com/mapbox/mapbox-gl-native/blob/68f32bc104422207c64da8d90e8411b138d87f04/platform/android/MapboxGLAndroidSDKTestApp/src/main/java/com/mapbox/mapboxsdk/testapp/activity/style/SymbolGeneratorActivity.java
    */
   @NonNull
+  @Deprecated
   public List<MarkerView> getMarkerViewsInRect(@NonNull RectF rect) {
     return annotationManager.getMarkerViewsInRect(rect);
   }
@@ -1986,6 +2040,15 @@ public final class MapboxMap {
     return nativeMapView.queryRenderedFeatures(coordinates, layerIds, filter);
   }
 
+  FocalPointChangeListener createFocalPointChangeListener() {
+    return new FocalPointChangeListener() {
+      @Override
+      public void onFocalPointChanged(PointF pointF) {
+        focalPoint = pointF;
+      }
+    };
+  }
+
   //
   // Interfaces
   //
@@ -2263,7 +2326,10 @@ public final class MapboxMap {
    * Interface definition for a callback to be invoked when an MarkerView will be shown.
    *
    * @param <U> the instance type of MarkerView
+   * @deprecated Use a {@link com.mapbox.mapboxsdk.style.layers.SymbolLayer} instead. An example of converting Android
+   * SDK views to be used as a symbol see https://github.com/mapbox/mapbox-gl-native/blob/68f32bc104422207c64da8d90e8411b138d87f04/platform/android/MapboxGLAndroidSDKTestApp/src/main/java/com/mapbox/mapboxsdk/testapp/activity/style/SymbolGeneratorActivity.java
    */
+  @Deprecated
   public abstract static class MarkerViewAdapter<U extends MarkerView> {
 
     private Context context;
