@@ -10,9 +10,18 @@ workflows:
               ignore: master
       - android-debug-arm-v7
       - android-release-all
-      - node4-clang39-release
-      - node6-clang39-release
-      - node6-clang39-debug
+      - node4-clang39-release:
+          filters:
+            tags:
+              only: /node-.*/
+      - node6-clang39-release:
+          filters:
+            tags:
+              only: /node-.*/
+      - node6-clang39-debug:
+          filters:
+            tags:
+              only: /node-.*/
       - linux-clang39-debug
       - linux-clang4-sanitize-address
       - linux-clang4-sanitize-undefined
@@ -33,11 +42,11 @@ step-library:
   - &restore-cache
       restore_cache:
         keys:
-          - 'v3/{{ .Environment.CIRCLE_JOB }}/{{ .Branch }}/{{ checksum ".circle-week" }}'
-          - 'v3/{{ .Environment.CIRCLE_JOB }}/master/{{ checksum ".circle-week" }}'
+          - 'v3/{{ .Environment.CIRCLE_JOB }}/{{ arch }}/{{ .Branch }}/{{ checksum ".circle-week" }}'
+          - 'v3/{{ .Environment.CIRCLE_JOB }}/{{ arch }}/master/{{ checksum ".circle-week" }}'
   - &save-cache
       save_cache:
-        key: 'v3/{{ .Environment.CIRCLE_JOB }}/{{ .Branch }}/{{ checksum ".circle-week" }}'
+        key: 'v3/{{ .Environment.CIRCLE_JOB }}/{{ arch }}/{{ .Branch }}/{{ checksum ".circle-week" }}'
         paths: [ "node_modules", "/root/.ccache", "mason_packages/.binaries" ]
 
 
@@ -157,6 +166,7 @@ jobs:
   android-debug-arm-v7:
     docker:
       - image: mbgl/ci@sha256:c34e221294d81da80918d3e9a9df5de795b067e88f86d7c9a5e262763332536e
+    resource_class: large
     working_directory: /src
     environment:
       LIBSYSCONFCPUS: 4
@@ -246,6 +256,7 @@ jobs:
   android-release-all:
     docker:
       - image: mbgl/ci@sha256:c34e221294d81da80918d3e9a9df5de795b067e88f86d7c9a5e262763332536e
+    resource_class: large
     working_directory: /src
     environment:
       LIBSYSCONFCPUS: 4
@@ -283,7 +294,7 @@ jobs:
       - deploy:
           name: Publish to Maven
           command: |
-            if [ "${CIRCLE_BRANCH}" == "release-ios-v3.6.0-android-v5.1.0" ]; then make run-android-upload-archives ; fi
+            if [ "${CIRCLE_BRANCH}" == "master" ]; then make run-android-upload-archives ; fi
 
 
 # ------------------------------------------------------------------------------
@@ -296,8 +307,7 @@ jobs:
       JOBS: 4
       BUILDTYPE: RelWithDebInfo
       WITH_EGL: 1
-      PACKAGE_JSON_VERSION: $(node -e "console.log(require('./package.json').version)")
-      PUBLISH: $([[ "${CIRCLE_BRANCH}" == "node-v${PACKAGE_JSON_VERSION}" ]] && echo true)
+      WITH_CXX11ABI: 0
     steps:
       - checkout
       - *generate-cache-key
@@ -320,8 +330,7 @@ jobs:
       JOBS: 4
       BUILDTYPE: RelWithDebInfo
       WITH_EGL: 1
-      PACKAGE_JSON_VERSION: $(node -e "console.log(require('./package.json').version)")
-      PUBLISH: $([[ "${CIRCLE_BRANCH}" == "node-v${PACKAGE_JSON_VERSION}" ]] && echo true)
+      WITH_CXX11ABI: 0
     steps:
       - checkout
       - *generate-cache-key
@@ -344,8 +353,7 @@ jobs:
       JOBS: 4
       BUILDTYPE: Debug
       WITH_EGL: 1
-      PACKAGE_JSON_VERSION: $(node -e "console.log(require('./package.json').version)")
-      PUBLISH: $([[ "${CIRCLE_BRANCH}" == "node-v${PACKAGE_JSON_VERSION}" ]] && echo true)
+      WITH_CXX11ABI: 0
     steps:
       - checkout
       - *generate-cache-key
@@ -474,6 +482,7 @@ jobs:
   linux-gcc4.9-debug:
     docker:
       - image: mbgl/ci:r4-linux-gcc-4.9
+    resource_class: large
     working_directory: /src
     environment:
       LIBSYSCONFCPUS: 4
@@ -498,6 +507,7 @@ jobs:
   linux-gcc5-debug-coverage:
     docker:
       - image: mbgl/ci:r4-linux-gcc-5
+    resource_class: large
     working_directory: /src
     environment:
       LIBSYSCONFCPUS: 4
@@ -525,6 +535,7 @@ jobs:
   linux-gcc5-release-qt4:
     docker:
       - image: mbgl/ci:r4-linux-gcc-5-qt-4
+    resource_class: large
     working_directory: /src
     environment:
       LIBSYSCONFCPUS: 4
@@ -552,6 +563,7 @@ jobs:
   linux-gcc5-release-qt5:
     docker:
       - image: mbgl/ci:r4-linux-gcc-5-qt-5
+    resource_class: large
     working_directory: /src
     environment:
       LIBSYSCONFCPUS: 4
