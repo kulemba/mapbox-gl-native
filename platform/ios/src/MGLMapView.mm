@@ -4236,7 +4236,11 @@ public:
         self.locationManager.headingFilter = 5.0;
         self.locationManager.delegate = self;
         [self.locationManager startUpdatingLocation];
-        [self.locationManager startUpdatingHeading];
+
+        if (self.userTrackingMode == MGLUserTrackingModeFollowWithHeading)
+        {
+            [self.locationManager startUpdatingHeading];
+        }
     }
     else if ( ! shouldEnableLocationServices && self.locationManager)
     {
@@ -4360,6 +4364,8 @@ public:
         {
             self.userTrackingState = MGLUserTrackingStatePossible;
 
+            [self.locationManager stopUpdatingHeading];
+
             // Immediately update the annotation view; other cases update inside
             // the locationManager:didUpdateLocations: method.
             [self updateUserLocationAnnotationView];
@@ -4372,6 +4378,7 @@ public:
             self.userTrackingState = animated ? MGLUserTrackingStatePossible : MGLUserTrackingStateChanged;
             self.showsUserLocation = YES;
 
+            [self.locationManager stopUpdatingHeading];
 
             CLLocation *location = self.userLocation.location;
             if (location && self.userLocationAnnotationView)
@@ -4401,6 +4408,8 @@ public:
             }
 
             [self updateHeadingForDeviceOrientation];
+
+            [self.locationManager startUpdatingHeading];
 
             break;
         }
@@ -4712,8 +4721,6 @@ public:
         && self.userTrackingState != MGLUserTrackingStateBegan)
     {
         [self _setDirection:headingDirection animated:YES];
-    } else{
-        [self updateUserLocationAnnotationView];
     }
 }
 
