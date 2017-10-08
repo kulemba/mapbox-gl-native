@@ -309,8 +309,6 @@ set(MBGL_CORE_FILES
     include/mbgl/storage/resource_transform.hpp
     include/mbgl/storage/response.hpp
     src/mbgl/storage/asset_file_source.hpp
-    src/mbgl/storage/file_source_request.cpp
-    src/mbgl/storage/file_source_request.hpp
     src/mbgl/storage/http_file_source.hpp
     src/mbgl/storage/local_file_source.hpp
     src/mbgl/storage/network_status.cpp
@@ -490,8 +488,10 @@ set(MBGL_CORE_FILES
     src/mbgl/text/shaping.hpp
 
     # tile
+    include/mbgl/tile/tile_id.hpp
     src/mbgl/tile/geojson_tile.cpp
     src/mbgl/tile/geojson_tile.hpp
+    src/mbgl/tile/geojson_tile_data.hpp
     src/mbgl/tile/geometry_tile.cpp
     src/mbgl/tile/geometry_tile.hpp
     src/mbgl/tile/geometry_tile_data.cpp
@@ -506,7 +506,7 @@ set(MBGL_CORE_FILES
     src/mbgl/tile/tile.hpp
     src/mbgl/tile/tile_cache.cpp
     src/mbgl/tile/tile_cache.hpp
-    src/mbgl/tile/tile_id.hpp
+    src/mbgl/tile/tile_id_hash.cpp
     src/mbgl/tile/tile_id_io.cpp
     src/mbgl/tile/tile_loader.hpp
     src/mbgl/tile/tile_loader_impl.hpp
