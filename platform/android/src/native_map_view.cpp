@@ -295,6 +295,11 @@ jni::Object<CameraPosition> NativeMapView::getCameraForLatLngBounds(jni::JNIEnv&
     return CameraPosition::New(env, map->cameraForLatLngBounds(mbgl::android::LatLngBounds::getLatLngBounds(env, jBounds), insets));
 }
 
+jni::Object<CameraPosition> NativeMapView::getCameraForGeometry(jni::JNIEnv& env, jni::Object<geojson::Geometry> jGeometry, double bearing) {
+    auto geometry = geojson::Geometry::convert(env, jGeometry);
+    return CameraPosition::New(env, map->cameraForGeometry(geometry, insets, bearing));
+}
+
 void NativeMapView::setReachability(jni::JNIEnv&, jni::jboolean reachable) {
     if (reachable) {
         mbgl::NetworkStatus::Reachable();
@@ -954,6 +959,7 @@ void NativeMapView::registerNative(jni::JNIEnv& env) {
             METHOD(&NativeMapView::getLatLng, "nativeGetLatLng"),
             METHOD(&NativeMapView::setLatLng, "nativeSetLatLng"),
             METHOD(&NativeMapView::getCameraForLatLngBounds, "nativeGetCameraForLatLngBounds"),
+            METHOD(&NativeMapView::getCameraForGeometry, "nativeGetCameraForGeometry"),
             METHOD(&NativeMapView::setReachability, "nativeSetReachability"),
             METHOD(&NativeMapView::resetPosition, "nativeResetPosition"),
             METHOD(&NativeMapView::getPitch, "nativeGetPitch"),
