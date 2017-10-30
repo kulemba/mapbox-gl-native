@@ -74,6 +74,7 @@ macro(mbgl_platform_core)
 
     target_include_directories(mbgl-core
         PUBLIC platform/default
+        PRIVATE platform/android
     )
 
     target_add_mason_package(mbgl-core PUBLIC nunicode)
@@ -146,7 +147,6 @@ add_library(mbgl-android STATIC
 
     # Style conversion Java -> C++
     platform/android/src/style/android_conversion.hpp
-    platform/android/src/style/conversion/geojson.hpp
     platform/android/src/style/value.cpp
     platform/android/src/style/value.hpp
     platform/android/src/style/conversion/url_or_tileset.hpp
@@ -345,6 +345,10 @@ macro(mbgl_platform_test)
 
         platform/linux/src/headless_backend_egl.cpp
         platform/linux/src/headless_display_egl.cpp
+    )
+
+    target_include_directories(mbgl-test
+        PRIVATE platform/android
     )
 
     target_compile_options(mbgl-test
