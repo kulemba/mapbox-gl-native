@@ -60,6 +60,9 @@ set(MBGL_QT_FILESOURCE_FILES
 add_library(qmapboxgl SHARED
     platform/qt/include/qmapbox.hpp
     platform/qt/include/qmapboxgl.hpp
+    platform/qt/src/qt_conversion.hpp
+    platform/qt/src/qt_geojson.cpp
+    platform/qt/src/qt_geojson.hpp
     platform/qt/src/qmapbox.cpp
     platform/qt/src/qmapboxgl.cpp
     platform/qt/src/qmapboxgl_p.hpp
@@ -103,12 +106,6 @@ endif()
 
 xcode_create_scheme(TARGET mbgl-qt)
 
-if(WITH_QT_4)
-    include(platform/qt/qt4.cmake)
-else()
-    include(platform/qt/qt5.cmake)
-endif()
-
 # OS specific configurations
 if (MASON_PLATFORM STREQUAL "osx" OR MASON_PLATFORM STREQUAL "ios")
     list(APPEND MBGL_QT_CORE_FILES
@@ -116,15 +113,21 @@ if (MASON_PLATFORM STREQUAL "osx" OR MASON_PLATFORM STREQUAL "ios")
     )
     list(APPEND MBGL_QT_CORE_LIBRARIES
         PRIVATE "-framework Foundation"
-        PRIVATE "-framework OpenGL"
     )
+    if(WITH_QT_4)
+        list(APPEND MBGL_QT_CORE_LIBRARIES
+            PRIVATE "-framework OpenGL"
+        )
+    endif()
 elseif (CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
     list(APPEND MBGL_QT_CORE_FILES
         PRIVATE platform/default/thread.cpp
     )
-    list(APPEND MBGL_QT_CORE_LIBRARIES
-        PRIVATE -lGL
-    )
+    if(WITH_QT_4)
+        list(APPEND MBGL_QT_CORE_LIBRARIES
+            PRIVATE "-lGL"
+        )
+    endif()
 elseif (CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
     list(APPEND MBGL_QT_CORE_FILES
         PRIVATE platform/qt/src/thread.cpp
