@@ -36,9 +36,18 @@ public:
                    jni::String styleURL,
                    jni::Object<LatLngBounds> region,
                    jni::Object<CameraPosition> position,
+                   jni::jboolean showLogo,
                    jni::String programCacheDir);
 
     ~MapSnapshotter();
+
+    void setStyleUrl(JNIEnv&, jni::String styleURL);
+
+    void setSize(JNIEnv&, jni::jint width, jni::jint height);
+
+    void setCameraPosition(JNIEnv&, jni::Object<CameraPosition> position);
+
+    void setRegion(JNIEnv&, jni::Object<LatLngBounds> region);
 
     void start(JNIEnv&);
 
@@ -51,6 +60,7 @@ private:
     GenericUniqueWeakObject<MapSnapshotter> javaPeer;
 
     float pixelRatio;
+    bool showLogo;
 
     std::shared_ptr<mbgl::ThreadPool> threadPool;
     std::unique_ptr<Actor<mbgl::MapSnapshotter::Callback>> snapshotCallback;
