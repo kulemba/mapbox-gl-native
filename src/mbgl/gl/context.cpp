@@ -596,19 +596,19 @@ void Context::clear(optional<mbgl::Color> color,
     if (color) {
         mask |= GL_COLOR_BUFFER_BIT;
         clearColor = *color;
-        colorMask = { true, true, true, true };
+        colorMask = value::ColorMask::Default;
     }
 
     if (depth) {
         mask |= GL_DEPTH_BUFFER_BIT;
         clearDepth = *depth;
-        depthMask = true;
+        depthMask = value::DepthMask::Default;
     }
 
     if (stencil) {
         mask |= GL_STENCIL_BUFFER_BIT;
         clearStencil = *stencil;
-        stencilMask = 0xFF;
+        stencilMask = value::StencilMask::Default;
     }
 
     MBGL_CHECK_ERROR(glClear(mask));
