@@ -42,7 +42,7 @@ import com.mapbox.mapboxsdk.style.layers.Filter;
 import com.mapbox.mapboxsdk.style.layers.Layer;
 import com.mapbox.mapboxsdk.style.light.Light;
 import com.mapbox.mapboxsdk.style.sources.Source;
-import com.mapbox.services.android.telemetry.location.LocationEngine;
+import com.mapbox.services.android.core.location.LocationEngine;
 import com.mapbox.services.commons.geojson.Feature;
 import com.mapbox.services.commons.geojson.Geometry;
 
@@ -149,12 +149,8 @@ public final class MapboxMap {
     trackingSettings.onRestoreInstanceState(savedInstanceState);
 
     if (cameraPosition != null) {
-      easeCamera(CameraUpdateFactory.newCameraPosition(
-        new CameraPosition.Builder(cameraPosition).build()),
-        0,
-        false,
-        null,
-        !trackingSettings.isLocationTrackingDisabled()
+      moveCamera(CameraUpdateFactory.newCameraPosition(
+        new CameraPosition.Builder(cameraPosition).build())
       );
     }
 
@@ -834,6 +830,10 @@ public final class MapboxMap {
    */
   public final void easeCamera(final CameraUpdate update, final int durationMs, final boolean easingInterpolator,
                                final MapboxMap.CancelableCallback callback, final boolean isDismissable) {
+
+    if (durationMs <= 0) {
+      throw new IllegalArgumentException("Null duration passed into easeCamera");
+    }
     new Handler().post(new Runnable() {
       @Override
       public void run() {
@@ -906,6 +906,9 @@ public final class MapboxMap {
    */
   public final void animateCamera(final CameraUpdate update, final int durationMs,
                                   final MapboxMap.CancelableCallback callback) {
+    if (durationMs <= 0) {
+      throw new IllegalArgumentException("Null duration passed into animageCamera");
+    }
     new Handler().post(new Runnable() {
       @Override
       public void run() {
@@ -1670,9 +1673,9 @@ public final class MapboxMap {
   /**
    * Get a camera position that fits a provided shape with a given bearing and padding.
    *
-   * @param geometry     the geometry to constrain the map with
-   * @param bearing      the bearing at which to compute the geometry's bounds
-   * @param padding      the padding to apply to the bounds
+   * @param geometry the geometry to constrain the map with
+   * @param bearing  the bearing at which to compute the geometry's bounds
+   * @param padding  the padding to apply to the bounds
    * @return the camera position that fits the bounds and padding
    */
   public CameraPosition getCameraForGeometry(Geometry geometry, double bearing, int[] padding) {
