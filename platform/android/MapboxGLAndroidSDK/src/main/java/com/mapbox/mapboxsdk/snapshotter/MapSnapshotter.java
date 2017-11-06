@@ -7,12 +7,12 @@ import android.graphics.Canvas;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.UiThread;
+import android.util.DisplayMetrics;
 
 import com.mapbox.mapboxsdk.R;
 import com.mapbox.mapboxsdk.camera.CameraPosition;
 import com.mapbox.mapboxsdk.constants.Style;
 import com.mapbox.mapboxsdk.geometry.LatLngBounds;
-import com.mapbox.mapboxsdk.maps.MapboxMap;
 import com.mapbox.mapboxsdk.storage.FileSource;
 
 /**
@@ -24,10 +24,26 @@ import com.mapbox.mapboxsdk.storage.FileSource;
 public class MapSnapshotter {
 
   /**
+   * Get notified on snapshot completion.
+   *
+   * @see MapSnapshotter#start(SnapshotReadyCallback, ErrorHandler)
+   */
+  public interface SnapshotReadyCallback {
+
+    /**
+     * Called when the snapshot is complete.
+     *
+     * @param snapshot the snapshot
+     */
+    void onSnapshotReady(MapSnapshot snapshot);
+
+  }
+
+  /**
    * Can be used to get notified of errors
    * in snapshot generation
    *
-   * @see MapSnapshotter#start(MapboxMap.SnapshotReadyCallback, ErrorHandler)
+   * @see MapSnapshotter#start(SnapshotReadyCallback, ErrorHandler)
    */
   public interface ErrorHandler {
 
@@ -40,13 +56,13 @@ public class MapSnapshotter {
     void onError(String error);
   }
 
-  private static final int LOGO_MARGIN_PX = 4;
+  private static final int LOGO_MARGIN_DP = 4;
 
   // Holds the pointer to JNI NativeMapView
   private long nativePtr = 0;
 
   private final Context context;
-  private MapboxMap.SnapshotReadyCallback callback;
+  private SnapshotReadyCallback callback;
   private ErrorHandler errorHandler;
 
   /**
@@ -59,6 +75,7 @@ public class MapSnapshotter {
     private String styleUrl = Style.MAPBOX_STREETS;
     private LatLngBounds region;
     private CameraPosition cameraPosition;
+    private boolean showLogo = true;
 
     /**
      * @param width  the width of the image
@@ -105,6 +122,15 @@ public class MapSnapshotter {
      */
     public Options withCameraPosition(CameraPosition cameraPosition) {
       this.cameraPosition = cameraPosition;
+      return this;
+    }
+
+    /**
+     * @param showLogo The flag indicating to show the Mapbox logo.
+     * @return the mutated {@link Options}
+     */
+    public Options withLogo(boolean showLogo) {
+      this.showLogo = showLogo;
       return this;
     }
 
@@ -167,7 +193,7 @@ public class MapSnapshotter {
 
     nativeInitialize(this, fileSource, options.pixelRatio, options.width,
       options.height, options.styleUrl, options.region, options.cameraPosition,
-      programCacheDir);
+      options.showLogo, programCacheDir);
   }
 
   /**
@@ -176,7 +202,7 @@ public class MapSnapshotter {
    *
    * @param callback the callback to use when the snapshot is ready
    */
-  public void start(@NonNull MapboxMap.SnapshotReadyCallback callback) {
+  public void start(@NonNull SnapshotReadyCallback callback) {
     this.start(callback, null);
   }
 
@@ -184,10 +210,10 @@ public class MapSnapshotter {
    * Starts loading and rendering the snapshot. The callbacks will be fired
    * on the calling thread.
    *
-   * @param callback the callback to use when the snapshot is ready
+   * @param callback     the callback to use when the snapshot is ready
    * @param errorHandler the error handler to use on snapshot errors
    */
-  public void start(@NonNull MapboxMap.SnapshotReadyCallback callback, ErrorHandler errorHandler) {
+  public void start(@NonNull SnapshotReadyCallback callback, ErrorHandler errorHandler) {
     if (this.callback != null) {
       throw new IllegalStateException("Snapshotter was already started");
     }
@@ -198,31 +224,87 @@ public class MapSnapshotter {
   }
 
   /**
+   * Updates the snapshotter with a new size
+   *
+   * @param width  the width
+   * @param height the height
+   */
+  public native void setSize(int width, int height);
+
+  /**
+   * Updates the snapshotter with a new {@link CameraPosition}
+   *
+   * @param cameraPosition the camera position
+   */
+  public native void setCameraPosition(CameraPosition cameraPosition);
+
+  /**
+   * Updates the snapshotter with a new {@link LatLngBounds}
+   *
+   * @param region the region
+   */
+  public native void setRegion(LatLngBounds region);
+
+  /**
+   * Updates the snapshotter with a new style url
+   *
+   * @param styleUrl the style url
+   */
+  public native void setStyleUrl(String styleUrl);
+
+
+  /**
    * Must be called in on the thread
    * the object was created on.
    */
   public void cancel() {
-    callback = null;
+    reset();
     nativeCancel();
   }
 
   protected void addOverlay(Bitmap original) {
-    float margin = context.getResources().getDisplayMetrics().density * LOGO_MARGIN_PX;
+    DisplayMetrics displayMetrics = context.getResources().getDisplayMetrics();
+    float margin = displayMetrics.density * LOGO_MARGIN_DP;
     Canvas canvas = new Canvas(original);
-    Bitmap logo = BitmapFactory.decodeResource(context.getResources(), R.drawable.mapbox_logo_icon, null);
-    canvas.drawBitmap(logo, margin, original.getHeight() - (logo.getHeight() + margin), null);
+
+    // Decode just the boundaries
+    BitmapFactory.Options bitmapOptions = new BitmapFactory.Options();
+    bitmapOptions.inJustDecodeBounds = true;
+    BitmapFactory.decodeResource(context.getResources(), R.drawable.mapbox_logo_icon, bitmapOptions);
+    int srcWidth = bitmapOptions.outWidth;
+    int srcHeight = bitmapOptions.outHeight;
+
+    // Ratio, preferred dimensions and resulting sample size
+    float widthRatio = displayMetrics.widthPixels / original.getWidth();
+    float heightRatio = displayMetrics.heightPixels / original.getHeight();
+    float prefWidth = srcWidth / widthRatio;
+    float prefHeight = srcHeight / heightRatio;
+    int sampleSize = MapSnaphotUtil.calculateInSampleSize(bitmapOptions, (int) prefWidth, (int) prefHeight);
+
+    // Scale bitmap
+    bitmapOptions.inJustDecodeBounds = false;
+    bitmapOptions.inScaled = true;
+    bitmapOptions.inSampleSize = sampleSize;
+    bitmapOptions.inDensity = srcWidth;
+    bitmapOptions.inTargetDensity = (int) prefWidth * bitmapOptions.inSampleSize;
+    Bitmap logo = BitmapFactory.decodeResource(context.getResources(), R.drawable.mapbox_logo_icon, bitmapOptions);
+
+    float scaledHeight = bitmapOptions.outHeight * heightRatio / bitmapOptions.inSampleSize;
+    canvas.drawBitmap(logo, margin, original.getHeight() - scaledHeight - margin, null);
   }
 
   /**
    * Called by JNI peer when snapshot is ready.
    * Always called on the origin (main) thread.
    *
-   * @param bitmap the generated snapshot
+   * @param snapshot the generated snapshot
    */
-  protected void onSnapshotReady(Bitmap bitmap) {
+  protected void onSnapshotReady(MapSnapshot snapshot) {
     if (callback != null) {
-      addOverlay(bitmap);
-      callback.onSnapshotReady(bitmap);
+      if (snapshot.isShowLogo()) {
+        addOverlay(snapshot.getBitmap());
+      }
+      callback.onSnapshotReady(snapshot);
       reset();
     }
   }
@@ -249,7 +331,7 @@ public class MapSnapshotter {
                                          FileSource fileSource, float pixelRatio,
                                          int width, int height, String styleUrl,
                                          LatLngBounds region, CameraPosition position,
-                                         String programCacheDir);
+                                         boolean showLogo, String programCacheDir);
 
   protected native void nativeStart();
 
