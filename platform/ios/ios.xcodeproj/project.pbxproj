@@ -158,6 +158,10 @@
 		35E79F201D41266300957B9E /* MGLStyleLayer_Private.h in Headers */ = {isa = PBXBuildFile; fileRef = 35E79F1F1D41266300957B9E /* MGLStyleLayer_Private.h */; };
 		35E79F211D41266300957B9E /* MGLStyleLayer_Private.h in Headers */ = {isa = PBXBuildFile; fileRef = 35E79F1F1D41266300957B9E /* MGLStyleLayer_Private.h */; };
 		36F1153D1D46080700878E1A /* libmbgl-core.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 36F1153B1D46080700878E1A /* libmbgl-core.a */; };
+		3EA93369F61CF70AFA50465D /* MGLRendererConfiguration.mm in Sources */ = {isa = PBXBuildFile; fileRef = 3EA931BC4F087E166D538F21 /* MGLRendererConfiguration.mm */; };
+		3EA934623AD0000B7D99C3FB /* MGLRendererConfiguration.h in Headers */ = {isa = PBXBuildFile; fileRef = 3EA9337830C7738BF7F5493C /* MGLRendererConfiguration.h */; };
+		3EA9363147E77DD29FA06063 /* MGLRendererConfiguration.h in Headers */ = {isa = PBXBuildFile; fileRef = 3EA9337830C7738BF7F5493C /* MGLRendererConfiguration.h */; };
+		3EA9366247780E4F252652A8 /* MGLRendererConfiguration.mm in Sources */ = {isa = PBXBuildFile; fileRef = 3EA931BC4F087E166D538F21 /* MGLRendererConfiguration.mm */; };
 		400533011DB0862B0069F638 /* NSArray+MGLAdditions.h in Headers */ = {isa = PBXBuildFile; fileRef = 400532FF1DB0862B0069F638 /* NSArray+MGLAdditions.h */; };
 		400533021DB0862B0069F638 /* NSArray+MGLAdditions.mm in Sources */ = {isa = PBXBuildFile; fileRef = 400533001DB0862B0069F638 /* NSArray+MGLAdditions.mm */; };
 		400533031DB086490069F638 /* NSArray+MGLAdditions.mm in Sources */ = {isa = PBXBuildFile; fileRef = 400533001DB0862B0069F638 /* NSArray+MGLAdditions.mm */; };
@@ -676,12 +680,14 @@
 		35E79F1F1D41266300957B9E /* MGLStyleLayer_Private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MGLStyleLayer_Private.h; sourceTree = "<group>"; };
 		36F1153B1D46080700878E1A /* libmbgl-core.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libmbgl-core.a"; path = "build/Debug-iphoneos/libmbgl-core.a"; sourceTree = "<group>"; };
 		36F1153C1D46080700878E1A /* libmbgl-platform-ios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libmbgl-platform-ios.a"; path = "build/Debug-iphoneos/libmbgl-platform-ios.a"; sourceTree = "<group>"; };
+		3EA931BC4F087E166D538F21 /* MGLRendererConfiguration.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = MGLRendererConfiguration.mm; sourceTree = "<group>"; };
+		3EA9337830C7738BF7F5493C /* MGLRendererConfiguration.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MGLRendererConfiguration.h; sourceTree = "<group>"; };
 		400532FF1DB0862B0069F638 /* NSArray+MGLAdditions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSArray+MGLAdditions.h"; sourceTree = "<group>"; };
 		400533001DB0862B0069F638 /* NSArray+MGLAdditions.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "NSArray+MGLAdditions.mm"; sourceTree = "<group>"; };
 		4018B1C31CDC277F00F666AF /* MGLAnnotationView_Private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MGLAnnotationView_Private.h; sourceTree = "<group>"; };
 		4018B1C41CDC277F00F666AF /* MGLAnnotationView.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = MGLAnnotationView.mm; sourceTree = "<group>"; };
 		4018B1C51CDC277F00F666AF /* MGLAnnotationView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MGLAnnotationView.h; sourceTree = "<group>"; };
-		402E9DE01CD2C76200FD4519 /* Mapbox.playground */ = {isa = PBXFileReference; lastKnownFileType = file.playground; path = Mapbox.playground; sourceTree = "<group>"; };
+		402E9DE01CD2C76200FD4519 /* Mapbox.playground */ = {isa = PBXFileReference; lastKnownFileType = file.playground; path = Mapbox.playground; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.swift; };
 		4031ACFE1E9FD29F00A3EA26 /* MGLSDKTestHelpers.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MGLSDKTestHelpers.swift; path = ../../darwin/test/MGLSDKTestHelpers.swift; sourceTree = "<group>"; };
 		404326881D5B9B1A007111BD /* MGLAnnotationContainerView_Private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MGLAnnotationContainerView_Private.h; sourceTree = "<group>"; };
 		4049C29B1DB6CD6C00B3F799 /* MGLPointCollection.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MGLPointCollection.h; sourceTree = "<group>"; };
@@ -1419,6 +1425,7 @@
 				DAD165801CF4CF9A001FF4B9 /* Formatters */,
 				DAD165811CF4CFC4001FF4B9 /* Geometry */,
 				DAD165821CF4CFE3001FF4B9 /* Offline Maps */,
+				DA8848911CBB049300AB86E3 /* reachability */,
 				DA8847DF1CBAFA5100AB86E3 /* MGLAccountManager.h */,
 				DA8847FF1CBAFA6200AB86E3 /* MGLAccountManager_Private.h */,
 				DA8848001CBAFA6200AB86E3 /* MGLAccountManager.m */,
@@ -1434,13 +1441,14 @@
 				927FBCFE1F4DB05500F8BF1F /* MGLMapSnapshotter.mm */,
 				DD0902A41DB18F1B00C5BDCE /* MGLNetworkConfiguration.h */,
 				DD0902A21DB18DE700C5BDCE /* MGLNetworkConfiguration.m */,
+				3EA9337830C7738BF7F5493C /* MGLRendererConfiguration.h */,
+				3EA931BC4F087E166D538F21 /* MGLRendererConfiguration.mm */,
 				92F2C3EC1F0E3C3A00268EC0 /* MGLRendererFrontend.h */,
 				DA8847EC1CBAFA5100AB86E3 /* MGLStyle.h */,
 				35E0CFE51D3E501500188327 /* MGLStyle_Private.h */,
 				DA88480F1CBAFA6200AB86E3 /* MGLStyle.mm */,
 				DA8847EE1CBAFA5100AB86E3 /* MGLTypes.h */,
 				DA8848111CBAFA6200AB86E3 /* MGLTypes.m */,
-				DA8848911CBB049300AB86E3 /* reachability */,
 				35E1A4D71D74336F007AA97F /* MGLValueEvaluator.h */,
 			);
 			name = Foundation;
@@ -1869,6 +1877,7 @@
 				DA8847F61CBAFA5100AB86E3 /* MGLOfflineStorage.h in Headers */,
 				DAD1656E1CF41981001FF4B9 /* MGLFeature_Private.h in Headers */,
 				DA88483C1CBAFB8500AB86E3 /* MGLMapView.h in Headers */,
+				3EA9363147E77DD29FA06063 /* MGLRendererConfiguration.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1962,6 +1971,7 @@
 				DAF0D8191DFE6B2800B28378 /* MGLAttributionInfo_Private.h in Headers */,
 				DABFB86A1CBE99E500D62B32 /* MGLStyle.h in Headers */,
 				DA00FC8F1D5EEB0D009AABC8 /* MGLAttributionInfo.h in Headers */,
+				3EA934623AD0000B7D99C3FB /* MGLRendererConfiguration.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2100,7 +2110,7 @@
 			isa = PBXProject;
 			attributes = {
 				CLASSPREFIX = MBX;
-				LastUpgradeCheck = 0800;
+				LastUpgradeCheck = 0910;
 				ORGANIZATIONNAME = Mapbox;
 				TargetAttributes = {
 					DA1DC9491CB6C1C2006E619F = {
@@ -2412,6 +2422,7 @@
 				DA8848581CBAFB9800AB86E3 /* MGLMapboxEvents.m in Sources */,
 				35CE61841D4165D9004F2359 /* UIColor+MGLAdditions.mm in Sources */,
 				DA8848561CBAFB9800AB86E3 /* MGLLocationManager.m in Sources */,
+				3EA93369F61CF70AFA50465D /* MGLRendererConfiguration.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2502,6 +2513,7 @@
 				DAA4E41C1CBB730400178DFB /* MGLAccountManager.m in Sources */,
 				35CE61851D4165D9004F2359 /* UIColor+MGLAdditions.mm in Sources */,
 				DAA4E4241CBB730400178DFB /* MGLPolyline.mm in Sources */,
+				3EA9366247780E4F252652A8 /* MGLRendererConfiguration.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2709,7 +2721,9 @@
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
@@ -2717,7 +2731,11 @@
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
@@ -2762,7 +2780,9 @@
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
@@ -2770,7 +2790,11 @@
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
@@ -2793,6 +2817,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
+				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
 				SYMROOT = ../../build/ios;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
@@ -2856,6 +2881,7 @@
 				INFOPLIST_FILE = test/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				OTHER_CFLAGS = "-fvisibility=hidden";
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"$(variant_cflags)",
@@ -2880,6 +2906,7 @@
 				INFOPLIST_FILE = test/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				OTHER_CFLAGS = "-fvisibility=hidden";
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"$(variant_cflags)",
@@ -2899,6 +2926,7 @@
 			baseConfigurationReference = 55D8C9941D0F133500F42F10 /* config.xcconfig */;
 			buildSettings = {
 				BITCODE_GENERATION_MODE = bitcode;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
 				CURRENT_PROJECT_VERSION = 1;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -2940,6 +2968,7 @@
 			baseConfigurationReference = 55D8C9941D0F133500F42F10 /* config.xcconfig */;
 			buildSettings = {
 				BITCODE_GENERATION_MODE = bitcode;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
 				CURRENT_PROJECT_VERSION = 1;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
