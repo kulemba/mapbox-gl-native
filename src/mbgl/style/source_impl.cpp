@@ -8,5 +8,8 @@ Source::Impl::Impl(SourceType type_, std::string id_)
       id(std::move(id_)) {
 }
 
+void Source::Impl::limitMaxZoom(uint8_t) {
+}
+    
 } // namespace style
 } // namespace mbgl
