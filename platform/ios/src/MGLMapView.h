@@ -153,6 +153,8 @@ MGL_EXPORT IB_DESIGNABLE
  */
 - (instancetype)initWithFrame:(CGRect)frame styleURL:(nullable NSURL *)styleURL;
 
+- (instancetype)initWithFrame:(CGRect)frame styleURL:(nullable NSURL *)styleURL maxZoomLimit:(double)maxZoomLimit;
+
 #pragma mark Accessing the Delegate
 
 /**
@@ -211,6 +213,8 @@ MGL_EXPORT IB_DESIGNABLE
  you want to introspect individual style attributes, use the `style` property.
  */
 @property (nonatomic, null_resettable) NSURL *styleURL;
+
+- (void)setStyleURL:(nullable NSURL *)styleURL withMaxZoomLimit:(double)maxZoomLimit;
 
 /**
  Reloads the style.
