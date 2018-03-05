@@ -14,12 +14,12 @@ Style::Style(Scheduler& scheduler, FileSource& fileSource, float pixelRatio)
 
 Style::~Style() = default;
 
-void Style::loadJSON(const std::string& json) {
-    impl->loadJSON(json);
+void Style::loadJSON(const std::string& json, uint8_t maxZoomLimit) {
+    impl->loadJSON(json, maxZoomLimit);
 }
 
-void Style::loadURL(const std::string& url) {
-    impl->loadURL(url);
+void Style::loadURL(const std::string& url, uint8_t maxZoomLimit) {
+    impl->loadURL(url, maxZoomLimit);
 }
 
 std::string Style::getJSON() const {
@@ -28,6 +28,10 @@ std::string Style::getJSON() const {
 
 std::string Style::getURL() const {
     return impl->getURL();
+}
+
+uint8_t Style::getMaxZoomLimit() const {
+    return impl->maxZoomLimit;
 }
 
 std::string Style::getName() const {
