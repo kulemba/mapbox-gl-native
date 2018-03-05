@@ -54,7 +54,7 @@ void RenderVectorSource::update(Immutable<style::Source::Impl> baseImpl_,
                        parameters,
                        SourceType::Vector,
                        util::tileSize,
-                       tileset->zoomRange,
+                       Range<uint8_t>(tileset->zoomRange.min, std::min(tileset->zoomRange.max, maxZoomLimit)),
                        [&] (const OverscaledTileID& tileID) {
                            return std::make_unique<VectorTile>(tileID, impl().id, parameters, *tileset);
                        });
@@ -91,6 +91,10 @@ void RenderVectorSource::onLowMemory() {
 
 void RenderVectorSource::dumpDebugLogs() const {
     tilePyramid.dumpDebugLogs();
+}
+
+void RenderVectorSource::limitMaxZoom(uint8_t maxZoomLimit_) {
+    maxZoomLimit = maxZoomLimit_;
 }
 
 } // namespace mbgl
