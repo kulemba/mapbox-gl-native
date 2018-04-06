@@ -25,12 +25,14 @@ public:
     Style(Scheduler&, FileSource&, float pixelRatio);
     ~Style();
 
-    void loadJSON(const std::string&);
-    void loadURL(const std::string&);
+    void loadJSON(const std::string&, uint8_t = std::numeric_limits<uint8_t>::max());
+    void loadURL(const std::string&, uint8_t = std::numeric_limits<uint8_t>::max());
 
     std::string getJSON() const;
     std::string getURL() const;
 
+    uint8_t getMaxZoomLimit() const;
+    
     // Defaults
     std::string getName() const;
     CameraOptions getDefaultCamera() const;
