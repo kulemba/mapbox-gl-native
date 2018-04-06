@@ -35,11 +35,15 @@ public:
     void onLowMemory() final;
     void dumpDebugLogs() const final;
 
+    void limitMaxZoom(uint8_t) final;
+
 private:
     const style::VectorSource::Impl& impl() const;
 
     TilePyramid tilePyramid;
     optional<std::vector<std::string>> tileURLTemplates;
+
+    uint8_t maxZoomLimit;
 };
 
 template <>
