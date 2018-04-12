@@ -8,6 +8,7 @@
 #include "../file_source.hpp"
 #include "offline_region.hpp"
 #include "offline_region_definition.hpp"
+#include "../geometry/lat_lng_bounds.hpp"
 
 
 namespace mbgl {
@@ -66,6 +67,10 @@ public:
                              jni::Object<OfflineRegionDefinition> definition,
                              jni::Array<jni::jbyte> metadata,
                              jni::Object<OfflineManager::CreateOfflineRegionCallback> callback);
+    
+    void addSupplementaryOfflineDatabase(jni::JNIEnv&, jni::String cachePath_, jint resourceKind, jni::Object<LatLngBounds> latLngBounds_);
+    
+    void removeSupplementaryOfflineDatabases(jni::JNIEnv&, jni::String cachePath_);
 
 private:
     mbgl::DefaultFileSource& fileSource;

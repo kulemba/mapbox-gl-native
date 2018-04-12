@@ -134,6 +134,7 @@ public final class MapboxMap {
     outState.putParcelable(MapboxConstants.STATE_CAMERA_POSITION, transform.getCameraPosition());
     outState.putBoolean(MapboxConstants.STATE_DEBUG_ACTIVE, nativeMapView.getDebug());
     outState.putString(MapboxConstants.STATE_STYLE_URL, nativeMapView.getStyleUrl());
+    outState.putByte(MapboxConstants.STATE_MAX_ZOOM_LIMIT, nativeMapView.getMaxZoomLimit());
     trackingSettings.onSaveInstanceState(outState);
     uiSettings.onSaveInstanceState(outState);
   }
@@ -159,7 +160,7 @@ public final class MapboxMap {
 
     final String styleUrl = savedInstanceState.getString(MapboxConstants.STATE_STYLE_URL);
     if (!TextUtils.isEmpty(styleUrl)) {
-      nativeMapView.setStyleUrl(savedInstanceState.getString(MapboxConstants.STATE_STYLE_URL));
+      nativeMapView.setStyleUrl(savedInstanceState.getString(MapboxConstants.STATE_STYLE_URL), savedInstanceState.getByte(MapboxConstants.STATE_MAX_ZOOM_LIMIT));
     }
   }
 
@@ -1108,6 +1109,11 @@ public final class MapboxMap {
       });
     }
     nativeMapView.setStyleUrl(url);
+  }
+
+  @UiThread
+  public void setStyleUrl(@NonNull String url, byte maxZoomLimit) {
+    nativeMapView.setStyleUrl(url, maxZoomLimit);
   }
 
   /**

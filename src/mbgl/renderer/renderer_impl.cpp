@@ -231,11 +231,13 @@ void Renderer::Impl::render(const UpdateParameters& updateParameters) {
             filteredLayers.push_back(layer);
         }
 
-        renderSources.at(source->id)->update(source,
-                                             filteredLayers,
-                                             needsRendering,
-                                             needsRelayout,
-                                             tileParameters);
+        auto& renderSource = renderSources.at(source->id);
+        renderSource->limitMaxZoom(updateParameters.maxZoomLimit);
+        renderSource->update(source,
+                             filteredLayers,
+                             needsRendering,
+                             needsRelayout,
+                             tileParameters);
     }
 
     transformState = updateParameters.transformState;
