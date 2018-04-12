@@ -41,11 +41,13 @@ public:
     Impl(Scheduler&, FileSource&, float pixelRatio);
     ~Impl() override;
 
-    void loadJSON(const std::string&);
-    void loadURL(const std::string&);
+    void loadJSON(const std::string&, uint8_t = std::numeric_limits<uint8_t>::max());
+    void loadURL(const std::string&, uint8_t = std::numeric_limits<uint8_t>::max());
 
     std::string getJSON() const;
     std::string getURL() const;
+
+    uint8_t getMaxZoomLimit() const;
 
     void setObserver(Observer*);
 
@@ -94,6 +96,8 @@ public:
     bool mutated = false;
     bool loaded = false;
     bool spriteLoaded = false;
+
+    uint8_t maxZoomLimit = std::numeric_limits<uint8_t>::max();
 
 private:
     void parse(const std::string&);
