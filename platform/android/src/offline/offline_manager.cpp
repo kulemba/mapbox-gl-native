@@ -75,6 +75,34 @@ void OfflineManager::createOfflineRegion(jni::JNIEnv& env_,
         }
     });
 }
+    
+void OfflineManager::addSupplementaryOfflineDatabase(jni::JNIEnv& env_, jni::String cachePath_, jint resourceKind, jni::Object<LatLngBounds> latLngBounds_) {
+    std::string cachePath = jni::Make<std::string>(env_, cachePath_);
+    auto bounds = latLngBounds_ ? mbgl::optional<mbgl::LatLngBounds>(LatLngBounds::getLatLngBounds(env_, latLngBounds_)): mbgl::optional<mbgl::LatLngBounds>();
+    if (resourceKind & (1 << 0)) {
+        fileSource.addSupplementaryOfflineDatabase(mbgl::Resource::Style, bounds, cachePath);
+    }
+    if (resourceKind & (1 << 1)) {
+        fileSource.addSupplementaryOfflineDatabase(mbgl::Resource::Source, bounds, cachePath);
+    }
+    if (resourceKind & (1 << 2)) {
+        fileSource.addSupplementaryOfflineDatabase(mbgl::Resource::Tile, bounds, cachePath);
+    }
+    if (resourceKind & (1 << 3)) {
+        fileSource.addSupplementaryOfflineDatabase(mbgl::Resource::Glyphs, bounds, cachePath);
+    }
+    if (resourceKind & (1 << 4)) {
+        fileSource.addSupplementaryOfflineDatabase(mbgl::Resource::SpriteImage, bounds, cachePath);
+    }
+    if (resourceKind & (1 << 5)) {
+        fileSource.addSupplementaryOfflineDatabase(mbgl::Resource::SpriteJSON, bounds, cachePath);
+    }
+}
+    
+void OfflineManager::removeSupplementaryOfflineDatabases(jni::JNIEnv& env_, jni::String cachePath_) {
+    std::string cachePath = jni::Make<std::string>(env_, cachePath_);
+    fileSource.removeSupplementaryOfflineDatabases(cachePath);
+}
 
 jni::Class<OfflineManager> OfflineManager::javaClass;
 
@@ -92,7 +120,9 @@ void OfflineManager::registerNative(jni::JNIEnv& env) {
         "finalize",
         METHOD(&OfflineManager::setOfflineMapboxTileCountLimit, "setOfflineMapboxTileCountLimit"),
         METHOD(&OfflineManager::listOfflineRegions, "listOfflineRegions"),
-        METHOD(&OfflineManager::createOfflineRegion, "createOfflineRegion"));
+        METHOD(&OfflineManager::createOfflineRegion, "createOfflineRegion"),
+        METHOD(&OfflineManager::addSupplementaryOfflineDatabase, "addSupplementaryOfflineDatabase"),
+        METHOD(&OfflineManager::removeSupplementaryOfflineDatabases, "removeSupplementaryOfflineDatabases"));
 }
 
 // OfflineManager::ListOfflineRegionsCallback //
