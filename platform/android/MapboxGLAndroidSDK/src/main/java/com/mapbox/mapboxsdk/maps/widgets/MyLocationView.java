@@ -996,7 +996,7 @@ public class MyLocationView extends View {
       }
 
       // updateLatLng timestamp
-      float previousUpdateTimeStamp = locationUpdateTimestamp;
+      long previousUpdateTimeStamp = locationUpdateTimestamp;
       locationUpdateTimestamp = SystemClock.elapsedRealtime();
 
       // calculate animation duration
@@ -1004,7 +1004,7 @@ public class MyLocationView extends View {
       if (previousUpdateTimeStamp == 0) {
         animationDuration = 0;
       } else {
-        animationDuration = (int) ((locationUpdateTimestamp - previousUpdateTimeStamp) * 1.1f)
+        animationDuration = (int) (((float)(locationUpdateTimestamp - previousUpdateTimeStamp)) * 1.1f)
         /*make animation slightly longer*/;
       }
 
