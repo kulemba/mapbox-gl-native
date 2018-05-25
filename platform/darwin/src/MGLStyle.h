@@ -68,7 +68,7 @@ MGL_EXPORT
     `-streetsStyleURLWithVersion:` method instead. Such details may change
     significantly from version to version.
  */
-+ (NSURL *)streetsStyleURL;
+@property (class, nonatomic, readonly) NSURL *streetsStyleURL;
 
 /**
  Returns the URL to the given version of the
@@ -98,7 +98,7 @@ MGL_EXPORT
     `-outdoorsStyleURLWithVersion:` method instead. Such details may change
     significantly from version to version.
  */
-+ (NSURL *)outdoorsStyleURL;
+@property (class, nonatomic, readonly) NSURL *outdoorsStyleURL;
 
 /**
  Returns the URL to the given version of the
@@ -122,7 +122,7 @@ MGL_EXPORT
     `-lightStyleURLWithVersion:` method instead. Such details may change
     significantly from version to version.
  */
-+ (NSURL *)lightStyleURL;
+@property (class, nonatomic, readonly) NSURL *lightStyleURL;
 
 /**
  Returns the URL to the given version of the
@@ -147,7 +147,7 @@ MGL_EXPORT
     `-darkStyleURLWithVersion:` method instead. Such details may change
     significantly from version to version.
  */
-+ (NSURL *)darkStyleURL;
+@property (class, nonatomic, readonly) NSURL *darkStyleURL;
 
 /**
  Returns the URL to the given version of the
@@ -172,7 +172,7 @@ MGL_EXPORT
     `-satelliteStyleURLWithVersion:` method instead. Such details may change
     significantly from version to version.
  */
-+ (NSURL *)satelliteStyleURL;
+@property (class, nonatomic, readonly) NSURL *satelliteStyleURL;
 
 /**
  Returns the URL to the given version of the
@@ -203,7 +203,7 @@ MGL_EXPORT
     `-satelliteStreetsStyleURLWithVersion:` method instead. Such details may
     change significantly from version to version.
  */
-+ (NSURL *)satelliteStreetsStyleURL;
+@property (class, nonatomic, readonly) NSURL *satelliteStreetsStyleURL;
 
 /**
  Returns the URL to the given version of the
@@ -416,25 +416,14 @@ MGL_EXPORT
 
 #pragma mark Managing Style Classes
 
-/**
- Support for style classes has been removed. This property always returns an empty array.
- */
-@property (nonatomic) NS_ARRAY_OF(NSString *) *styleClasses __attribute__((unavailable("This property is non-functional.")));
 
-/**
- Support for style classes has been removed. This method always returns NO.
- */
-- (BOOL)hasStyleClass:(NSString *)styleClass __attribute__((unavailable("This method is non-functional.")));
+@property (nonatomic) NS_ARRAY_OF(NSString *) *styleClasses __attribute__((unavailable("Support for style classes has been removed.")));
 
-/**
- Support for style classes has been removed. This method is a no-op.
- */
-- (void)addStyleClass:(NSString *)styleClass __attribute__((unavailable("This method is non-functional.")));
+- (BOOL)hasStyleClass:(NSString *)styleClass __attribute__((unavailable("Support for style classes has been removed.")));
 
-/**
- Support for style classes has been removed. This method is a no-op.
- */
-- (void)removeStyleClass:(NSString *)styleClass __attribute__((unavailable("This method is non-functional.")));
+- (void)addStyleClass:(NSString *)styleClass __attribute__((unavailable("Support for style classes has been removed.")));
+
+- (void)removeStyleClass:(NSString *)styleClass __attribute__((unavailable("Support for style classes has been removed.")));
 
 #pragma mark Managing a Style’s Images
 
@@ -493,17 +482,20 @@ MGL_EXPORT
 #pragma mark Localizing Map Content
 
 /**
- A Boolean value that determines whether the style attempts to localize labels in 
- the style into the system’s preferred language.
+ Attempts to localize labels in the style into the given locale.
  
- When this property is enabled, the style automatically modifies the text property 
- of any symbol style layer whose source is the 
- <a href="https://www.mapbox.com/vector-tiles/mapbox-streets-v7/#overview">Mapbox 
- Streets source</a>. On iOS, the user can set the system’s preferred language in 
- Settings, General Settings, Language & Region. On macOS, the user can set the 
- system’s preferred language in the Language & Region pane of System Preferences.
+ This method automatically modifies the text property of any symbol style layer
+ in the style whose source is the
+ <a href="https://www.mapbox.com/vector-tiles/mapbox-streets-v7/#overview">Mapbox Streets source</a>.
+ On iOS, the user can set the system’s preferred language in Settings, General
+ Settings, Language & Region. On macOS, the user can set the system’s preferred
+ language in the Language & Region pane of System Preferences.
+ 
+ @param locale The locale into which labels should be localized. To use the
+    system’s preferred language, if supported, specify `nil`. To use the local
+    language, specify a locale with the identifier `mul`.
  */
-@property (nonatomic) BOOL localizesLabels;
+- (void)localizeLabelsIntoLocale:(nullable NSLocale *)locale;
 
 @end
 
