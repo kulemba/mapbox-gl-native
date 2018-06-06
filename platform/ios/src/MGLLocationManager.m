@@ -76,14 +76,9 @@ static NSString * const MGLLocationManagerRegionIdentifier = @"MGLLocationManage
 #endif
     if (authorizedAlways || authorizationStatus == kCLAuthorizationStatusAuthorizedWhenInUse) {
         // If the host app can run in the background with `always` location permissions then allow background
-        // updates and start the significant location change service and background timeout timer
+        // updates and start the significant location change service
         if (self.hostAppHasBackgroundCapability && authorizedAlways) {
             [self.standardLocationManager startMonitoringSignificantLocationChanges];
-            [self startBackgroundTimeoutTimer];
-            // On iOS 9 and above also allow background location updates
-            if ([self.standardLocationManager respondsToSelector:@selector(allowsBackgroundLocationUpdates)]) {
-                self.standardLocationManager.allowsBackgroundLocationUpdates = YES;
-            }
         }
 
         [self.standardLocationManager startUpdatingLocation];
