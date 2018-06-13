@@ -265,6 +265,7 @@ public:
     /// True if a willChange notification has been issued for shape annotation layers and a didChange notification is pending.
     BOOL _isChangingAnnotationLayers;
     BOOL _isWaitingForRedundantReachableNotification;
+    BOOL _isReachable;
     BOOL _isTargetingInterfaceBuilder;
 
     CLLocationDegrees _pendingLatitude;
@@ -317,6 +318,16 @@ public:
     return self;
 }
 
+- (instancetype)initWithFrame:(CGRect)frame styleURL:(nullable NSURL *)styleURL maxZoomLimit:(double)maxZoomLimit
+{
+    if (self = [super initWithFrame:frame])
+    {
+        [self commonInit];
+        [self setStyleURL:styleURL withMaxZoomLimit:maxZoomLimit];
+    }
+    return self;
+}
+
 - (instancetype)initWithCoder:(nonnull NSCoder *)decoder
 {
     if (self = [super initWithCoder:decoder])
@@ -354,6 +365,11 @@ public:
 
 - (void)setStyleURL:(nullable NSURL *)styleURL
 {
+    [self setStyleURL:styleURL withMaxZoomLimit:std::numeric_limits<uint8_t>::max()];
+}
+
+- (void)setStyleURL:(nullable NSURL *)styleURL withMaxZoomLimit:(double)maxZoomLimit
+{
     if (_isTargetingInterfaceBuilder) return;
 
     if ( ! styleURL)
@@ -363,12 +379,12 @@ public:
 
     styleURL = styleURL.mgl_URLByStandardizingScheme;
     self.style = nil;
-    _mbglMap->getStyle().loadURL([[styleURL absoluteString] UTF8String]);
+    _mbglMap->getStyle().loadURL([[styleURL absoluteString] UTF8String], std::floor(maxZoomLimit));
 }
 
 - (IBAction)reloadStyle:(__unused id)sender {
     NSURL *styleURL = self.styleURL;
-    _mbglMap->getStyle().loadURL("");
+    _mbglMap->getStyle().loadURL("", _mbglMap->getStyle().getMaxZoomLimit());
     self.styleURL = styleURL;
 }
 
@@ -653,10 +669,13 @@ public:
     MGLAssertIsMainThread();
 
     MGLReachability *reachability = [notification object];
-    if ( ! _isWaitingForRedundantReachableNotification && [reachability isReachable])
+    [self willChangeValueForKey:@"reachable"];
+    _isReachable = [reachability isReachable];
+    if ( ! _isWaitingForRedundantReachableNotification && _isReachable)
     {
         mbgl::NetworkStatus::Reachable();
     }
+    [self didChangeValueForKey:@"reachable"];
     _isWaitingForRedundantReachableNotification = NO;
 }
 
@@ -1616,6 +1635,12 @@ public:
             }
         }
         [self deselectAnnotation:self.selectedAnnotation animated:YES];
+        if ([self.delegate respondsToSelector:@selector(mapViewTapDidNotSelectAnnotation:)])
+        {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self.delegate mapViewTapDidNotSelectAnnotation:self];
+            });
+        }
         UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification, nextElement);
 
         return;
@@ -1631,6 +1656,12 @@ public:
     else if (self.selectedAnnotation)
     {
         [self deselectAnnotation:self.selectedAnnotation animated:YES];
+        if ([self.delegate respondsToSelector:@selector(mapViewTapDidNotSelectAnnotation:)])
+        {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self.delegate mapViewTapDidNotSelectAnnotation:self];
+            });
+        }
     }
 }
 
@@ -2012,6 +2043,12 @@ public:
         {
             id<MGLAnnotation>annotation = [self annotationForGestureRecognizer:(UITapGestureRecognizer*)gestureRecognizer persistingResults:NO];
             if(!annotation) {
+                if ([self.delegate respondsToSelector:@selector(mapViewTapDidNotSelectAnnotation:)])
+                {
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [self.delegate mapViewTapDidNotSelectAnnotation:self];
+                    });
+                }
                 return NO;
             }
         }
@@ -2388,6 +2425,11 @@ public:
     {
         mbgl::Log::setObserver(std::make_unique<mbgl::Log::NullObserver>());
     }
+}
+
+- (BOOL)isReachable
+{
+    return _isReachable;
 }
 
 #pragma mark - Accessibility -
