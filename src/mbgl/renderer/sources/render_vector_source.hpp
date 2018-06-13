@@ -36,11 +36,15 @@ public:
     void reduceMemoryUse() final;
     void dumpDebugLogs() const final;
 
+    void limitMaxZoom(uint8_t) final;
+
 private:
     const style::VectorSource::Impl& impl() const;
 
     TilePyramid tilePyramid;
     optional<Tileset> tileset;
+
+    uint8_t maxZoomLimit;
 };
 
 template <>
