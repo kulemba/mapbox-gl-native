@@ -265,6 +265,7 @@ public:
     /// True if a willChange notification has been issued for shape annotation layers and a didChange notification is pending.
     BOOL _isChangingAnnotationLayers;
     BOOL _isWaitingForRedundantReachableNotification;
+    BOOL _isReachable;
     BOOL _isTargetingInterfaceBuilder;
 
     CLLocationDegrees _pendingLatitude;
@@ -317,6 +318,16 @@ public:
     return self;
 }
 
+- (instancetype)initWithFrame:(CGRect)frame styleURL:(nullable NSURL *)styleURL maxZoomLimit:(double)maxZoomLimit
+{
+    if (self = [super initWithFrame:frame])
+    {
+        [self commonInit];
+        [self setStyleURL:styleURL withMaxZoomLimit:maxZoomLimit];
+    }
+    return self;
+}
+
 - (instancetype)initWithCoder:(nonnull NSCoder *)decoder
 {
     if (self = [super initWithCoder:decoder])
@@ -354,6 +365,11 @@ public:
 
 - (void)setStyleURL:(nullable NSURL *)styleURL
 {
+    [self setStyleURL:styleURL withMaxZoomLimit:std::numeric_limits<uint8_t>::max()];
+}
+
+- (void)setStyleURL:(nullable NSURL *)styleURL withMaxZoomLimit:(double)maxZoomLimit
+{
     if (_isTargetingInterfaceBuilder) return;
 
     if ( ! styleURL)
@@ -363,12 +379,12 @@ public:
 
     styleURL = styleURL.mgl_URLByStandardizingScheme;
     self.style = nil;
-    _mbglMap->getStyle().loadURL([[styleURL absoluteString] UTF8String]);
+    _mbglMap->getStyle().loadURL([[styleURL absoluteString] UTF8String], std::floor(maxZoomLimit));
 }
 
 - (IBAction)reloadStyle:(__unused id)sender {
     NSURL *styleURL = self.styleURL;
-    _mbglMap->getStyle().loadURL("");
+    _mbglMap->getStyle().loadURL("", _mbglMap->getStyle().getMaxZoomLimit());
     self.styleURL = styleURL;
 }
 
@@ -431,7 +447,8 @@ public:
                                                object:nil];
 
     _reachability = [MGLReachability reachabilityForInternetConnection];
-    if ([_reachability isReachable])
+    _isReachable = [_reachability isReachable];
+    if (_isReachable)
     {
         _isWaitingForRedundantReachableNotification = YES;
     }
@@ -653,10 +670,13 @@ public:
     MGLAssertIsMainThread();
 
     MGLReachability *reachability = [notification object];
-    if ( ! _isWaitingForRedundantReachableNotification && [reachability isReachable])
+    [self willChangeValueForKey:@"reachable"];
+    _isReachable = [reachability isReachable];
+    if ( ! _isWaitingForRedundantReachableNotification && _isReachable)
     {
         mbgl::NetworkStatus::Reachable();
     }
+    [self didChangeValueForKey:@"reachable"];
     _isWaitingForRedundantReachableNotification = NO;
 }
 
@@ -1401,6 +1421,7 @@ public:
     if ( ! self.isZoomEnabled) return;
 
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
 
     CGPoint centerPoint = [self anchorPointForGesture:pinch];
     MGLMapCamera *oldCamera = self.camera;
@@ -1502,6 +1523,7 @@ public:
     if ( ! self.isRotateEnabled) return;
 
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
 
     CGPoint centerPoint = [self anchorPointForGesture:rotate];
     MGLMapCamera *oldCamera = self.camera;
@@ -1616,6 +1638,12 @@ public:
             }
         }
         [self deselectAnnotation:self.selectedAnnotation animated:YES];
+        if ([self.delegate respondsToSelector:@selector(mapViewTapDidNotSelectAnnotation:)])
+        {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self.delegate mapViewTapDidNotSelectAnnotation:self];
+            });
+        }
         UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification, nextElement);
 
         return;
@@ -1631,6 +1659,12 @@ public:
     else if (self.selectedAnnotation)
     {
         [self deselectAnnotation:self.selectedAnnotation animated:YES];
+        if ([self.delegate respondsToSelector:@selector(mapViewTapDidNotSelectAnnotation:)])
+        {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self.delegate mapViewTapDidNotSelectAnnotation:self];
+            });
+        }
     }
 }
 
@@ -1707,6 +1741,7 @@ public:
     if ( ! self.isZoomEnabled) return;
 
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
 
     if (doubleTap.state == UIGestureRecognizerStateEnded)
     {
@@ -1748,6 +1783,7 @@ public:
     if (_mbglMap->getZoom() == _mbglMap->getMinZoom()) return;
 
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonGestureZoomOut;
 
@@ -1790,6 +1826,8 @@ public:
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonGestureOneFingerZoom;
 
+    [self.userLocationAnnotationView.layer removeAllAnimations];
+    
     if (quickZoom.state == UIGestureRecognizerStateBegan)
     {
         [self trackGestureEvent:MMEEventGestureQuickZoom forRecognizer:quickZoom];
@@ -1832,6 +1870,7 @@ public:
     if ( ! self.isPitchEnabled) return;
 
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonGestureTilt;
 
@@ -2012,6 +2051,12 @@ public:
         {
             id<MGLAnnotation>annotation = [self annotationForGestureRecognizer:(UITapGestureRecognizer*)gestureRecognizer persistingResults:NO];
             if(!annotation) {
+                if ([self.delegate respondsToSelector:@selector(mapViewTapDidNotSelectAnnotation:)])
+                {
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [self.delegate mapViewTapDidNotSelectAnnotation:self];
+                    });
+                }
                 return NO;
             }
         }
@@ -2376,6 +2421,33 @@ public:
     {
         [self updateScaleBar];
     }
+}
+
++ (void)setForcedOffline:(BOOL)forceOffline
+{
+    mbgl::NetworkStatus::Set(forceOffline ? mbgl::NetworkStatus::Status::Offline: mbgl::NetworkStatus::Status::Online);
+}
+
++ (BOOL)isForcedOffline
+{
+    return mbgl::NetworkStatus::Get() == mbgl::NetworkStatus::Status::Offline ? YES: NO;
+}
+
++ (void)setLoggingEnabled:(BOOL)loggingEnabled
+{
+    if (loggingEnabled)
+    {
+        mbgl::Log::removeObserver();
+    }
+    else
+    {
+        mbgl::Log::setObserver(std::make_unique<mbgl::Log::NullObserver>());
+    }
+}
+
+- (BOOL)isReachable
+{
+    return _isReachable;
 }
 
 #pragma mark - Accessibility -
@@ -2995,6 +3067,7 @@ public:
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonProgrammatic;
 
+    [self.userLocationAnnotationView.layer removeAllAnimations];
     _mbglMap->easeTo(cameraOptions, animationOptions);
 }
 
@@ -3017,6 +3090,7 @@ public:
 {
     if (zoomLevel == self.zoomLevel) return;
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonProgrammatic;
 
@@ -3163,6 +3237,7 @@ public:
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonProgrammatic;
 
+    [self.userLocationAnnotationView.layer removeAllAnimations];
     _mbglMap->easeTo(cameraOptions, animationOptions);
     [self didChangeValueForKey:@"visibleCoordinateBounds"];
 }
@@ -3193,6 +3268,7 @@ public:
 {
     if (direction == self.direction) return;
     _mbglMap->cancelTransitions();
+    [self.userLocationAnnotationView.layer removeAllAnimations];
 
     CGFloat duration = animated ? MGLAnimationDuration : 0;
 
@@ -3285,6 +3361,7 @@ public:
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonProgrammatic;
 
+    [self.userLocationAnnotationView.layer removeAllAnimations];
     mbgl::CameraOptions cameraOptions = [self cameraOptionsObjectForAnimatingToCamera:camera edgePadding:edgePadding];
     _mbglMap->easeTo(cameraOptions, animationOptions);
     [self didChangeValueForKey:@"camera"];
@@ -3344,6 +3421,7 @@ public:
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonProgrammatic;
 
+    [self.userLocationAnnotationView.layer removeAllAnimations];
     mbgl::CameraOptions cameraOptions = [self cameraOptionsObjectForAnimatingToCamera:camera edgePadding:insets];
     _mbglMap->flyTo(cameraOptions, animationOptions);
     [self didChangeValueForKey:@"camera"];
@@ -4974,7 +5052,7 @@ public:
     CLLocation *newLocation = locations.lastObject;
     _distanceFromOldUserLocation = [newLocation distanceFromLocation:oldLocation];
 
-    if ( ! _showsUserLocation || ! newLocation || ! CLLocationCoordinate2DIsValid(newLocation.coordinate)) return;
+    if ( ! _showsUserLocation || ! newLocation || ! CLLocationCoordinate2DIsValid(newLocation.coordinate) || ([newLocation.timestamp compare:oldLocation.timestamp] == NSOrderedAscending)) return;
 
     if (! oldLocation || ! CLLocationCoordinate2DIsValid(oldLocation.coordinate) || [newLocation distanceFromLocation:oldLocation]
         || oldLocation.course != newLocation.course)
