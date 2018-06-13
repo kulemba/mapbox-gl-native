@@ -21,6 +21,8 @@ public:
 
     virtual optional<std::string> getAttribution() const = 0;
 
+    virtual void limitMaxZoom(uint8_t);
+    
     const SourceType type;
     const std::string id;
 
