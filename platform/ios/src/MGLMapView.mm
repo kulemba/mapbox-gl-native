@@ -30,6 +30,7 @@
 #include <mbgl/util/run_loop.hpp>
 #include <mbgl/util/string.hpp>
 #include <mbgl/util/projection.hpp>
+#include <mbgl/util/logging.hpp>
 
 #import "Mapbox.h"
 #import "MGLShape_Private.h"
