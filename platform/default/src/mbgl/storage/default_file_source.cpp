@@ -146,12 +146,6 @@ public:
                                 } catch (...) {
                                 }
                             }
-                            if (supplementaryOfflineDatabase != supplementaryOfflineDatabases.end()) {
-                                try {
-                                    offlineResponse = supplementaryOfflineDatabase->second->get(resource);
-                                } catch (...) {
-                                }
-                            }
                         }
                     }
                 }
