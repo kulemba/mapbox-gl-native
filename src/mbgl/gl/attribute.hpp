@@ -110,17 +110,17 @@ public:
     static uint32_t compute(const gfx::AttributeBindings<TypeList<As...>>& bindings) {
         uint32_t value = 0;
         util::ignore(
-            { (bindings.template get<As>() ? (void)(value |= 1 << TypeIndex<As, As...>::value)
-                                           : (void)0,
+                     { (static_cast<void>(bindings.template get<As>() ? (void)(value |= 1 << TypeIndex<As, As...>::value)
+                                          : (void)0),
                0)... });
         return value;
     }
 
     static std::string defines(const gfx::AttributeBindings<TypeList<As...>>& bindings) {
         std::string result;
-        util::ignore({ (!bindings.template get<As>()
-                            ? (void)(result += concat_literals<&attributeDefinePrefix, &As::name, &string_literal<'\n'>::value>::value())
-                            : (void)0,
+        util::ignore({ (static_cast<void>(!bindings.template get<As>()
+                                          ? (void)(result += concat_literals<&attributeDefinePrefix, &As::name, &string_literal<'\n'>::value>::value())
+                                          : (void)0),
                         0)... });
         return result;
     }

@@ -282,7 +282,7 @@ public:
 
     uint32_t activeCount() const {
         uint32_t result = 0;
-        util::ignore({ ((result += bool(Base::template get<As>())), 0)... });
+        util::ignore({ (static_cast<void>((result += bool(Base::template get<As>()))), 0)... });
         return result;
     }
 };

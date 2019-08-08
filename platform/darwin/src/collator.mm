@@ -30,8 +30,16 @@ public:
         // experimentally we've checked that if LHS is a prefix of RHS compare returns -1
         // https://developer.apple.com/documentation/foundation/nsstring/1414561-compare
         NSRange compareRange = NSMakeRange(0, nsLhs.length);
-
-        return [nsLhs compare:nsRhs options:options range:compareRange locale:locale];
+        
+        NSComparisonResult result = [nsLhs compare:nsRhs options:options range:compareRange locale:locale];
+        switch (result) {
+            case NSOrderedSame:
+                return 0;
+            case NSOrderedAscending:
+                return -1;
+            case NSOrderedDescending:
+                return 1;
+        }
     }
 
     std::string resolvedLocale() const {
