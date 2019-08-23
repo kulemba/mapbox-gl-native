@@ -384,7 +384,7 @@ std::chrono::time_point<std::chrono::system_clock, std::chrono::seconds>
 Query::get(int offset) {
     assert(stmt.impl);
     return std::chrono::time_point_cast<std::chrono::seconds>(
-        std::chrono::system_clock::from_time_t(sqlite3_column_int64(stmt.impl->stmt, offset)));
+        std::chrono::system_clock::from_time_t((long)sqlite3_column_int64(stmt.impl->stmt, offset)));
 }
 
 template <> optional<int64_t> Query::get(int offset) {
