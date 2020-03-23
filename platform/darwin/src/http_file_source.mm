@@ -193,7 +193,7 @@ HTTPFileSource::HTTPFileSource()
 HTTPFileSource::~HTTPFileSource() = default;
 
 uint32_t HTTPFileSource::maximumConcurrentRequests() {
-    return 20;
+    return 7;
 }
 
 std::unique_ptr<AsyncRequest> HTTPFileSource::request(const Resource& resource, Callback callback) {
