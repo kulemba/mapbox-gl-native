@@ -122,9 +122,9 @@ std::unique_ptr<AsyncRequest> HTTPFileSource::request(const Resource& resource, 
 
 uint32_t HTTPFileSource::maximumConcurrentRequests() {
 #if QT_VERSION >= 0x050000
-    return 7;
+    return 20;
 #else
-    return 7;
+    return 20;
 #endif
 }
 
